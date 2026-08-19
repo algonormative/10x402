@@ -33,6 +33,18 @@ after(async () => {
   await worker?.stop();
 });
 
+/** Every table a request could write to, counted. The 402 path writes to none. */
+async function storeCounts() {
+  const [rows] = await worker.d1(
+    'SELECT (SELECT COUNT(*) FROM settlements) AS settlements, ' +
+      '(SELECT COUNT(*) FROM call_quota) AS call_quota, ' +
+      '(SELECT COUNT(*) FROM payment_seen) AS payment_seen, ' +
+      '(SELECT COUNT(*) FROM lints) AS lints, ' +
+      '(SELECT COUNT(*) FROM counters) AS counters;'
+  );
+  return rows;
+}
+
 const unpaid = (endpoint) =>
   api.post(endpoint.path, endpoint.id === 'lint' ? { url: 'https://example.com/x' } : { status: 402 }, {
     ip: ips.next(),
@@ -244,17 +256,37 @@ describe('an undecodable payment header', () => {
     assert.equal(env.error, 'malformed_payment_header');
   });
 
-  test('it is recorded in the ledger rather than silently dropped', async () => {
-    await api.lintEnvelope({ status: 402 }, { ip: ips.next(), headers: { 'x-payment': 'junk' } });
-    const rows = await worker.d1(
-      "SELECT endpoint, verify_ok, settle_ok, error FROM settlements WHERE error = 'malformed_payment_header' LIMIT 1;"
-    );
-    assert.equal(rows.length, 1);
-    assert.equal(Number(rows[0].verify_ok), 0);
-    assert.equal(Number(rows[0].settle_ok), 0);
+  test('writes NOTHING to the store — bytes are not an event', async () => {
+    // THIS TEST USED TO ASSERT THE OPPOSITE, and called it "recorded in the
+    // ledger rather than silently dropped". It was an unauthenticated,
+    // unmetered write: `X-PAYMENT: junk` was the whole attack, twenty-five of
+    // them were twenty-five rows, and nothing in the request had to be real.
+    //
+    // The settlements table is the revenue record. It must mean "we talked to a
+    // facilitator about this" and never "someone sent us bytes" — otherwise the
+    // one query an operator runs to see whether anybody paid is a query over
+    // whatever a stranger felt like inserting.
+    const before = await storeCounts();
+    for (let i = 0; i < 25; i++) {
+      const res = await api.lintEnvelope({ status: 402 }, { ip: ips.next(), headers: { 'x-payment': 'junk' } });
+      assert.equal(res.status, 402);
+    }
+    assert.deepEqual(await storeCounts(), before, 'a junk payment header touched the store');
   });
 
-  test('nothing is served and no quota is spent for a rejected payment', async () => {
+  test('no quota is claimed either, so it cannot spend anyone else out of one', async () => {
+    // The other half: a counter a stranger can move for free is a counter that
+    // can be used to lock somebody out of a service they are paying for.
+    const ip = ips.pinned(2);
+    const before = await worker.d1('SELECT COUNT(*) AS n FROM call_quota;');
+    for (let i = 0; i < 5; i++) {
+      await api.lintEnvelope({ status: 402 }, { ip, headers: { 'x-payment': 'not base64 json' } });
+    }
+    const after_ = await worker.d1('SELECT COUNT(*) AS n FROM call_quota;');
+    assert.equal(Number(after_[0].n), Number(before[0].n), 'a junk payment header claimed quota');
+  });
+
+  test('nothing is served for a rejected payment', async () => {
     const rows = await worker.d1('SELECT COUNT(*) AS n FROM lints;');
     await api.lintEnvelope({ status: 402 }, { ip: ips.next(), headers: { 'x-payment': 'junk' } });
     const after_ = await worker.d1('SELECT COUNT(*) AS n FROM lints;');

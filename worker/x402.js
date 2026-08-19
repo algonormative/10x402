@@ -43,7 +43,12 @@ export function presentedPayment(request) {
   const raw = request.headers.get(PAYMENT_HEADER_V2) || request.headers.get(PAYMENT_HEADER_V1);
   if (!raw) return null;
   const decoded = decodePaymentHeader(raw);
-  return { decoded, version: decoded?.x402Version === 2 ? 2 : 1 };
+  // `raw` comes back with it so the caller can hash the payment EXACTLY as
+  // presented, which is what the single-use claim in payment_seen is keyed on.
+  // Hashing the decoded object instead would need a canonical serialisation
+  // this code does not have, and would quietly treat two different bytes as one
+  // payment.
+  return { raw: String(raw).trim(), decoded, version: decoded?.x402Version === 2 ? 2 : 1 };
 }
 
 export const paymentPresented = (request) =>
@@ -82,6 +87,12 @@ export const payerOf = (payload) => payload?.payload?.authorization?.from ?? nul
 export async function verifyPayment(env, payment, requirements) {
   const decoded = payment?.decoded;
   if (!decoded) {
+    // A BACKSTOP, NOT THE PATH. worker.js answers an undecodable header before
+    // it gets here — with no D1 write and no quota claim, because bytes that do
+    // not decode are not a payment attempt and must not be able to write to the
+    // ledger. This branch stays so that a future caller of verifyPayment cannot
+    // reach the facilitator with nothing, and it is deliberately the only
+    // `rejected` verdict this function produces without asking anyone.
     return {
       rejected: true,
       reason: 'malformed_payment_header',
@@ -261,7 +272,20 @@ export function hex(bytes) {
   return out;
 }
 
-export async function truncatedHash(input) {
+export async function sha256Hex(input) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return hex(new Uint8Array(digest)).slice(0, 16);
+  return hex(new Uint8Array(digest));
+}
+
+/**
+ * The caller-identity hash: SHA-256 truncated to 64 bits.
+ *
+ * Truncated because it keys a per-day counter and nothing else — a collision
+ * costs one caller a share of another's allowance for one day, and the shorter
+ * value is that much less of a handle on an IP. The single-use payment claim
+ * uses the FULL digest (sha256Hex): there a collision would hand a stranger's
+ * payment to whoever collided with it.
+ */
+export async function truncatedHash(input) {
+  return (await sha256Hex(input)).slice(0, 16);
 }

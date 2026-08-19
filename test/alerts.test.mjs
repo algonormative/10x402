@@ -19,6 +19,7 @@
 
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { bootWorker, callers, client, fakeCdpCredentials, PAYTO_TEST } from './harness.mjs';
 import { alertHeadline, alertMessage, formatUsdc, isHousePayer, rawEmail } from '../worker/alert-message.js';
@@ -125,6 +126,15 @@ after(async () => {
 
 beforeEach(() => telegram.reset());
 
+/**
+ * A payment, with a fresh nonce per authorization — which is what an EIP-3009
+ * nonce is, and what a real client sends.
+ *
+ * It was a constant until one payment buying one report became a rule the
+ * Worker enforces, at which point every buy after the first in a given second
+ * was a byte-identical replay and correctly refused. Each buy here is meant to
+ * be a separate purchase, so each needs a separate authorization.
+ */
 function paymentHeader({ from = VERIFIED_PAYER } = {}) {
   const now = Math.floor(Date.now() / 1000);
   return Buffer.from(
@@ -140,7 +150,7 @@ function paymentHeader({ from = VERIFIED_PAYER } = {}) {
           value: '5000',
           validAfter: String(now - 600),
           validBefore: String(now + 60),
-          nonce: `0x${'cd'.repeat(32)}`,
+          nonce: `0x${randomBytes(32).toString('hex')}`,
         },
       },
     })

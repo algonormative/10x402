@@ -20,6 +20,31 @@
 // catalogue this service sells says exactly that about everyone else's endpoint
 // too (HTTP_FREE_TIER_200).
 //
+// THE ORDER OF THE PAID PATH IS THE SECURITY MODEL, and it is worth reading as
+// one list because each step is there to bound the one after it:
+//
+//   1. no payment presented, no free tier   the 402, no store access at all
+//   2. a header that does not decode        the same 402, no store access, no
+//                                           facilitator call, NO LEDGER ROW —
+//                                           bytes are not an event
+//   3. the global daily bound               a doomsday day spends nobody's
+//                                           personal allowance
+//   4. a configured free tier                claimed first, always
+//   5. the per-caller VERIFY quota           claimed BEFORE the facilitator is
+//                                           called, because the call is what
+//                                           costs and a decodable payload is
+//                                           free to produce
+//   6. verify                                one outbound POST
+//   7. the single-use payment claim          one authorization buys one report
+//   8. the per-caller call quota             the runaway bound on served work
+//   9. the work, then settle in waitUntil
+//
+// Steps 2, 5 and 7 were all missing. Together they made the paid path an
+// unauthenticated amplifier: junk bytes wrote unmetered D1 rows, decodable junk
+// forced an Ed25519 signature and an outbound POST per request, and one real
+// $0.01 payment replayed concurrently bought as many reports as the per-IP
+// ceiling allowed.
+//
 // TWO RULES INHERITED FROM THE CHASSIS, and they are the ones worth protecting:
 //
 //   NOTHING IS EVER FAKE-VERIFIED. `x-payment-verified: true` appears only
@@ -61,6 +86,7 @@ import {
   presentedPayment,
   publicReason,
   settlePayment,
+  sha256Hex,
   truncatedHash,
   verifyPayment,
   randomHex,
@@ -71,6 +97,31 @@ import { sendPaymentAlert } from './alerts.js';
 // quota to advertise — publishing it would read as a promise — so it is
 // deliberately absent from /check and from the page. OWNER-TUNABLE.
 const PAID_DAILY = 2000;
+
+// A runaway bound on how many payments one caller may have CHECKED in a day,
+// which is a different and much smaller number than how many calls it may be
+// served. Every verify is an outbound POST to the facilitator carrying a freshly
+// signed Ed25519 JWT, so it costs us CPU and a round trip whether or not the
+// payment is any good — and a caller who sends garbage that merely DECODES pays
+// nothing at all for it. Without this bound that is an unbounded outbound-call
+// amplifier reachable by anyone with a socket.
+//
+// Fifty is far above any honest client. A real one presents a payment, gets its
+// report, and moves on; the only way to spend fifty verifies in a day is to be
+// failing verification repeatedly, which is not a state to help someone stay in.
+const VERIFY_DAILY = 50;
+
+/**
+ * The verify ceiling. Env-tunable so the suite can exhaust it in three calls
+ * rather than fifty-one, and clamped at both ends: a value below 1 would refuse
+ * every payment this deployment was sent, and an unbounded one would put the
+ * amplifier back.
+ */
+function verifyDaily(env) {
+  const raw = Number(env?.VERIFY_DAILY ?? VERIFY_DAILY);
+  if (!Number.isFinite(raw)) return VERIFY_DAILY;
+  return Math.min(500, Math.max(1, Math.floor(raw)));
+}
 
 const SECONDS_PER_DAY = 86_400;
 
@@ -228,6 +279,26 @@ async function handlePaid(request, env, ctx, endpoint) {
   // so the envelope goes out with no store access at all.
   if (tier === 0 && !presented) return unpaid(endpoint, { payTo, tier });
 
+  // A HEADER THAT DOES NOT DECODE IS NOT A PAYMENT, AND IS NOT AN EVENT.
+  //
+  // It used to be treated as a rejected payment: a `settlements` row written
+  // before any quota was claimed, and the row went in whether or not the bytes
+  // could even be base64-decoded. Twenty-five junk requests were twenty-five
+  // unauthenticated, unmetered D1 writes, and nothing in the request had to be
+  // real — `X-PAYMENT: junk` was enough. The ledger is the revenue record, and
+  // the revenue record must mean "we talked to a facilitator about this", never
+  // "someone sent us bytes".
+  //
+  // So it is answered exactly like the fast path above: the same 402, the same
+  // envelope, no store access, no facilitator call, no row. The reason travels
+  // in the response, where the caller can act on it, rather than in a table
+  // nobody will read. With a free tier configured the claim below still comes
+  // first — that ordering is its own rule and this must not jump it.
+  const payment = presented ? presentedPayment(request) : null;
+  if (tier === 0 && payment && !payment.decoded) {
+    return payTo ? malformedPayment(endpoint, payTo) : unpaid(endpoint, { payTo, tier });
+  }
+
   const db = env.DB;
   if (!db) return json({ error: 'this endpoint is unavailable' }, 503);
 
@@ -266,19 +337,32 @@ async function handlePaid(request, env, ctx, endpoint) {
       outcome = { kind: 'free', remaining: tier - free, presented };
     } else {
       if (!payTo || !presented) return unpaid(endpoint, { payTo, tier, now, dayStart });
+      // The free tier is spent and the header still does not decode. Same
+      // answer as the fast path above, and for the same reasons.
+      if (!payment.decoded) return malformedPayment(endpoint, payTo);
+
+      // THE VERIFY QUOTA, CLAIMED BEFORE THE FACILITATOR IS CALLED AND NOT
+      // AFTER. Everything past this line costs an outbound POST and an Ed25519
+      // signature, and a payload that merely decodes is free to produce — so
+      // the bound has to be on the ATTEMPT, not on the outcome. Over quota is a
+      // 429 with no facilitator call and no ledger row: nothing happened, so
+      // nothing is recorded.
+      const verifyUsed = await claimQuota(db, day, `verify:${ipHash}`, verifyDaily(env));
+      if (verifyUsed === null) return verifyCeilingReached({ now, dayStart });
 
       const requirements = paymentRequirements(endpoint, payTo);
       // VERSION IS DECIDED ONCE, HERE, and everything downstream follows it:
       // which shape the facilitator sees on verify and on settle, and which
       // `resource` a settle body is completed with. It is read out of the
       // PAYLOAD rather than out of the header it arrived in.
-      const payment = presentedPayment(request);
-      const facRequirements = payment?.version === 2 ? requirementsV2(requirements) : requirements;
+      const facRequirements = payment.version === 2 ? requirementsV2(requirements) : requirements;
       const verdict = await verifyPayment(env, payment, facRequirements);
 
       if (verdict.rejected) {
-        // No work is served, so no quota is claimed — and the 402 names why, so
-        // the caller can fix it rather than retrying the same bad payload.
+        // The facilitator was asked and said no, so there IS something to
+        // record. No work is served, so no call quota is claimed — and the 402
+        // names why, so the caller can fix it rather than retrying the same bad
+        // payload.
         await recordSettlementSafely(db, {
           now,
           endpoint: endpoint.id,
@@ -298,6 +382,26 @@ async function handlePaid(request, env, ctx, endpoint) {
           // value to put there.
           v2Error: verdict.reason,
         });
+      }
+
+      // ONE PAYMENT BUYS ONE REPORT.
+      //
+      // Verifying a payment is a READ — the facilitator says the signature is
+      // good and the funds are there, and says it again every time it is asked.
+      // Nothing is spent until settle, and settle runs after the response. So
+      // the same $0.01 header presented concurrently verified every time and
+      // bought a report every time; the only thing bounding it was the
+      // per-caller ceiling, which is per IP and therefore not a bound at all
+      // for anyone with more than one.
+      //
+      // The claim goes HERE: after verify, so an unverified payload cannot burn
+      // a real payment's hash, and before the call quota and the work, so the
+      // first request through owns the payment and the rest are turned away
+      // having cost nothing. The loser writes no settlements row — the original
+      // request owns that too.
+      if (verdict.verified) {
+        const fresh = await claimPaymentOnce(db, await sha256Hex(payment.raw), now);
+        if (!fresh) return paymentAlreadyUsed(endpoint, payTo);
       }
 
       // Past this point the lint WILL be served, so claim against the runaway bound.
@@ -571,6 +675,65 @@ function paidCeilingReached({ now, dayStart }) {
 }
 
 /**
+ * The verify ceiling, and it is deliberately NOT a 402.
+ *
+ * A 402 means "pay and try again", and this caller's next payment will not be
+ * checked either — so a 402 here would be an invitation to spend money on a
+ * call that cannot succeed. The honest answer is the rate limit, with the
+ * header saying plainly that nothing was verified.
+ */
+function verifyCeilingReached({ now, dayStart }) {
+  return json(
+    {
+      error: 'the daily payment-verification limit for this caller is reached',
+      fix:
+        'Each presented payment costs a round trip to the facilitator whether or not it is ' +
+        'good, so the number of them per caller per day is bounded. A run of failed ' +
+        'verifications is usually one fixable thing — check the EIP-712 domain in `extra`, ' +
+        'and that the accepts entry you signed against is the one this endpoint published.',
+      retry: 'tomorrow UTC',
+    },
+    429,
+    { 'retry-after': String(secondsToReset(now, dayStart)), 'x-payment-verified': 'false' }
+  );
+}
+
+/**
+ * A payment header that could not be decoded.
+ *
+ * The same 402 an unpaid caller gets — a complete, payable envelope — with the
+ * reason named. It writes nothing and calls nothing: see the note at the top of
+ * handlePaid.
+ */
+function malformedPayment(endpoint, payTo) {
+  return paymentRequired(endpoint.id, payTo, {
+    error: 'the payment presented was not accepted',
+    invalidReason: 'malformed_payment_header',
+    invalidMessage:
+      'X-PAYMENT (x402 v1) or PAYMENT-SIGNATURE (x402 v2) must be base64-encoded JSON — an x402 payment payload',
+    v2Error: 'malformed_payment_header',
+  });
+}
+
+/**
+ * A payment that verified, and has already bought a report.
+ *
+ * A 402 rather than a 429, and that is the right shape: this IS a payment
+ * problem and the answer carries the terms to sign a fresh one against. The
+ * fix says what a client actually has to change, which is the nonce.
+ */
+function paymentAlreadyUsed(endpoint, payTo) {
+  return paymentRequired(endpoint.id, payTo, {
+    error: 'this payment has already been used',
+    invalidReason: 'payment_already_used',
+    invalidMessage:
+      'this exact payment payload has already bought a report. One authorization buys one call — ' +
+      'sign a new one, with a fresh nonce, against the terms in this 402.',
+    v2Error: 'payment_already_used',
+  });
+}
+
+/**
  * The payment headers on a SERVED response.
  *
  * THERE IS NO `PAYMENT-RESPONSE` HEADER, and its absence is honest. In v2 that
@@ -662,6 +825,22 @@ async function claimQuota(db, day, ipHash, ceiling) {
     .bind(day, ipHash, ceiling)
     .first();
   return typeof row?.used === 'number' ? row.used : null;
+}
+
+/**
+ * Claim a payment as spent, atomically. True means this request owns it.
+ *
+ * The insert IS the claim: two isolates racing the same header both attempt the
+ * INSERT, the primary key admits exactly one, and `RETURNING` comes back empty
+ * for the loser. A read-then-write would be a race with a window the size of a
+ * D1 round trip, which is the window the replay was using.
+ */
+async function claimPaymentOnce(db, hash, now) {
+  const row = await db
+    .prepare('INSERT INTO payment_seen (hash, created_at) VALUES (?1, ?2) ON CONFLICT(hash) DO NOTHING RETURNING hash')
+    .bind(hash, now)
+    .first();
+  return row?.hash === hash;
 }
 
 async function recordSettlement(db, { now, endpoint, payer, amount, verifyOk, settleOk, txHash, error }) {

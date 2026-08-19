@@ -33,13 +33,47 @@ CREATE TABLE IF NOT EXISTS counters (
 -- here: the salt is overwritten. Only today's row is ever read.
 --
 -- It carries two ceilings depending on the path that claims it: a configured
--- free tier (off by default) and the paid runaway bound. Which one applies is
--- the Worker's business; the row just counts.
+-- free tier (off by default), the paid runaway bound, and the bound on how many
+-- payments one caller may have CHECKED in a day. Which one applies is the
+-- Worker's business; the row just counts.
+--
+-- THE KEY IS NAMESPACED, and that is the only reason one table serves several
+-- ceilings: `<hash>` is the served-call counter, `verify:<hash>` is the
+-- payment-verification counter, and `alert:<channel>` is the owner's daily
+-- notification budget (not per caller — there is one owner). Distinct keys
+-- cannot spend each other's allowance, and the atomic guarded upsert that makes
+-- the claim correct is written once rather than three times.
 CREATE TABLE IF NOT EXISTS call_quota (
   day     TEXT,     -- UTC date, YYYY-MM-DD
-  ip_hash TEXT,     -- truncated day-scoped hash of the IP alone
-  used    INTEGER,  -- calls claimed today
+  ip_hash TEXT,     -- '<hash>' | 'verify:<hash>' | 'alert:<channel>'
+  used    INTEGER,  -- claims made today against that key
   PRIMARY KEY (day, ip_hash)
+);
+
+-- Payments already spent, so one of them cannot buy the work twice.
+--
+-- A verified x402 payment is a signed authorization, and verifying it is a
+-- READ: the facilitator says the signature is good and the funds are there, and
+-- says the same thing however many times it is asked. Nothing moves until
+-- settle, and settle runs AFTER the response. So one $0.01 header replayed
+-- concurrently verified over and over and bought a lint each time — the
+-- per-caller ceiling was the only thing bounding it, and that is per IP.
+--
+-- The row is claimed BETWEEN verify and the work, so the first request through
+-- owns the payment and every later one is answered 402 'payment already used'.
+--
+-- WHAT THIS IS NOT: an authoritative double-spend guard. The hash is of the
+-- payment header as presented, so the same authorization re-encoded with its
+-- keys in another order hashes differently. The authoritative backstop is on
+-- chain — an EIP-3009 nonce is single-use, and a second settle comes back
+-- `nonce_already_used`, which `settlements` records. This table exists to stop
+-- the amplification BEFORE the work is served, which the chain cannot do.
+--
+-- `created_at` is for the operator: prune on the same cadence as call_quota,
+-- past any authorization's maxTimeoutSeconds.
+CREATE TABLE IF NOT EXISTS payment_seen (
+  hash       TEXT PRIMARY KEY,  -- SHA-256 of the presented payment header, hex
+  created_at INTEGER            -- unix seconds, UTC
 );
 
 -- Settlement ledger. One row per payment ATTEMPT that reached the facilitator,
@@ -89,5 +123,6 @@ CREATE TABLE IF NOT EXISTS lints (
 );
 
 -- The operator reads on both ledgers are "what happened lately", so they scan by time.
+-- payment_seen is read by primary key only and needs no index of its own.
 CREATE INDEX IF NOT EXISTS idx_settlements_ts ON settlements (ts);
 CREATE INDEX IF NOT EXISTS idx_lints_ts       ON lints (ts);

@@ -35,6 +35,7 @@
 
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { bootWorker, callers, client, fakeCdpCredentials, isSqlNull, PAYTO_TEST } from './harness.mjs';
 
@@ -197,6 +198,18 @@ async function startMockFacilitator() {
 // ------------------------------------------------------------------ helpers
 
 /**
+ * A NONCE, freshly random per authorization — which is what an EIP-3009 nonce
+ * is, and what a real client does.
+ *
+ * It was a constant here until one payment buying one report became a rule the
+ * Worker enforces, at which point two tests that happened to run inside the
+ * same second were sending the byte-identical payment and the second was
+ * correctly refused. A fixed nonce was never realistic: on chain it is what
+ * makes an authorization single-use.
+ */
+const freshNonce = () => `0x${randomBytes(32).toString('hex')}`;
+
+/**
  * A well-formed x402 v1 payment payload, base64 as X-PAYMENT.
  *
  * The signature is nonsense — the mock decides valid from invalid, so a real
@@ -218,7 +231,7 @@ function paymentHeaderV1({ from = CLAIMED_PAYER, value = '5000' } = {}) {
           value,
           validAfter: String(now - 600),
           validBefore: String(now + 60),
-          nonce: `0x${'cd'.repeat(32)}`,
+          nonce: freshNonce(),
         },
       },
     })
@@ -259,7 +272,7 @@ async function paymentHeaderV2(path, { ip, from = CLAIMED_PAYER } = {}) {
           value: accepted.amount,
           validAfter: String(now - 600),
           validBefore: String(now + accepted.maxTimeoutSeconds),
-          nonce: `0x${'cd'.repeat(32)}`,
+          nonce: freshNonce(),
         },
       },
       extensions: env.extensions,
@@ -579,6 +592,142 @@ describe('payment fairness: nobody is charged for work that was not served', () 
     const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
     assert.equal(res.status, 200);
     await awaitSettlement((r) => Number(r.settle_ok) === 1, 'the control settlement');
+  });
+});
+
+describe('one payment buys one report', () => {
+  test('the same header twice: the first is served, the second is 402', async () => {
+    // VERIFYING A PAYMENT IS A READ. The facilitator says the signature is good
+    // and the funds are there, and says the same thing every time it is asked;
+    // nothing moves until settle, and settle runs after the response. So one
+    // $0.01 header replayed bought a report every time, bounded only by the
+    // per-caller ceiling — which is per IP, and therefore not a bound at all
+    // for anyone with more than one address.
+    const header = paymentHeaderV1();
+    const settledBefore = (await settlements()).length;
+
+    const first = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(first.status, 200, first.text);
+    assert.equal(first.headers.get('x-payment-verified'), 'true');
+    assert.ok(first.body.grade);
+
+    // A different caller, so the per-IP ceiling is provably not what refuses it.
+    const second = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(second.status, 402, second.text);
+    assert.equal(second.body.invalidReason, 'payment_already_used');
+    assert.equal(second.body.grade, undefined, 'a replayed payment was served a report');
+    // The 402 is still a complete, payable envelope: the caller needs terms to
+    // sign a fresh authorization against.
+    assert.ok(second.body.accepts[0].payTo);
+
+    await awaitSettlement((r) => Number(r.settle_ok) === 1, 'the first payment settling');
+    await new Promise((r) => setTimeout(r, 1000));
+    const rows = (await settlements()).slice(settledBefore);
+    assert.equal(rows.length, 1, `${rows.length} ledger rows for one payment: ${JSON.stringify(rows)}`);
+    assert.equal(mock.hitsOn('settle').length, 1, 'the replay was settled a second time');
+  });
+
+  test('concurrent replays of one payment serve exactly one report', async () => {
+    // The claim is an INSERT rather than a read-then-write precisely because
+    // the attack is concurrent: eight requests in flight at once would all pass
+    // a "have we seen this?" read before any of them wrote.
+    const header = paymentHeaderV1();
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next()))
+    );
+    const served = results.filter((r) => r.status === 200);
+    const refused = results.filter((r) => r.status === 402);
+    assert.equal(served.length, 1, `${served.length} of 8 concurrent replays were served`);
+    assert.equal(refused.length, 7);
+    for (const res of refused) assert.equal(res.body.invalidReason, 'payment_already_used');
+  });
+
+  test('a payment that did NOT verify does not burn the hash', async () => {
+    // Otherwise anyone could spend a stranger's payment by presenting it while
+    // the facilitator was down: the claim would be taken, and the real buyer
+    // would be told their own payment was already used.
+    mock.state.verify = { status: 503, body: { error: 'down' } };
+    const header = paymentHeaderV1();
+
+    const unverified = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(unverified.status, 200);
+    assert.equal(unverified.headers.get('x-payment-verified'), 'false');
+
+    mock.state.verify = { status: 200, body: { isValid: true, payer: VERIFIED_PAYER } };
+    const verified = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(verified.status, 200, verified.text);
+    assert.equal(verified.headers.get('x-payment-verified'), 'true', 'the hash was burned by an unverified attempt');
+  });
+});
+
+describe('the verify quota bounds the facilitator calls a stranger can cause', () => {
+  // Every verify is an outbound POST carrying a freshly signed Ed25519 JWT, and
+  // a payload that merely DECODES costs the sender nothing to produce. Without
+  // a bound on the attempt — not on the outcome — that is an unbounded outbound
+  // amplifier reachable by anyone with a socket.
+  //
+  // Its own worker, because the ceiling has to be small enough to exhaust in a
+  // few calls and a low ceiling shared with the suite above would refuse
+  // payments those tests are asserting get through.
+  let capped;
+  let cappedApi;
+
+  before(async () => {
+    capped = await bootWorker({
+      vars: { PAYTO: PAYTO_TEST, FACILITATOR_URL: mock.url, VERIFY_DAILY: '2', ...fakeCdpCredentials() },
+    });
+    cappedApi = client(capped);
+  });
+  after(async () => {
+    await capped?.stop();
+  });
+
+  test('past the ceiling: 429, no facilitator call, no ledger row', async () => {
+    mock.reset();
+    const ip = ips.pinned(9);
+    const send = () =>
+      cappedApi.lintEnvelope({ status: 402 }, { ip, headers: { 'x-payment': paymentHeaderV1() } });
+
+    assert.equal((await send()).status, 200);
+    assert.equal((await send()).status, 200);
+    assert.equal(mock.hitsOn('verify').length, 2);
+
+    const over = await send();
+    assert.equal(over.status, 429, over.text);
+    assert.equal(over.headers.get('x-payment-verified'), 'false');
+    assert.ok(Number(over.headers.get('retry-after')) > 0, 'no Retry-After on a limit that resets');
+    assert.match(over.body.error, /payment-verification limit/);
+
+    // THE LOAD-BEARING NEGATIVE. Not a header, not an inference: the mock
+    // counted, and it counted two.
+    assert.equal(mock.hitsOn('verify').length, 2, 'the over-quota call reached the facilitator anyway');
+
+    const rows = await capped.d1('SELECT COUNT(*) AS n FROM settlements;');
+    assert.equal(Number(rows[0].n), 2, 'the over-quota call wrote a ledger row');
+  });
+
+  test('it is per caller, so one exhausted caller cannot refuse another', async () => {
+    const other = await cappedApi.lintEnvelope(
+      { status: 402 },
+      { ip: ips.pinned(10), headers: { 'x-payment': paymentHeaderV1() } }
+    );
+    assert.equal(other.status, 200, other.text);
+  });
+
+  test('it is not a 402, because paying again would not help', async () => {
+    // A 402 means "pay and try again". This caller's next payment will not be
+    // checked either, so a 402 here would be an invitation to spend money on a
+    // call that cannot succeed.
+    const ip = ips.pinned(11);
+    for (let i = 0; i < 2; i++) {
+      await cappedApi.lintEnvelope({ status: 402 }, { ip, headers: { 'x-payment': paymentHeaderV1() } });
+    }
+    const over = await cappedApi.lintEnvelope(
+      { status: 402 },
+      { ip, headers: { 'x-payment': paymentHeaderV1() } }
+    );
+    assert.equal(over.status, 429);
+    assert.equal(over.headers.get('payment-required'), null, 'a 429 published payment terms');
   });
 });
 
