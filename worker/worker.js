@@ -1,0 +1,729 @@
+// The 10x402 API Worker.
+//
+//   GET  /check          free. Service info, the whole check catalogue, prices,
+//                        the grade ladder, x402 versions. No D1, no fetch.
+//   POST /lint           $0.01. One unauthenticated request to a URL you name,
+//                        then the full check catalogue over what came back.
+//   POST /lint/envelope  $0.005. The same checks over a response you paste.
+//                        No outbound request at all.
+//
+// ------------------------------------------------------------------ the shape of it
+//
+// 402 IS THE FRONT DOOR. An unauthenticated call answers immediately with an
+// x402 envelope in BOTH protocol versions, and that answer touches no store: no
+// salt read, no quota claim, no D1 write. Two reasons, and they are both
+// load-bearing. It is the CPU-minimal reject path, which is what keeps a
+// scanned public endpoint cheap. And CDP Bazaar health-probes an
+// unauthenticated request expecting a 402, on an interval, forever — a service
+// that answers 200 to a fresh caller is not indexed, and one that starts
+// answering 200 is DELISTED. There is no free tier by default, and the check
+// catalogue this service sells says exactly that about everyone else's endpoint
+// too (HTTP_FREE_TIER_200).
+//
+// TWO RULES INHERITED FROM THE CHASSIS, and they are the ones worth protecting:
+//
+//   NOTHING IS EVER FAKE-VERIFIED. `x-payment-verified: true` appears only
+//   after a facilitator round trip that returned isValid, and no settlement
+//   receipt is ever emitted for a settlement that has not happened.
+//
+//   NOBODY IS CHARGED FOR A LINT THAT WAS NOT SERVED. Settlement is queued only
+//   after the report exists. Every exit between the payment check and that
+//   point is a 4xx, and a verified-but-unsettled authorization simply goes
+//   unused — an EIP-3009 authorization moves nothing until someone submits it,
+//   and nobody does. So a bad URL, an unreachable target or a malformed paste
+//   costs the caller nothing.
+
+import {
+  ENDPOINTS,
+  ENDPOINTS_BY_PATH,
+  FREE_ENDPOINT,
+  MAX_BODY_BYTES,
+  NETWORK_V1,
+  NETWORK_V2,
+  SERVICE_NAME,
+  SERVICE_TAGLINE,
+  SITE_BASE,
+  SUPPORT_EMAIL,
+  priceLabel,
+} from './catalog.js';
+import { CHECKS, GRADE_RULES, lint } from './lint.js';
+import {
+  build402,
+  paymentRequired,
+  paymentRequirements,
+  requirementsV2,
+  resourceInfoV2,
+} from './envelope.js';
+import { fetchTarget, unsafeTargetsAllowed } from './fetch-target.js';
+import {
+  oneLineMessage,
+  paymentPresented,
+  presentedPayment,
+  publicReason,
+  settlePayment,
+  truncatedHash,
+  verifyPayment,
+  randomHex,
+} from './x402.js';
+import { sendPaymentAlert } from './alerts.js';
+
+// A runaway bound on calls we actually serve, per caller per UTC day. NOT a
+// quota to advertise — publishing it would read as a promise — so it is
+// deliberately absent from /check and from the page. OWNER-TUNABLE.
+const PAID_DAILY = 2000;
+
+const SECONDS_PER_DAY = 86_400;
+
+// The request body cap. Generous for /lint (a URL) and sized for /lint/envelope,
+// where the pasted body IS a whole HTTP response.
+const MAX_REQUEST_BODY = MAX_BODY_BYTES + 64 * 1024;
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'content-type, x-payment, payment-signature',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+};
+
+const json = (body, status = 200, headers = {}) =>
+  new Response(`${JSON.stringify(body)}\n`, {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...CORS, ...headers },
+  });
+
+/**
+ * The free tier, per caller per UTC day. 0 (the default) means there is none.
+ *
+ * THE ENV VAR IS THE ONLY AUTHORITY, AND UNSET IS OFF. Anything unparseable,
+ * negative or fractional-below-one reads as 0: a misconfigured var must fail
+ * towards "charge for it", never towards "give it away". A typo in a dashboard
+ * field should not become an unbounded free service — and, on this particular
+ * product, a free tier would also make the endpoint fail its own
+ * HTTP_FREE_TIER_200 check, which would be embarrassing in a way that is
+ * difficult to explain away.
+ */
+function freeTierDaily(env) {
+  const raw = Number(env?.FREE_TIER_DAILY ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+    if (path === '/check') return handleCheck(request, env);
+
+    const endpoint = ENDPOINTS_BY_PATH.get(path);
+    if (endpoint) return handlePaid(request, env, ctx, endpoint);
+
+    return json(
+      {
+        error: `no route ${path}`,
+        service: SERVICE_NAME,
+        routes: [
+          `GET ${FREE_ENDPOINT.path} — free`,
+          ...ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}`),
+        ],
+      },
+      404
+    );
+  },
+};
+
+// ------------------------------------------------------------------ GET /check
+//
+// The free machine front door. Everything a caller needs to decide whether to
+// pay: what the endpoints cost, what the checks are, and how the grade is
+// computed. The check catalogue is published in full and by CODE, so a report's
+// `code` field can always be looked up without guessing — and so a seller can
+// read what will be checked before spending a cent.
+
+function handleCheck(request, env) {
+  if (request.method !== 'GET') {
+    return json({ error: 'GET only' }, 405, { allow: 'GET' });
+  }
+
+  const tier = freeTierDaily(env);
+
+  return json({
+    service: SERVICE_NAME,
+    tagline: SERVICE_TAGLINE,
+    home: SITE_BASE,
+    support: SUPPORT_EMAIL,
+    // Which x402 versions a caller can PAY in. Both, so a client of either
+    // generation can buy — and this service lints for exactly that property in
+    // other people's endpoints, so it had better hold here.
+    x402_versions: [1, 2],
+    networks: { v1: NETWORK_V1, v2: NETWORK_V2 },
+    endpoints: [
+      {
+        method: FREE_ENDPOINT.method,
+        path: FREE_ENDPOINT.path,
+        price: priceLabel(FREE_ENDPOINT.price_usd),
+        description: FREE_ENDPOINT.description,
+      },
+      ...ENDPOINTS.map((e) => ({
+        method: e.method,
+        path: e.path,
+        price: priceLabel(e.price_usd),
+        description: e.description,
+        input: e.inputDescription,
+        output: e.outputDescription,
+        sample: e.sample,
+      })),
+    ],
+    // The field stays present at 0 rather than disappearing: a reader that has
+    // to tell "no free tier" from "this build forgot to say" will guess wrong.
+    free_tier_daily: tier,
+    grades: GRADE_RULES,
+    checks_total: CHECKS.length,
+    checks: CHECKS.map((c) => ({
+      id: c.id,
+      area: c.area,
+      severity: c.severity,
+      core: c.core === true,
+      summary: c.summary,
+    })),
+    notes: [
+      'A 402 from a paid endpoint here is a price quote, not an error.',
+      'checks_run in a report is how many checks APPLIED — a v1-only endpoint legitimately skips every v2 check.',
+      'POST /lint sends exactly one unauthenticated request to the URL you name, follows no redirects, and reads at most 256 KB.',
+      'POST /lint/envelope fetches nothing, so it works on staging, on localhost and on an endpoint that is not deployed yet.',
+    ],
+  });
+}
+
+// ------------------------------------------------------------------ the paid routes
+//
+// Order of checks is the reject discipline, cheapest first: method, declared
+// size, then — for the unpaid call, which is the common one — the 402. All of
+// that happens before the rate-limit round trip, the body read and the work.
+
+async function handlePaid(request, env, ctx, endpoint) {
+  if (request.method !== endpoint.method) {
+    return json({ error: `${endpoint.method} only` }, 405, { allow: endpoint.method });
+  }
+
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_REQUEST_BODY) return tooLarge();
+
+  const payTo = env.PAYTO || '';
+  const presented = paymentPresented(request);
+  const tier = freeTierDaily(env);
+
+  // THE 402 FAST PATH. With no free tier configured and no payment presented
+  // there is nothing to meter — no allowance to claim, no identity to derive —
+  // so the envelope goes out with no store access at all.
+  if (tier === 0 && !presented) return unpaid(endpoint, { payTo, tier });
+
+  const db = env.DB;
+  if (!db) return json({ error: 'this endpoint is unavailable' }, 503);
+
+  const now = Math.floor(Date.now() / 1000);
+  const day = new Date(now * 1000).toISOString().slice(0, 10); // UTC
+  const dayStart = Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
+
+  let outcome = { kind: 'free', remaining: 0, presented };
+  let settle = null;
+  let alert = null;
+
+  try {
+    const salt = await currentSalt(db, day);
+    const ip = request.headers.get('cf-connecting-ip') || '';
+
+    // The quota key is salt + IP with NO user-agent, on purpose: rotating a UA
+    // string must not mint a fresh identity. A second identity costs a second
+    // IP, which is the cheapest spoof-resistance available here.
+    const ipHash = await truncatedHash(salt + ip);
+
+    // The global bound is read first: a doomsday day should not spend anyone's
+    // daily allowance.
+    if (await globalExceeded(db, day)) {
+      return json({ error: 'daily call limit reached', retry: 'tomorrow UTC' }, 429, {
+        'retry-after': String(Math.max(1, dayStart + SECONDS_PER_DAY - now)),
+      });
+    }
+
+    // A CONFIGURED FREE TIER IS CLAIMED FIRST, ALWAYS — that ordering IS the
+    // "never bill inside the free tier" rule, expressed as control flow rather
+    // than as a promise. The payment path below is only reachable once the free
+    // claim has actually failed.
+    const free = tier > 0 ? await claimQuota(db, day, ipHash, tier) : null;
+
+    if (free !== null) {
+      outcome = { kind: 'free', remaining: tier - free, presented };
+    } else {
+      if (!payTo || !presented) return unpaid(endpoint, { payTo, tier, now, dayStart });
+
+      const requirements = paymentRequirements(endpoint, payTo);
+      // VERSION IS DECIDED ONCE, HERE, and everything downstream follows it:
+      // which shape the facilitator sees on verify and on settle, and which
+      // `resource` a settle body is completed with. It is read out of the
+      // PAYLOAD rather than out of the header it arrived in.
+      const payment = presentedPayment(request);
+      const facRequirements = payment?.version === 2 ? requirementsV2(requirements) : requirements;
+      const verdict = await verifyPayment(env, payment, facRequirements);
+
+      if (verdict.rejected) {
+        // No work is served, so no quota is claimed — and the 402 names why, so
+        // the caller can fix it rather than retrying the same bad payload.
+        await recordSettlementSafely(db, {
+          now,
+          endpoint: endpoint.id,
+          payer: verdict.payer,
+          amount: requirements.maxAmountRequired,
+          verifyOk: 0,
+          settleOk: 0,
+          txHash: null,
+          error: verdict.reason,
+        });
+        return paymentRequired(endpoint.id, payTo, {
+          error: 'the payment presented was not accepted',
+          invalidReason: verdict.reason,
+          invalidMessage: verdict.message ?? null,
+          // v2 carries one `error` and it is a CODE, not prose — x402's own
+          // client branches on it — so the facilitator's reason is the honest
+          // value to put there.
+          v2Error: verdict.reason,
+        });
+      }
+
+      // Past this point the lint WILL be served, so claim against the runaway bound.
+      const used = await claimQuota(db, day, ipHash, PAID_DAILY);
+      if (used === null) return paidCeilingReached({ now, dayStart });
+
+      if (verdict.verified) {
+        outcome = { kind: 'paid', presented };
+        settle = {
+          requirements,
+          facRequirements,
+          version: payment.version,
+          payload: verdict.payload,
+          payer: verdict.payer,
+          endpoint,
+        };
+      } else {
+        // UNREACHABLE / UNCONFIGURED FACILITATOR. Availability-first: at a cent
+        // a call the price is a signal, and turning paying callers away for OUR
+        // dependency's outage is the worse failure. The response says plainly
+        // that nothing was checked, and every one of these is recorded.
+        outcome = { kind: 'unverified', presented, error: publicReason(verdict.unavailable) };
+        await recordSettlementSafely(db, {
+          now,
+          endpoint: endpoint.id,
+          payer: verdict.payer,
+          amount: requirements.maxAmountRequired,
+          verifyOk: 0,
+          settleOk: 0,
+          txHash: null,
+          error: verdict.unavailable,
+        });
+        // REVENUE LEAKING, and the owner wants to hear about it while it is
+        // happening. Queued rather than sent here, alongside the settle block
+        // below, so a call that then 400s does not alarm about work never served.
+        alert = {
+          kind: 'unverified',
+          tool: endpoint.id,
+          payer: verdict.payer,
+          amount: requirements.maxAmountRequired,
+          error: publicReason(verdict.unavailable),
+        };
+      }
+    }
+  } catch {
+    // Fail CLOSED on a metered endpoint: an unreachable limiter means no lints,
+    // not unlimited ones. Failing open here is the runaway-cost scenario.
+    return json({ error: 'this endpoint is unavailable' }, 503);
+  }
+
+  // --- read the request -------------------------------------------------
+  //
+  // PAYMENT FAIRNESS. Every exit from here to the settle block is a 4xx, and
+  // `settle` is only ever queued after a report actually exists.
+  let body;
+  try {
+    const buf = await request.arrayBuffer();
+    if (buf.byteLength > MAX_REQUEST_BODY) return tooLarge();
+    const raw = new TextDecoder().decode(buf).trim();
+    if (!raw) return badRequest('the request body is empty', usageFor(endpoint));
+    body = JSON.parse(raw);
+  } catch (err) {
+    return badRequest(`the request body is not valid JSON: ${oneLineMessage(err)}`, usageFor(endpoint));
+  }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return badRequest('the request body must be a JSON object', usageFor(endpoint));
+  }
+
+  // --- do the work ------------------------------------------------------
+  let report;
+  try {
+    report = endpoint.id === 'lint' ? await runUrlLint(body, env) : runEnvelopeLint(body);
+  } catch (err) {
+    return badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint));
+  }
+  if (report.error) return badRequest(report.error, report.fix || usageFor(endpoint));
+
+  // Telemetry, and deliberately thin: WHICH endpoint, WHAT grade, how many
+  // findings. Never the URL, never the envelope, never the report. What was
+  // linted is the caller's business; what this service is good at is ours.
+  await recordLintSafely(env.DB, {
+    now: Math.floor(Date.now() / 1000),
+    endpoint: endpoint.id,
+    grade: report.grade,
+    errors: report.findings.filter((f) => f.severity === 'error').length,
+    warns: report.findings.filter((f) => f.severity === 'warn').length,
+  });
+
+  // --- settle AFTER responding -----------------------------------------
+  //
+  // The caller paid for a report, not for a chain confirmation, so the
+  // settlement runs in ctx.waitUntil and its outcome lands in `settlements`
+  // rather than in this response. The owner's alert rides in the same deferred
+  // slot, for the same reason and one more: a notification must never be able
+  // to slow, fail or change a response the buyer already paid for.
+  const deferred = [];
+  if (settle) deferred.push(settleAndRecord(env, env.DB, settle));
+  if (alert) deferred.push(sendPaymentAlert(env, alert));
+  if (deferred.length) {
+    const work = Promise.all(deferred);
+    if (ctx?.waitUntil) ctx.waitUntil(work);
+    else await work; // no ctx (direct invocation): correctness over latency
+  }
+
+  return json(report, 200, servedHeaders(outcome));
+}
+
+// ------------------------------------------------------------------ the work
+
+async function runUrlLint(body, env) {
+  if (body.url === undefined) {
+    return {
+      error: '`url` is required',
+      fix:
+        'POST {"url": "https://your-endpoint.example.com/path"} — and optionally ' +
+        '{"method": "GET"} if the endpoint is a GET. To lint a response you already have ' +
+        'instead, POST it to /lint/envelope.',
+    };
+  }
+
+  const fetched = await fetchTarget(body.url, body.method, env);
+  if (!fetched.ok) return { error: fetched.error, fix: fetched.fix };
+
+  const report = lint(fetched.input);
+  return {
+    ...report,
+    target: { url: fetched.input.url, method: fetched.input.method, status: fetched.input.status },
+    ...(fetched.input.truncated
+      ? {
+          truncated: `the response body was longer than ${MAX_BODY_BYTES / 1024} KB and was read to that point`,
+        }
+      : {}),
+  };
+}
+
+function runEnvelopeLint(body) {
+  if (body.status === undefined) {
+    return {
+      error: '`status` is required',
+      fix:
+        'POST {"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"} — ' +
+        'the three parts of the response you want checked. `headers` and `body` may be omitted ' +
+        'if the response genuinely had none, and that absence is itself a finding.',
+    };
+  }
+  const status = Number(body.status);
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    return {
+      error: `\`status\` must be an HTTP status code, not ${JSON.stringify(body.status)}`,
+      fix: 'Send the numeric status the endpoint answered with, e.g. 402.',
+    };
+  }
+
+  const headers = body.headers;
+  if (headers !== undefined && (headers === null || typeof headers !== 'object' || Array.isArray(headers))) {
+    return {
+      error: '`headers` must be a JSON object of header name to value',
+      fix: 'Send {"headers": {"content-type": "application/json", "payment-required": "<base64>"}}. ' +
+        'Names are matched case-insensitively, so copy them however your client printed them.',
+    };
+  }
+
+  // The body arrives as text because that is what it is on the wire. A caller
+  // that hands over the PARSED object is accommodated rather than rejected —
+  // re-serialising is exactly what they would otherwise do by hand — but the
+  // check that the body is valid JSON then becomes vacuous, so it is said out loud.
+  let text = body.body;
+  let reserialised = false;
+  if (text !== undefined && typeof text !== 'string') {
+    try {
+      text = JSON.stringify(text);
+      reserialised = true;
+    } catch {
+      return {
+        error: '`body` must be the response body as a string',
+        fix: 'Send the raw body text, exactly as the endpoint returned it — not a parsed object.',
+      };
+    }
+  }
+
+  const flat = {};
+  for (const [key, value] of Object.entries(headers || {})) {
+    flat[String(key).toLowerCase()] = Array.isArray(value) ? value[0] : String(value);
+  }
+
+  const report = lint({
+    status,
+    headers: flat,
+    body: typeof text === 'string' ? text : '',
+    url: typeof body.url === 'string' ? body.url : null,
+  });
+
+  return {
+    ...report,
+    ...(reserialised
+      ? {
+          note:
+            '`body` arrived as a JSON object rather than as text, so it was re-serialised. ' +
+            'Checks about the body being well-formed JSON cannot fail on a re-serialised body ' +
+            '— send the raw response text to have those mean something.',
+        }
+      : {}),
+  };
+}
+
+const usageFor = (endpoint) =>
+  `${endpoint.method} ${endpoint.path} takes ${endpoint.inputDescription}. GET /check for the full contract.`;
+
+const badRequest = (error, fix) => json({ error, fix }, 400);
+
+const tooLarge = () =>
+  json(
+    {
+      error: `the request body is larger than the ${Math.round(MAX_REQUEST_BODY / 1024)} KB limit`,
+      fix: 'A 402 envelope is a few kilobytes. If you are pasting a whole page, paste only the 402.',
+    },
+    413
+  );
+
+// ------------------------------------------------------------------ payment answers
+
+/**
+ * The answer to a call with nothing free left and no payment presented.
+ *
+ * The 402 is the normal path. The 429 is the fallback for a deployment with
+ * nowhere to take money, and it splits on WHY, because the two cases want
+ * opposite advice: a spent allowance is fixed by waiting, and a missing payTo
+ * is not — so there is deliberately no Retry-After on the second, since a
+ * header promising that midnight fixes it would be a lie a client would obey.
+ */
+function unpaid(endpoint, { payTo, tier, now, dayStart }) {
+  if (payTo) {
+    return paymentRequired(endpoint.id, payTo, {
+      error: 'X-PAYMENT header is required',
+      // v2 renamed the header, so the v1 sentence would name the wrong thing.
+      v2Error: 'Payment required',
+    });
+  }
+  if (tier > 0) {
+    return json(
+      {
+        error: `free tier is ${tier} calls per day per caller`,
+        free_tier_daily: tier,
+        paid_tier: 'per-call USDC via x402 — no payTo configured on this deployment',
+        retry: 'tomorrow UTC',
+      },
+      429,
+      { 'retry-after': String(Math.max(1, (dayStart ?? 0) + SECONDS_PER_DAY - (now ?? 0) || 1)) }
+    );
+  }
+  return json(
+    {
+      error: 'this is a paid call, and this deployment has no receiving address configured',
+      free_tier_daily: 0,
+      paid_tier: 'per-call USDC via x402 — no payTo configured on this deployment',
+      retry: 'not until this deployment configures a receiving address',
+    },
+    429
+  );
+}
+
+// The paid ceiling is a runaway bound, not a price gate. A caller that already
+// paid cannot buy its way past it, so answering 402 "pay to continue" would be
+// a lie; it gets the plain rate-limit answer instead.
+function paidCeilingReached({ now, dayStart }) {
+  return json({ error: 'the daily ceiling for this caller is reached', retry: 'tomorrow UTC' }, 429, {
+    'retry-after': String(Math.max(1, dayStart + SECONDS_PER_DAY - now)),
+    'x-payment-verified': 'false',
+  });
+}
+
+/**
+ * The payment headers on a SERVED response.
+ *
+ * THERE IS NO `PAYMENT-RESPONSE` HEADER, and its absence is honest. In v2 that
+ * header is a settlement RECEIPT, and this Worker does not have one at the
+ * moment it answers: settlement is deliberately queued behind the response. The
+ * alternative is to emit one anyway with success: true and an empty
+ * transaction, which is a receipt for a payment that has not happened — the
+ * first fake thing this service would say. A real v2 client reads the receipt
+ * inside a try/catch and carries on without one.
+ */
+function servedHeaders({ kind, presented, remaining, error }) {
+  const headers = {};
+  if (kind === 'free') {
+    headers['x-free-tier-remaining'] = String(Math.max(0, remaining));
+    // The free tier is not a payment path: a payment presented inside it is
+    // neither checked nor charged, and the response says so rather than
+    // implying the header did something.
+    if (presented) headers['x-payment-verified'] = 'false';
+  } else if (kind === 'paid') {
+    headers['x-payment-verified'] = 'true';
+  } else {
+    headers['x-payment-verified'] = 'false';
+    headers['x-payment-error'] = error;
+    headers['x-pricing'] = 'pending';
+  }
+  return headers;
+}
+
+// ------------------------------------------------------------------ settlement
+
+async function settleAndRecord(env, db, { requirements, facRequirements, version, payload, payer, endpoint }) {
+  const ownResource = version === 2 ? resourceInfoV2(requirements, endpoint) : requirements.resource;
+  const { settleOk, txHash, error } = await settlePayment(env, { facRequirements, payload, ownResource });
+
+  try {
+    await recordSettlement(db, {
+      now: Math.floor(Date.now() / 1000),
+      endpoint: endpoint.id,
+      payer,
+      amount: requirements.maxAmountRequired,
+      verifyOk: 1, // it got here, so verify said yes
+      settleOk,
+      txHash,
+      error,
+    });
+  } catch {
+    // The response shipped a long time ago. A lost ledger row is bad, but
+    // throwing into waitUntil helps nobody.
+  }
+
+  // The owner's ping, LAST — after the ledger write, never instead of it. The
+  // table is the source of truth for money; this is a courtesy that tells a
+  // human to go look. Ordering it this way means a channel outage can never
+  // cost a row.
+  await sendPaymentAlert(env, {
+    kind: 'settled',
+    tool: endpoint.id,
+    payer,
+    amount: requirements.maxAmountRequired,
+    settleOk,
+    txHash,
+    error,
+  });
+}
+
+// ------------------------------------------------------------------ store
+
+async function globalExceeded(db, day) {
+  const counter = await db.prepare('SELECT total FROM counters WHERE day = ?1').bind(day).first();
+  return (counter?.total ?? 0) >= 200_000;
+}
+
+/**
+ * Claim one call, atomically.
+ *
+ * The guarded upsert IS the mechanism: the row is created at 1 and incremented
+ * only WHILE it is under the ceiling, so the "may I" read and the "spend one"
+ * write cannot race apart across isolates. No row comes back when the guard
+ * fails, and that is the over-quota signal.
+ */
+async function claimQuota(db, day, ipHash, ceiling) {
+  const row = await db
+    .prepare(
+      'INSERT INTO call_quota (day, ip_hash, used) VALUES (?1, ?2, 1) ' +
+        'ON CONFLICT(day, ip_hash) DO UPDATE SET used = call_quota.used + 1 ' +
+        'WHERE call_quota.used < ?3 ' +
+        'RETURNING used'
+    )
+    .bind(day, ipHash, ceiling)
+    .first();
+  return typeof row?.used === 'number' ? row.used : null;
+}
+
+async function recordSettlement(db, { now, endpoint, payer, amount, verifyOk, settleOk, txHash, error }) {
+  await db
+    .prepare(
+      'INSERT INTO settlements (ts, endpoint, payer, amount, verify_ok, settle_ok, tx_hash, error) ' +
+        'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)'
+    )
+    .bind(now, endpoint, payer ?? null, amount, verifyOk, settleOk, txHash ?? null, error ?? null)
+    .run();
+}
+
+/**
+ * Best-effort ledger write for the IN-REQUEST paths.
+ *
+ * The audit row must never decide the response. The unverified-serve path
+ * exists precisely to keep serving when payment infrastructure is failing, and
+ * turning that into a 503 because an INSERT failed would invert the rule it
+ * implements.
+ */
+async function recordSettlementSafely(db, row) {
+  try {
+    await recordSettlement(db, row);
+  } catch {
+    /* see above */
+  }
+}
+
+async function recordLintSafely(db, { now, endpoint, grade, errors, warns }) {
+  if (!db) return;
+  try {
+    await db.batch([
+      db
+        .prepare('INSERT INTO lints (ts, endpoint, grade, errors, warns) VALUES (?1, ?2, ?3, ?4, ?5)')
+        .bind(now, endpoint, grade, errors, warns),
+      db
+        .prepare(
+          'INSERT INTO counters (day, total) VALUES (?1, 1) ON CONFLICT(day) DO UPDATE SET total = total + 1'
+        )
+        .bind(new Date(now * 1000).toISOString().slice(0, 10)),
+    ]);
+  } catch {
+    // Telemetry loss is the acceptable failure. The report is the product and
+    // it has already been computed.
+  }
+}
+
+/**
+ * The day's salt, rotated lazily on the first request of a new UTC day. The
+ * overwrite IS the discard — no derived or HMAC salt, because a recomputable
+ * salt is the negation of discarded-at-rotation.
+ */
+async function currentSalt(db, day) {
+  const row = await db.prepare("SELECT day, value FROM salt WHERE key = 'current'").first();
+  if (row && row.day === day && row.value) return row.value;
+
+  const fresh = randomHex(32);
+  // The guarded upsert makes rotation atomic: a racing isolate that finds the
+  // day already rotated updates nothing and gets no row back, so it re-reads
+  // the winner's salt rather than minting a second identity space for the day.
+  const written = await db
+    .prepare(
+      "INSERT INTO salt (key, day, value) VALUES ('current', ?1, ?2) " +
+        'ON CONFLICT(key) DO UPDATE SET day = excluded.day, value = excluded.value ' +
+        'WHERE salt.day <> excluded.day ' +
+        'RETURNING value'
+    )
+    .bind(day, fresh)
+    .first();
+  if (written?.value) return written.value;
+
+  const after = await db.prepare("SELECT value FROM salt WHERE key = 'current'").first();
+  return after?.value || fresh;
+}
+
+// Re-exported so the suite can assert on the same values the Worker enforces
+// rather than on a second copy of them.
+export { PAID_DAILY, freeTierDaily, build402, unsafeTargetsAllowed };

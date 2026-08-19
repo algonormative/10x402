@@ -1,0 +1,23 @@
+{
+  "name": "tenx402",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "10x402 — x402 conformance linting for sellers, sold per call over x402. A Cloudflare Worker, a static read surface, and an MCP server.",
+  "bin": {
+    "tenx402": "mcp/server.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "db:local": "wrangler d1 execute DB --local --file worker/schema.sql -y",
+    "dev:worker": "wrangler dev --local --port 8787",
+    "mcp": "node mcp/server.mjs",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.42.2"
+  }
+}
