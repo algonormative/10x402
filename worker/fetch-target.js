@@ -417,10 +417,17 @@ async function readCapped(res, max, signal) {
   const chunks = [];
   let size = 0;
   let truncated = false;
+  // HOW THE LOOP ENDED, recorded as it ends rather than inferred afterwards
+  // from signal.aborted. A read that finishes in the same tick the timer fires
+  // would have `signal.aborted` true against a body we received in full, and
+  // reporting that as a timeout would turn a rare race into a wrong answer for
+  // a perfectly good endpoint. Only the abort path sets this.
+  let endedByDeadline = false;
   // The reader is cancelled from the abort rather than only polled, so a read
   // that is parked waiting for a byte that never comes is woken rather than
   // waiting for a chunk to check a flag against.
   const onAbort = () => {
+    endedByDeadline = true;
     reader.cancel().catch(() => {});
   };
   if (signal?.aborted) onAbort();
@@ -460,6 +467,8 @@ async function readCapped(res, max, signal) {
   return {
     text: new TextDecoder('utf-8').decode(joined),
     truncated,
-    aborted: signal?.aborted === true && !truncated,
+    // A body stopped at the CAP is not a timeout: we have what we asked for and
+    // the report says it was clipped. Only a deadline that ended the read is.
+    aborted: endedByDeadline && !truncated,
   };
 }
