@@ -199,7 +199,13 @@ export function checkTargetUrl(raw, { unsafe = false } = {}) {
           '/lint/envelope and paste the status, headers and body — same checks, no fetch.',
       };
     }
-    if (!host.includes('.')) {
+    // The bare-hostname rule is about NAMES — `https://redis/`, the container
+    // network name people paste by accident. An IPv6 literal has no dots and is
+    // not a name, and `new URL()` hands it back bracketed; without this it was
+    // refused as "only resolves inside a private network", which is both wrong
+    // and confusing advice for a public address like 2606:4700:4700::1111.
+    const isIpLiteral = host.startsWith('[') || octets !== null;
+    if (!isIpLiteral && !host.includes('.')) {
       return {
         error: `\`url\` points at the bare hostname "${host}", which only resolves inside a private network`,
         fix:

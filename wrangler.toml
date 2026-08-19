@@ -1,6 +1,6 @@
 name = "tenx402-api"
 main = "worker/worker.js"
-compatibility_date = "2026-08-01"
+compatibility_date = "2025-10-08"
 
 # The Worker has NO production npm dependencies. The lint engine, the JSON
 # Schema subset, the x402 envelopes and the CDP JWT are all in worker/*.js, so

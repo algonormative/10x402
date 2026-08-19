@@ -74,6 +74,18 @@ const PAID_DAILY = 2000;
 
 const SECONDS_PER_DAY = 86_400;
 
+/**
+ * Seconds until the counters reset, for Retry-After. Never zero and never
+ * negative: a Retry-After of 0 tells a client to hammer immediately, which is
+ * the opposite of what a rate limit is asking for. Falls back to a whole day
+ * when the caller had no clock to pass (the 402 fast path, which never reaches
+ * a branch that needs one).
+ */
+const secondsToReset = (now, dayStart) =>
+  Number.isFinite(now) && Number.isFinite(dayStart)
+    ? Math.max(1, dayStart + SECONDS_PER_DAY - now)
+    : SECONDS_PER_DAY;
+
 // The request body cap. Generous for /lint (a URL) and sized for /lint/envelope,
 // where the pasted body IS a whole HTTP response.
 const MAX_REQUEST_BODY = MAX_BODY_BYTES + 64 * 1024;
@@ -240,7 +252,7 @@ async function handlePaid(request, env, ctx, endpoint) {
     // daily allowance.
     if (await globalExceeded(db, day)) {
       return json({ error: 'daily call limit reached', retry: 'tomorrow UTC' }, 429, {
-        'retry-after': String(Math.max(1, dayStart + SECONDS_PER_DAY - now)),
+        'retry-after': String(secondsToReset(now, dayStart)),
       });
     }
 
@@ -533,7 +545,8 @@ function unpaid(endpoint, { payTo, tier, now, dayStart }) {
         retry: 'tomorrow UTC',
       },
       429,
-      { 'retry-after': String(Math.max(1, (dayStart ?? 0) + SECONDS_PER_DAY - (now ?? 0) || 1)) }
+      // Seconds to the next UTC midnight, which is when the counter resets.
+      { 'retry-after': String(secondsToReset(now, dayStart)) }
     );
   }
   return json(
@@ -552,7 +565,7 @@ function unpaid(endpoint, { payTo, tier, now, dayStart }) {
 // a lie; it gets the plain rate-limit answer instead.
 function paidCeilingReached({ now, dayStart }) {
   return json({ error: 'the daily ceiling for this caller is reached', retry: 'tomorrow UTC' }, 429, {
-    'retry-after': String(Math.max(1, dayStart + SECONDS_PER_DAY - now)),
+    'retry-after': String(secondsToReset(now, dayStart)),
     'x-payment-verified': 'false',
   });
 }
@@ -724,6 +737,10 @@ async function currentSalt(db, day) {
   return after?.value || fresh;
 }
 
-// Re-exported so the suite can assert on the same values the Worker enforces
-// rather than on a second copy of them.
-export { PAID_DAILY, freeTierDaily, build402, unsafeTargetsAllowed };
+// NOTHING ELSE IS EXPORTED FROM THIS FILE, and that is a runtime constraint
+// rather than a style choice: workerd requires every named export of the entry
+// module to be a handler, and a stray `export const PAID_DAILY` fails the
+// Worker at STARTUP with "Incorrect type for map entry" — a total outage from
+// what looks like a convenience for the test suite. Constants the suite needs
+// live in the modules that own them (worker/catalog.js, worker/lint.js) or are
+// mirrored in test/harness.mjs with a comment saying so.
