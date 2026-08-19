@@ -260,4 +260,13 @@ describe('telemetry', () => {
     const names = columns.map((c) => c.name);
     assert.deepEqual(names.sort(), ['endpoint', 'errors', 'grade', 'ts', 'warns']);
   });
+
+  test('the single-use payment table keeps a hash and a timestamp, and nothing else', async () => {
+    // It is keyed on SHA-256 of the presented payment header, which is a
+    // ONE-WAY function of a payload containing a payer address. Storing the
+    // payload itself — or anything else "for debugging" — would put a caller's
+    // signed authorization in a table that exists to hold a boolean.
+    const columns = await worker.d1('PRAGMA table_info(payment_seen);');
+    assert.deepEqual(columns.map((c) => c.name).sort(), ['created_at', 'hash']);
+  });
 });

@@ -278,9 +278,15 @@ ${AREA_ORDER.map((area) => `      <h3>${esc(AREAS[area])} &mdash; ${byArea(area)
     <li><code>POST /lint</code> sends exactly one unauthenticated request, carrying no payment
     header of either version, and follows no redirects. A redirect is reported as a finding, because
     it is one.</li>
-    <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB of the response and times out after 10s.</li>
-    <li>It refuses plain http, private and reserved addresses, and private-network names. For an
-    endpoint that is not deployed yet, use <code>/lint/envelope</code> and paste the response.</li>
+    <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB of the response, and one 10s deadline
+    covers the whole call &mdash; the connection, the headers and the body read. A target that
+    answers and then dribbles is cut off on the same clock as one that never answers at all.</li>
+    <li>It refuses plain http, private and reserved addresses, private-network names, and any port
+    but 443 and 8443. For an endpoint that is not deployed yet, or on another port, use
+    <code>/lint/envelope</code> and paste the response.</li>
+    <li>The report is bounded: at most 8 <code>accepts[]</code> entries are linted, at most 200
+    findings come back, and anything quoted out of your envelope is clipped. Each bound reports
+    itself, so a short report is never a quietly truncated one.</li>
     <li>It does not resolve DNS, so it cannot defend against DNS rebinding. It is a public-URL
     linter and should not be deployed anywhere its egress can see a private network.</li>
     <li>It does not make a payment, so it cannot tell you whether your facilitator would accept
@@ -535,10 +541,19 @@ ${AREA_ORDER.map(
 ## Limits
 
 POST /lint sends exactly one unauthenticated request with no payment header,
-follows no redirects, reads at most ${MAX_BODY_BYTES / 1024} KB, times out after 10s, and refuses
-plain http, private/reserved addresses and private-network names. It does not
-resolve DNS, so it cannot defend against DNS rebinding. It does not make a
-payment, so it cannot tell you whether your facilitator would accept one.
+follows no redirects, reads at most ${MAX_BODY_BYTES / 1024} KB, and gives the whole call — connect,
+headers and body read — one 10s deadline. It refuses plain http,
+private/reserved addresses, private-network names, and any port but 443 and
+8443. It does not resolve DNS, so it cannot defend against DNS rebinding. It
+does not make a payment, so it cannot tell you whether your facilitator would
+accept one.
+
+The report is bounded: at most 8 accepts[] entries are linted, at most 200
+findings are returned, and anything quoted back out of your envelope is
+clipped. Every bound reports itself as an info finding, so a short report is
+never a quietly truncated one. A non-402 response (a redirect, a free-tier 200,
+a 405 to the POST this sends) skips the envelope checks entirely and says so in
+summary.partial — there was never going to be an envelope there.
 
 For an endpoint that is not deployed yet, POST /lint/envelope with the response
 pasted in — same checks, no outbound request.

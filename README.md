@@ -177,9 +177,19 @@ probably want. **info** — a nit, never affects the grade.
 - **Nobody is charged for a report that was not served.** Settlement is queued
   only after the report exists; a bad URL, an unreachable target or a malformed
   paste settles nothing, even when the payment verified.
+- **One authorization buys one report.** Verifying a payment is a *read* — the
+  facilitator answers the same way however often it is asked, and nothing moves
+  until settle, which runs after the response. So a single-use claim on the
+  presented payment is taken between verify and the work; the loser of the race
+  gets a 402 naming the reason and writes no ledger row.
+- **Bytes are not an event.** A payment header that does not decode is answered
+  with the same 402 an unpaid caller gets — no store access, no facilitator
+  call, no `settlements` row. That table is the revenue record, and it means
+  "we talked to a facilitator about this", never "someone sent us bytes".
 - **Alerts.** Telegram and email when money moves, fired from `ctx.waitUntil`
   after the response, each channel independently caught. Probe noise never
-  pages.
+  pages, and each channel has a daily budget so a bad hour cannot mute the
+  channel permanently.
 
 ## Layout
 
@@ -193,13 +203,15 @@ worker/
   positive-control.js  a real 402 captured from a live seller (frozen)
   fetch-target.js      the SSRF-guarded outbound fetch
   x402.js              CDP facilitator verify/settle, the Ed25519 JWT
+  quota.js             the atomic daily claim, written once for four ceilings
   alert-message.js     what an alert says (pure; RFC 5322)
   alerts.js            how it is sent (Telegram, send_email binding)
-  schema.sql           D1: salt, counters, call_quota, settlements, lints
+  schema.sql           D1: salt, counters, call_quota, payment_seen,
+                       settlements, lints
 build.mjs              generates dist/ and runs the self-lint
 mcp/server.mjs         MCP server; a 402 is a price quote, never isError
 skills/10x402/         a drop-in agent skill
-test/                  six phases, 352 tests, no live or billed calls
+test/                  six phases, 405 tests, no live or billed calls
 ```
 
 **The Worker has no production npm dependencies.** The lint engine, the JSON
@@ -214,19 +226,19 @@ npm install
 npm test
 ```
 
-352 tests in six phases. **No live network calls and no billed calls, ever** —
+405 tests in six phases. **No live network calls and no billed calls, ever** —
 the facilitator, Telegram and the lint targets are all http servers the suite
 runs on 127.0.0.1, and the CDP credentials are generated per run and worth
 nothing.
 
 | phase | tests | what |
 |---|---|---|
-| engine | 144 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
-| served calls | 84 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
-| outbound lint | 42 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
-| production default | 39 | the 402 front door, and **the self-lint invariant** |
-| settlement | 17 | verify/settle against a strict per-version mock facilitator |
-| alerts | 26 | mock facilitator + mock Telegram, and the RFC 5322 message |
+| engine | 172 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
+| served calls | 91 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
+| outbound lint | 48 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
+| production default | 40 | the 402 front door, and **the self-lint invariant** |
+| settlement | 23 | verify/settle against a strict per-version mock facilitator |
+| alerts | 31 | mock facilitator + mock Telegram, and the RFC 5322 message |
 
 The mock facilitator is **strict about version shape**: v1 and v2 send the same
 three-field body to the same endpoint and differ entirely in the shapes inside
@@ -250,15 +262,25 @@ model: a caller who can name a URL and see the response has, for one cent,
 rented our network position. So:
 
 - **https only**, no credentials in the authority
+- **ports 443 and 8443 only** — anything else and the service is a port scanner
+  rented by the cent: the difference between "connection refused" and "timed
+  out" *is* the scan result. For the same reason the underlying transport error
+  is never quoted back, only "could not reach `<host>`"
 - **no private or reserved targets** — loopback, RFC 1918, link-local
-  (including the cloud metadata address), CGNAT, ULA, IPv4-mapped IPv6
+  (including the cloud metadata address), CGNAT, ULA, IPv4-mapped IPv6,
+  IPv4-compatible IPv6 (`::7f00:1` is 127.0.0.1) and NAT64 (`64:ff9b::/96`,
+  which embeds an IPv4 address for a gateway to unwrap)
 - **no private-network names** — `localhost`, `*.internal`, `*.local`,
-  `*.home.arpa`, and bare hostnames with no dot
+  `*.home.arpa`, and bare hostnames with no dot. A trailing dot is stripped
+  first: `localhost.` is the same name and used to walk past every rule here
 - **no redirects followed** (`redirect: 'manual'`) — the classic bypass, and a
   real finding for the seller, so it is reported rather than chased
 - **one request**, no retry, no preflight
 - **256 KB** read cap, streamed and counted rather than buffered whole
-- **10s** timeout
+- **10s** for the whole call — connect, headers *and* the body read, on one
+  deadline. Bounding only the connect is slow-loris-shaped: a target that
+  answers instantly and then dribbles held a Worker open for 300s against a
+  700ms deadline before this was one clock
 
 **What this does not defend, stated plainly: DNS rebinding.** The guard resolves
 nothing — a Worker has no DNS API — so a hostname whose A record points at
@@ -284,13 +306,19 @@ asserts the schema stays that way.
 Caller identity is `SHA-256(daily salt + IP)`, truncated, with the salt
 overwritten on the first request of each UTC day. The overwrite is the discard.
 
+`payment_seen` holds one SHA-256 per verified payment and a timestamp — a
+one-way function of the payload, never the payload, which is a signed
+authorization and belongs in a table that exists to hold a boolean about as
+much as a URL belongs in `lints`. A test asserts those two columns are all
+there are.
+
 ## Deploy runbook
 
-**Not yet done.** In order:
+**Not yet done.** The order below is not a suggestion — see the ordering note
+after step 6.
 
-1. **Register `10x402.com`** and add the zone to the Cloudflare account. Until
-   then the routes in `wrangler.toml` cannot be created and `wrangler deploy`
-   will say so.
+1. **Register `10x402.com`** and add the zone to the Cloudflare account. Do not
+   add the routes yet; step 7 does that, and the reason is the ordering note.
 2. Create the database and note the id:
    ```bash
    npx wrangler d1 create tenx402
@@ -319,6 +347,20 @@ overwritten on the first request of each UTC day. The overwrite is the discard.
    Without both, calls are still served (availability-first) but carry
    `x-payment-verified: false` and `x-payment-error: facilitator-unconfigured`,
    and every one is recorded in `settlements`.
+
+   > **SET THESE BEFORE THE ROUTES EXIST. A HARD ORDERING.**
+   >
+   > A route with no CDP credentials behind it is a live, publicly listed
+   > endpoint that serves every paid call for free — availability-first is
+   > deliberate and correct once payments work, and is a giveaway before they
+   > do. The window is however long it takes to run two `wrangler secret put`
+   > commands, and x402 endpoints are scanned continuously: an unpriced one does
+   > not stay unnoticed for the length of a coffee break.
+   >
+   > The `settlements` table records every one of these — the "revenue leaking"
+   > query below is exactly this state — and the alert fires on the first. That
+   > is a detection mechanism, not a mitigation. Do not go looking for it.
+
 6. Optional alerts (secrets):
    ```bash
    npx wrangler secret put TELEGRAM_BOT_TOKEN
@@ -328,10 +370,13 @@ overwritten on the first request of each UTC day. The overwrite is the discard.
    `ALERT_EMAIL_TO` must be a **verified** Email Routing destination on the
    sending zone. Unset is a working state: a channel with no config is skipped
    before any network call.
+   The alert channels have a daily budget of 20 sends each (`ALERT_DAILY`).
+   The send that trips it says so and then the channel is quiet until UTC
+   midnight; `settlements` still has everything.
 7. Set `HOUSE_PAYERS` in `wrangler.toml` to your own test wallet(s), so your own
    test buys read as a drill rather than as a sale. Unset means every payer reads
    as a third party, which fails **too loud** — the right direction here.
-8. Deploy the Worker and the static surface:
+8. **Only now** add the routes in `wrangler.toml`, and deploy:
    ```bash
    node build.mjs          # self-lints, then writes dist/
    npx wrangler deploy
@@ -339,14 +384,32 @@ overwritten on the first request of each UTC day. The overwrite is the discard.
    ```
    The Pages project must have **zero Functions**: the Worker owns `/check`,
    `/lint` and `/lint/*` through routes, and a Function would shadow them.
-9. Add an edge rate-limiting rule covering the paid paths — the Worker's own
-   limits execute *inside* the Worker, so a request they reject is already
-   billed:
-   ```
-   (http.host eq "10x402.com" and
-    (http.request.uri.path eq "/lint" or starts_with(http.request.uri.path, "/lint/")))
-   ```
-   `GET /check` is deliberately left out: it touches no D1 and does no work.
+
+### About rate limiting at the edge
+
+An earlier version of this runbook ended with "add an edge rate-limiting rule
+covering the paid paths", on the reasoning that the Worker's own limits execute
+*inside* the Worker, so a request they reject is already billed. That reasoning
+is still correct. **The mitigation is not available on this account**, and a
+runbook step nobody can perform is worse than no step: it reads, to the next
+person, as a control that is in place.
+
+So the bounds are all in the Worker, and they are written to be worth having
+without an edge in front of them. In the order a request meets them:
+
+| bound | what it stops |
+|---|---|
+| the 402 fast path | a scanned public endpoint costs no store access at all |
+| an undecodable payment header | answered like the fast path — no D1 write, no facilitator call, no ledger row. Bytes are not an event |
+| the global daily counter | a doomsday day, before it spends anyone's personal allowance |
+| `VERIFY_DAILY` (50/caller/day) | the outbound-call amplifier: a payload that merely *decodes* is free to produce and costs us an Ed25519 signature and a POST to CDP |
+| `payment_seen` | one verified authorization buying more than one report |
+| `PAID_DAILY` (2000/caller/day) | runaway served work |
+| `ALERT_DAILY` (20/channel/day) | a bad hour muting the notification channel forever |
+
+Each of those is a *billed* request that we answer cheaply, which is the honest
+statement — not that they are free. `GET /check` touches no D1 and does no work,
+and is deliberately outside all of it.
 
 ### Verifying a deploy
 
@@ -386,9 +449,15 @@ that is all F is a catalogue that is wrong.
 There is no `scheduled` handler by design — zero crons. Prune periodically:
 
 ```sql
-DELETE FROM call_quota WHERE day < date('now', '-7 days');
-DELETE FROM lints WHERE ts < unixepoch('now', '-180 days');
+DELETE FROM call_quota  WHERE day < date('now', '-7 days');
+DELETE FROM payment_seen WHERE created_at < unixepoch('now', '-7 days');
+DELETE FROM lints       WHERE ts < unixepoch('now', '-180 days');
 ```
+
+`payment_seen` holds one row per verified payment, so it grows with revenue
+rather than with traffic. Seven days is far past any authorization's
+`maxTimeoutSeconds` (60), so a pruned row can no longer be replayed — the
+signature it belongs to expired six days earlier.
 
 `settlements` is **kept**: it is the revenue record, and `payer` and `tx_hash`
 are public chain data an owner revealed by paying.

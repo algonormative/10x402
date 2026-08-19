@@ -109,7 +109,19 @@ meaning the envelope is not usable as published.
 It checks the **envelope**, not the payment. It cannot tell you whether your
 facilitator would accept a real payment — only whether the terms you published
 are ones a client can sign against. It follows no redirects, resolves no DNS,
-and refuses private and reserved addresses; for anything not publicly reachable,
-use `/lint/envelope`.
+and refuses private and reserved addresses and any port but 443 and 8443; for
+anything not publicly reachable, use `/lint/envelope`.
+
+A report can also be **partial**, and says so in `summary.partial`. When the
+endpoint answered something other than a 402 — a redirect, a free-tier 200, a
+405 to the POST this sends — there was no envelope to read, so the envelope
+checks are skipped rather than reported as a missing envelope. On a 404 or 405,
+retry with `{"method": "GET"}` before changing anything: a GET-only endpoint is
+as common a cause as a broken route.
+
+`V1_ABSENT` is **info, not a problem**. It means the endpoint publishes a v2
+header envelope and no v1 body envelope, which is the current generation of the
+protocol done correctly. The only thing it costs is the pre-header clients, and
+whether that matters is the seller's call, not the linter's.
 
 Support: support@lemon-agent.dev

@@ -51,8 +51,8 @@ const TOOLS = [
       'nothing happens — no buyers, no listing in a discovery index, or payments failing with a ' +
       'signature error nobody can reproduce. Those failures are silent by nature and this is what ' +
       'surfaces them. Costs $0.01 per call, paid over x402; the first call answers 402 with the ' +
-      'terms, which is a price quote and not an error. Follows no redirects and refuses private ' +
-      'or non-https addresses — for those, use lint_x402_envelope.',
+      'terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
+      'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope.',
     inputSchema: {
       type: 'object',
       properties: {
