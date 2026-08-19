@@ -160,9 +160,9 @@ const jsonForHtml = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 const MARK_SVG = (size) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true" focusable="false">` +
   `<rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="#0d1210" stroke="#2b3b34" stroke-width="3"/>` +
-  `<path d="M14 47 L26 17 L38 47" stroke="#6ee7b7" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>` +
-  `<path d="M19.5 38.5 H32.5" stroke="#34d399" stroke-width="5.5" stroke-linecap="round"/>` +
-  `<circle cx="49" cy="21" r="5.5" fill="#fbbf24"/></svg>`;
+  `<path d="M14 47 L26 17 L38 47" stroke="#7dd3fc" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `<path d="M19.5 38.5 H32.5" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round"/>` +
+  `<circle cx="49" cy="21" r="5.5" fill="#a78bfa"/></svg>`;
 
 const FAVICON = `data:image/svg+xml,${encodeURIComponent(MARK_SVG(64))}`;
 
@@ -196,11 +196,15 @@ const CSS = `
 ${FONT_FACES}
 :root {
   color-scheme: dark;
-  --ground: #0a0e0c; --ground-2: #0d1210; --panel: #0f1513; --panel-2: #121a17;
-  --rule: #1f2a25; --rule-bright: #2b3b34;
-  --fg: #e7ece9; --muted: #9fb0a8; --dim: #7f9188;
-  --mint: #6ee7b7; --emerald: #34d399; --amber: #fbbf24; --amber-deep: #f59e0b; --coral: #fb7185;
-  --focus: #7dd3fc;
+  --ground: #0a0c12; --ground-2: #0d1018; --panel: #0e1420; --panel-2: #111a29;
+  --rule: #1d2739; --rule-bright: #2a3a54;
+  --fg: #e8edf6; --muted: #9fadc7; --dim: #7d8ca9;
+  /* Cool palette (2026-08-19, owner direction — distinct from the green/amber
+     register the first pass borrowed). Token NAMES kept to avoid a rename sweep
+     across every rule below: --mint is now SKY, --emerald is BLUE, --amber is
+     VIOLET. The semantic aliases (--ok/--warn/--err/--accent) are the real API. */
+  --mint: #7dd3fc; --emerald: #38bdf8; --amber: #a78bfa; --amber-deep: #8b5cf6; --coral: #fb7185;
+  --focus: #a5f3fc;
   --ok: var(--mint); --warn: var(--amber); --err: var(--coral); --accent: var(--mint);
   --sans: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -217,10 +221,10 @@ body {
 body::before {
   content: ""; position: fixed; inset: -25% -12%; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(42rem 30rem at 16% 3%, rgba(52,211,153,.11), transparent 62%),
-    radial-gradient(38rem 26rem at 88% 10%, rgba(45,212,191,.07), transparent 60%),
-    radial-gradient(34rem 24rem at 64% 40%, rgba(245,158,11,.05), transparent 62%),
-    radial-gradient(52rem 34rem at 28% 88%, rgba(52,211,153,.05), transparent 66%);
+    radial-gradient(42rem 30rem at 16% 3%, rgba(99,102,241,.12), transparent 62%),
+    radial-gradient(38rem 26rem at 88% 10%, rgba(34,211,238,.07), transparent 60%),
+    radial-gradient(34rem 24rem at 64% 40%, rgba(167,139,250,.06), transparent 62%),
+    radial-gradient(52rem 34rem at 28% 88%, rgba(56,189,248,.05), transparent 66%);
   animation: drift 54s ease-in-out infinite alternate;
 }
 @keyframes drift { from { transform: translate3d(0,0,0); } to { transform: translate3d(-2.4%, 1.8%, 0); } }
@@ -293,7 +297,7 @@ header.hero { padding: 4rem 0 1rem; text-align: center; }
   font: 700 .95rem/1.2 var(--sans); text-decoration: none; border: 1px solid transparent; cursor: pointer;
   transition: transform .12s ease, box-shadow .18s ease, background-color .18s ease;
 }
-.btn-primary { background: linear-gradient(180deg, #fcd34d, var(--amber-deep)); color: #1a1204; box-shadow: 0 12px 30px -14px rgba(245,158,11,.75), 0 1px 0 rgba(255,255,255,.35) inset; }
+.btn-primary { background: linear-gradient(180deg, #c4b5fd, var(--amber-deep)); color: #130a2a; box-shadow: 0 12px 30px -14px rgba(139,92,246,.75), 0 1px 0 rgba(255,255,255,.35) inset; }
 .btn-secondary { border-color: rgba(110,231,183,.32); color: var(--mint); background: rgba(110,231,183,.05); }
 .btn:hover { transform: translateY(-1px); }
 .btn-secondary:hover { background: rgba(110,231,183,.11); }
@@ -326,7 +330,7 @@ header.hero { padding: 4rem 0 1rem; text-align: center; }
 }
 .card-person { border-color: rgba(110,231,183,.24); }
 .card-person .card-tag { color: var(--mint); border-color: rgba(110,231,183,.3); }
-.card-agent .card-tag { color: var(--amber); border-color: rgba(251,191,36,.28); background: rgba(251,191,36,.06); }
+.card-agent .card-tag { color: var(--amber); border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.06); }
 .trust { border-top: 1px solid rgba(110,231,183,.3); }
 .link-list { max-width: none; margin: .3rem 0 .8rem; padding: 0; list-style: none; }
 .link-list li { display: flex; gap: .5rem; align-items: baseline; margin: .45rem 0; font-size: .93rem; color: var(--muted); }
@@ -382,11 +386,11 @@ td.code { white-space: nowrap; font-family: var(--mono); font-size: .84rem; colo
   font: 700 .66rem/1.6 var(--mono); letter-spacing: .07em; text-transform: uppercase;
 }
 .pill-error { color: var(--err); background: rgba(251,113,133,.1); border-color: rgba(251,113,133,.28); }
-.pill-warn { color: var(--warn); background: rgba(251,191,36,.09); border-color: rgba(251,191,36,.26); }
+.pill-warn { color: var(--warn); background: rgba(167,139,250,.09); border-color: rgba(167,139,250,.26); }
 .pill-info { color: var(--muted); background: rgba(159,176,168,.08); border-color: rgba(159,176,168,.22); }
 .sev { white-space: nowrap; }
 .sev-error { color: var(--err); } .sev-warn { color: var(--warn); } .sev-info { color: var(--muted); }
-.core-label { display: inline-block; margin-left: .35rem; padding: .05rem .35rem; border-radius: 4px; background: rgba(251,191,36,.1); color: var(--amber); font: 700 .62rem/1.6 var(--mono); letter-spacing: .06em; }
+.core-label { display: inline-block; margin-left: .35rem; padding: .05rem .35rem; border-radius: 4px; background: rgba(167,139,250,.1); color: var(--amber); font: 700 .62rem/1.6 var(--mono); letter-spacing: .06em; }
 .grade { font: 700 1rem/1 var(--mono); }
 .grade-A { color: var(--mint); } .grade-B { color: var(--emerald); }
 .grade-C { color: var(--amber); } .grade-D { color: var(--amber-deep); } .grade-F { color: var(--coral); }
@@ -622,7 +626,7 @@ const html = `<!doctype html>
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Your 402 works. Agents still can't pay you.">
 <meta name="twitter:description" content="${esc(PAGE_DESCRIPTION)}">
-<meta name="theme-color" content="#0a0e0c">
+<meta name="theme-color" content="#0a0c12">
 <link rel="icon" href="${FAVICON}" type="image/svg+xml">
 ${FONT_FILES.filter((f) => f.preload)
   .map((f) => `<link rel="preload" as="font" type="font/woff2" href="/fonts/${f.file}" crossorigin>`)
