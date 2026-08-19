@@ -4,7 +4,7 @@
 
 x402 conformance linting, sold per call over x402.
 
-Point it at a paid endpoint and it tells you, in 60 checks, everything a client,
+Point it at a paid endpoint and it tells you, in 64 checks, everything a client,
 a facilitator or a discovery index will quietly refuse to tell you.
 
 **Status: built, not deployed. Zero revenue to date. `10x402.com` is not
@@ -68,7 +68,7 @@ known-good before trusting any negative verdict.
 | | | |
 |---|---|---|
 | `POST /lint` | **$0.01** | Sends one unauthenticated request to a URL you name and lints the response. |
-| `POST /lint/envelope` | **$0.005** | The same 60 checks over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope` | **$0.005** | The same 64 checks over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
 Both paid endpoints return the same shape:
@@ -104,16 +104,36 @@ silence.
 
 ## The check catalogue
 
-60 checks in five areas. Published in full at `GET /check` and on the page,
+64 checks in six areas. Published in full at `GET /check` and on the page,
 before anyone spends anything.
 
 | area | checks | what it covers |
 |---|---|---|
 | `http` | 6 | 402-for-unauthenticated, free-tier 200s, 5xx, redirects, JSON content-type |
 | `v2` | 30 | the `PAYMENT-REQUIRED` header envelope: base64 encoding, CAIP-2 networks, `amount`, the resource object, the EIP-712 domain, `extensions.bazaar` |
-| `v1` | 17 | the 402 body envelope: `maxAmountRequired`, plain network names, the flat-string resource, `outputSchema.input.discoverable` |
+| `v1` | 19 | the 402 body envelope: `maxAmountRequired`, plain network names, the flat-string resource, `outputSchema.input.discoverable` — and whether there is a v1 envelope at all |
 | `dual` | 5 | when both are published, they must agree on payTo, price, chain, asset and resource |
 | `version` | 2 | a v1 payload in the v2 header, or the reverse |
+| `report` | 2 | what the linter itself did not read: a long `accepts[]`, a capped report |
+
+### What a report is NOT allowed to do
+
+Three properties the catalogue holds to, because a linter that gets them wrong
+is worse than none:
+
+- **A partial report says it is partial.** A response that is not a 402 —
+  a redirect, a free-tier 200, a 405 to the POST this linter sends — carries no
+  envelope because there was never going to be one there. The envelope checks
+  are skipped, `summary.partial` says so, and the status finding is the report.
+  A redirect that answered "no x402 envelope was found" was a true sentence
+  about the wrong URL, and an F for an envelope nobody had looked at.
+- **The grade does not scale with the input.** One fault repeated across forty
+  `accepts[]` entries is one finding naming all forty, not forty findings and a
+  worse grade than the same fault in one entry.
+- **The report is bounded, because the input is not.** At most 8 `accepts[]`
+  entries are linted, at most 200 findings are returned, and every string quoted
+  back out of the envelope is clipped. Each bound reports itself — a truncated
+  report read as a clean one would be worse than the amplification it prevents.
 
 ### Grades
 
@@ -166,7 +186,7 @@ probably want. **info** — a nit, never affects the grade.
 ```
 worker/
   worker.js            routing, the 402 flow, quotas, D1, telemetry
-  lint.js              THE PRODUCT — 60 checks, pure, no Worker globals
+  lint.js              THE PRODUCT — 64 checks, pure, no Worker globals
   json-schema.js       a JSON Schema subset, for bazaar info-vs-schema
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes

@@ -10,7 +10,16 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { CHECKS, CHECKS_BY_ID, GRADE_RULES, grade, lint } from '../worker/lint.js';
-import { FIXTURES, response, v1Envelope, v2Envelope, RESOURCE_URL } from './fixtures/envelopes.mjs';
+import {
+  FIXTURES,
+  bazaar,
+  response,
+  v1Accept,
+  v1Envelope,
+  v2Envelope,
+  v2Resource,
+  RESOURCE_URL,
+} from './fixtures/envelopes.mjs';
 
 const codesOf = (report) => report.findings.map((f) => f.code).sort();
 
@@ -27,7 +36,7 @@ describe('the check catalogue', () => {
   test('every check has a severity, an area and a one-line summary', () => {
     for (const check of CHECKS) {
       assert.ok(['error', 'warn', 'info'].includes(check.severity), `${check.id} severity`);
-      assert.ok(['http', 'v1', 'v2', 'dual', 'version'].includes(check.area), `${check.id} area`);
+      assert.ok(['http', 'v1', 'v2', 'dual', 'version', 'report'].includes(check.area), `${check.id} area`);
       assert.ok(check.summary && check.summary.length > 8, `${check.id} summary`);
       assert.ok(!check.summary.includes('\n'), `${check.id} summary is one line`);
     }
@@ -162,6 +171,127 @@ describe('checks_run', () => {
   test('never claims to have run a check that is not in the catalogue', () => {
     const report = lint(response({ v1: v1Envelope(), v2: v2Envelope(), url: RESOURCE_URL }));
     assert.ok(report.checks_run <= CHECKS.length, `${report.checks_run} > ${CHECKS.length}`);
+  });
+});
+
+describe('the report is bounded, because the input is not', () => {
+  // A lint report is a function of attacker-controlled input, and every one of
+  // these bounds was missing: a 60 KB envelope produced a 56 MB report, which
+  // is an out-of-memory for the price of one cent. The bounds report
+  // themselves, because a truncated report read as a clean one would be worse
+  // than the amplification.
+
+  /** A small envelope with an absurd accepts[]: ~15 KB in, unbounded out. */
+  const hostile = () => {
+    const entries = Array.from({ length: 5000 }, () => ({}));
+    return response({
+      v1: { x402Version: 1, accepts: entries },
+      v2: { x402Version: 2, resource: v2Resource(), accepts: entries, extensions: bazaar() },
+      url: RESOURCE_URL,
+    });
+  };
+
+  test('5,000 accepts[] entries do not become a 56 MB report', () => {
+    const input = hostile();
+    const report = lint(input);
+    const size = JSON.stringify(report).length;
+
+    assert.ok(size < 256 * 1024, `the report is ${Math.round(size / 1024)} KB`);
+    // And the amplification factor itself, which is the number that matters:
+    // before the bounds this was 945x.
+    const ratio = size / JSON.stringify(input).length;
+    assert.ok(ratio < 20, `${ratio.toFixed(1)}x amplification`);
+  });
+
+  test('it says how many entries it did not read', () => {
+    const truncated = lint(hostile()).findings.filter((f) => f.code === 'ACCEPTS_TRUNCATED');
+    // One per envelope: the v1 body and the v2 header each have 5,000.
+    assert.equal(truncated.length, 2);
+    for (const finding of truncated) {
+      assert.equal(finding.severity, 'info');
+      assert.match(finding.message, /5000 accepts\[\] entries/);
+      assert.match(finding.message, /4992 were not/);
+    }
+  });
+
+  test('a fault repeated across accepts[] is ONE finding, not one per entry', () => {
+    // Otherwise the grade scales with the length of the array: the same fault
+    // is a B in a one-entry envelope and a C in a four-entry one.
+    const v1 = v1Envelope();
+    v1.accepts = [0, 1, 2, 3].map(() => {
+      const entry = v1Accept();
+      delete entry.extra;
+      return entry;
+    });
+    const report = lint(response({ v1, v2: v2Envelope(), url: RESOURCE_URL }));
+
+    const extra = report.findings.filter((f) => f.code === 'V1_EXTRA_EIP712');
+    assert.equal(extra.length, 1, JSON.stringify(report.findings.map((f) => f.code)));
+    assert.match(extra[0].message, /also in v1 accepts\[1\], v1 accepts\[2\], v1 accepts\[3\]/);
+    assert.match(extra[0].message, /4 of the 4 accepts\[\] entries/);
+    // One warning, so a B — exactly what the same fault in one entry scores.
+    assert.equal(report.grade, 'B');
+  });
+
+  test('the grade of a repeated fault does not move with the array length', () => {
+    const withEntries = (n) => {
+      const v1 = v1Envelope();
+      v1.accepts = Array.from({ length: n }, () => {
+        const entry = v1Accept();
+        delete entry.extra;
+        return entry;
+      });
+      return lint(response({ v1, v2: v2Envelope(), url: RESOURCE_URL })).grade;
+    };
+    assert.equal(withEntries(1), withEntries(40));
+  });
+
+  test('a hostile string in the envelope is quoted back clipped, not whole', () => {
+    // Every message that interpolates envelope content is a place a 2 KB field
+    // becomes 2 KB of report, once per check.
+    const v2 = v2Envelope();
+    v2.accepts[0].network = 'x'.repeat(20_000);
+    const report = lint(response({ v1: v1Envelope(), v2, url: RESOURCE_URL }));
+
+    const finding = report.findings.find((f) => f.code === 'V2_NETWORK_CAIP2');
+    assert.ok(finding, JSON.stringify(report.findings.map((f) => f.code)));
+    assert.ok(finding.message.length < 600, `message is ${finding.message.length} characters`);
+    assert.match(finding.message, /\+19800 more characters/);
+    assert.ok(JSON.stringify(report).length < 8000, 'the whole report grew with the input');
+  });
+
+  test('no input can produce more findings than there are checks', () => {
+    // THE REAL BOUND, and it is stronger than the 200-finding cap: once a fault
+    // repeated across accepts[] is one finding, the number of findings cannot
+    // exceed the number of distinct codes, whatever the input looks like. The
+    // cap in Report.emit is the backstop for a future check that emits outside
+    // an accepts group — it is deliberately unreachable today, and this test
+    // says so rather than pretending to exercise it.
+    const hostiles = [
+      hostile(),
+      response({ v1: { x402Version: 1, accepts: Array.from({ length: 400 }, (_, i) => ({ scheme: `s${i}` })) } }),
+      response({ v2: { x402Version: 2, accepts: Array.from({ length: 900 }, () => ({})) } }),
+    ];
+    for (const input of hostiles) {
+      const report = lint(input);
+      assert.ok(
+        report.findings.length <= CHECKS.length,
+        `${report.findings.length} findings from ${CHECKS.length} checks`
+      );
+      // Every code appears once. ACCEPTS_TRUNCATED is the sole exception and
+      // legitimately so: the v1 body and the v2 header are two envelopes, and
+      // each says for itself how much of its accepts[] was read.
+      const counts = new Map();
+      for (const f of report.findings) counts.set(f.code, (counts.get(f.code) ?? 0) + 1);
+      for (const [code, n] of counts) {
+        assert.ok(n === 1 || (code === 'ACCEPTS_TRUNCATED' && n === 2), `${code} appeared ${n} times`);
+      }
+    }
+  });
+
+  test('the cap notice can never change a grade', () => {
+    assert.equal(CHECKS_BY_ID.get('FINDINGS_TRUNCATED').severity, 'info');
+    assert.equal(grade([{ severity: 'info', code: 'FINDINGS_TRUNCATED' }]), 'A');
   });
 });
 

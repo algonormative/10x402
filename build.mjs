@@ -72,8 +72,16 @@ const AREAS = {
   v1: 'x402 v1 envelope (the 402 body)',
   dual: 'Dual-stack consistency',
   version: 'Version-detection hygiene',
+  report: 'The report’s own bounds',
 };
-const AREA_ORDER = ['http', 'v2', 'v1', 'dual', 'version'];
+// EVERY AREA IN THE CATALOGUE IS LISTED HERE. An area missing from this list is
+// a set of checks the page, llms.txt and skill.md silently do not mention while
+// the total above still counts them — so the published count and the published
+// list disagree, which is the one thing a check catalogue may not do.
+const AREA_ORDER = ['http', 'v2', 'v1', 'dual', 'version', 'report'];
+for (const area of new Set(CHECKS.map((c) => c.area))) {
+  if (!AREA_ORDER.includes(area)) throw new Error(`build: check area "${area}" is not in AREA_ORDER`);
+}
 
 const SEVERITY_BLURB = {
   error: 'a client, a facilitator or the discovery index will reject or mis-read this',

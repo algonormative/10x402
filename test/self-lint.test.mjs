@@ -48,6 +48,27 @@ const ips = callers('self-lint');
 let worker;
 let api;
 
+/**
+ * The checks that CANNOT apply to a correct 402 of ours, and why.
+ *
+ * Not a list of checks that happen not to fire — a check that fires is a
+ * finding, and the test above demands zero. These are the ones whose PRECONDITION
+ * this response does not meet, so they never run at all and `checks_run` is
+ * short by exactly this many.
+ */
+const CANNOT_APPLY = [
+  // Only runs on a 200. We answer 402, which is the point.
+  'HTTP_FREE_TIER_200',
+  // Needs the URL the response was fetched from to compare resource.url
+  // against, and the self-lint hands lint() the response without one.
+  'V2_RESOURCE_URL_MATCHES',
+  // Both only run in v2-only mode. We publish both envelopes.
+  'V1_ABSENT',
+  'V1_BODY_NOT_ENVELOPE',
+  // Only runs when a report is long enough to be capped. Ours has no findings.
+  'FINDINGS_TRUNCATED',
+];
+
 before(async () => {
   worker = await useWorker({ payTo: PAYTO_TEST });
   api = client(worker);
@@ -87,13 +108,22 @@ describe('10x402 lints itself', () => {
       assert.equal(report.grade, 'A');
     });
 
-    test(`${endpoint.path} earns that A across most of the catalogue`, async () => {
+    test(`${endpoint.path} earns that A across all but ${CANNOT_APPLY.length} of the catalogue`, async () => {
       // An A from four checks would be meaningless. This is what makes the
       // invariant a claim about the whole product rather than about a subset.
+      //
+      // EXACT, NOT A SLACK BOUND. This was `>= CHECKS.length - 6` for a while,
+      // and a tolerance of six is six checks that could quietly stop applying
+      // to our own envelope without anything failing — which is the same class
+      // of green-but-empty assertion this repo exists to find in other people's
+      // work. Every check that does not run is named below with the reason it
+      // cannot, so adding a check forces a decision here rather than eating the
+      // slack.
       const report = lint(await own402(endpoint));
-      assert.ok(
-        report.checks_run >= CHECKS.length - 6,
-        `only ${report.checks_run} of ${CHECKS.length} checks applied to our own envelope`
+      assert.equal(
+        report.checks_run,
+        CHECKS.length - CANNOT_APPLY.length,
+        `${report.checks_run} of ${CHECKS.length} checks applied; ${CANNOT_APPLY.length} are expected not to`
       );
     });
   }

@@ -129,12 +129,22 @@ export const v2Envelope = () => ({
  * `v2Raw` bypasses the encoder so the base64-encoding fixtures can put an
  * arbitrary string in the header — which is the whole point of two of them.
  */
-export function response({ status = 402, v1 = null, v2 = null, v2Raw = null, headers = {}, url = null } = {}) {
+export function response({
+  status = 402,
+  v1 = null,
+  v2 = null,
+  v2Raw = null,
+  bodyRaw = null,
+  headers = {},
+  url = null,
+} = {}) {
   const h = { ...headers };
   if (!('content-type' in h) && v1) h['content-type'] = 'application/json; charset=utf-8';
   if (v2Raw !== null) h['payment-required'] = v2Raw;
   else if (v2) h['payment-required'] = b64(v2);
-  return { status, headers: h, body: v1 ? JSON.stringify(v1) : '', url };
+  // `bodyRaw` puts an arbitrary string in the body, which is what the v2-only
+  // fixtures need: the whole point of those is a body that is NOT an envelope.
+  return { status, headers: h, body: bodyRaw !== null ? bodyRaw : v1 ? JSON.stringify(v1) : '', url };
 }
 
 /**
@@ -196,7 +206,87 @@ export const FIXTURES = [
     // about the v1 envelope's transport, and there is no v1 envelope to
     // mislabel. Complaining about the content-type of an absent body would be
     // a second finding for one fault.
-    expect: { grade: 'B', codes: ['V1_BODY_PRESENT'] },
+    //
+    // AN A, ON ONE INFO FINDING. Publishing v2 only is the current generation
+    // of the protocol done correctly; what it costs is the pre-header clients,
+    // and V1_ABSENT says exactly that and does not move the grade. The
+    // asymmetry with 'perfect v1-only 402' below (a B) is the point: v1-only is
+    // invisible to every CURRENT client and to CDP Bazaar discovery, which is a
+    // cost being paid today.
+    expect: { grade: 'A', codes: ['V1_ABSENT'] },
+  },
+  {
+    name: 'v2-only 402 with a framework error body',
+    why:
+      'THE FALSE F. A perfect v2 envelope, and a 402 body of {"error":"payment required"} — ' +
+      'which is what almost every HTTP framework emits on a 402 unless told otherwise. The ' +
+      'body is not a broken v1 envelope, it is the absence of one, and reading it as a broken ' +
+      'one ran the whole v1 core cascade and graded a flawless endpoint F.',
+    response: () =>
+      response({
+        v2: v2Envelope(),
+        bodyRaw: JSON.stringify({ error: 'payment required' }),
+        headers: { 'content-type': 'application/json' },
+        url: RESOURCE_URL,
+      }),
+    expect: { grade: 'B', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
+  },
+  {
+    name: 'v2-only 402 with a text/plain body',
+    why: 'the same fault in the other common shape: a human-readable 402 page next to a perfect v2 header.',
+    response: () =>
+      response({
+        v2: v2Envelope(),
+        bodyRaw: 'Payment Required\n',
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+        url: RESOURCE_URL,
+      }),
+    expect: { grade: 'B', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
+  },
+  {
+    name: 'the v2 envelope echoed into the 402 body',
+    why:
+      'NOT v2-only, and the distinction is the whole of isV1Attempt(). This body declares ' +
+      'x402Version and carries accepts[], so it IS trying to be a v1 envelope — and every v1 ' +
+      'field is missing or in the v2 spelling, which is what a v1 client would choke on. A ' +
+      'seller who serves the same object in both transports has a real defect, and it stays an F.',
+    response: () => response({ bodyRaw: JSON.stringify(v2Envelope()), v2: v2Envelope(), url: RESOURCE_URL }),
+    expect: {
+      grade: 'F',
+      codes: [
+        // The v2 envelope's own content-type is not JSON-labelled, because the
+        // body was never meant to be read as one.
+        'HTTP_CONTENT_TYPE_JSON',
+        'VERSION_BODY_SAYS_V2',
+        'V1_VERSION',
+        'V1_MAX_AMOUNT_REQUIRED',
+        'V1_NETWORK_NAME',
+        'V1_RESOURCE_STRING',
+        'V1_MIMETYPE',
+        'V1_DESCRIPTION',
+        'V1_OUTPUT_SCHEMA',
+        // DUAL_PRICE and DUAL_NETWORK stay quiet — it is the same object, so
+        // the numbers agree. DUAL_RESOURCE does not: a v2 accepts entry has no
+        // `resource` field to compare against the v2 resource object.
+        'DUAL_RESOURCE',
+      ],
+    },
+  },
+  {
+    name: 'dual-stack on a chain outside the linter’s table',
+    why:
+      'a correctly paired dual-stack envelope on Arbitrum. V1_NETWORK_CHAIN maps the nine ' +
+      'chains x402 clients ship with, and treating "not in the table" as "the two disagree" ' +
+      'graded every seller on every other chain F for a gap in this repo rather than a fault ' +
+      'in theirs.',
+    response: () => {
+      const v1 = v1Envelope();
+      const v2 = v2Envelope();
+      v1.accepts[0].network = 'arbitrum';
+      v2.accepts[0].network = 'eip155:42161';
+      return response({ v1, v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: ['DUAL_NETWORK'] },
   },
   {
     name: 'perfect v1-only 402',
@@ -320,9 +410,12 @@ export const FIXTURES = [
       "Bazaar's prober calls with no payment on an interval and expects a 402. A free " +
       'tier fails that probe and delists an endpoint that was already indexed.',
     response: () => response({ status: 200, headers: { 'content-type': 'application/json' } }),
-    // No envelope at all is also true of a 200, and both are worth reporting:
-    // the 200 explains WHY there is no envelope.
-    expect: { grade: 'F', codes: ['HTTP_FREE_TIER_200', 'V2_HEADER_PRESENT', 'V1_BODY_PRESENT', 'ENVELOPE_PRESENT'] },
+    // ONE finding, not four. A 200 was never going to carry an envelope, so
+    // "no x402 envelope was found" is a restatement of the 200 rather than a
+    // second fault — and as a core error it made the grade an F about something
+    // nobody has looked at yet. The free tier is the finding; the report says
+    // in summary.partial that the envelope checks did not run.
+    expect: { grade: 'B', codes: ['HTTP_FREE_TIER_200'] },
   },
   {
     name: 'dual-stack payTo divergence',
@@ -374,7 +467,10 @@ export const FIXTURES = [
         status: 307,
         headers: { location: 'https://example.com/api/thing/v2' },
       }),
-    expect: { grade: 'F', codes: ['HTTP_REDIRECT', 'V2_HEADER_PRESENT', 'V1_BODY_PRESENT', 'ENVELOPE_PRESENT'] },
+    // A redirect must never produce "no x402 envelope was found". The envelope
+    // is at the other end of the redirect, unread, and the fix says to lint
+    // that URL directly.
+    expect: { grade: 'B', codes: ['HTTP_REDIRECT'] },
   },
   {
     name: 'version confusion: a v1 payload in the v2 header',
@@ -415,19 +511,25 @@ export const FIXTURES = [
     name: 'a 401 instead of a 402',
     why: 'an endpoint telling an agent to go find credentials, which is the opposite of what x402 offers.',
     response: () => response({ status: 401, headers: { 'content-type': 'text/plain' } }),
-    expect: {
-      grade: 'F',
-      codes: ['HTTP_STATUS_402', 'V2_HEADER_PRESENT', 'V1_BODY_PRESENT', 'ENVELOPE_PRESENT'],
-    },
+    // Still an F, and it should be: HTTP_STATUS_402 is core on its own. What
+    // changed is that it is the ONLY finding, so the report is about the 401
+    // rather than burying it under three consequences of it.
+    expect: { grade: 'F', codes: ['HTTP_STATUS_402'] },
+  },
+  {
+    name: 'a 405 to the POST this linter sends',
+    why:
+      'as often a GET-only endpoint as a broken one. The old report said "your route is not ' +
+      'wired up at all" and graded F, which sends a seller whose endpoint is fine looking in ' +
+      'the wrong place; the retry is one field.',
+    response: () => response({ status: 405, headers: { allow: 'GET' } }),
+    expect: { grade: 'F', codes: ['HTTP_STATUS_402'] },
   },
   {
     name: 'a 500 instead of a 402',
     why: 'usually the payment middleware throwing on the no-payment path — the path every caller takes first.',
     response: () => response({ status: 500, headers: { 'content-type': 'text/plain' } }),
-    expect: {
-      grade: 'F',
-      codes: ['HTTP_SERVER_ERROR', 'HTTP_STATUS_402', 'V2_HEADER_PRESENT', 'V1_BODY_PRESENT', 'ENVELOPE_PRESENT'],
-    },
+    expect: { grade: 'F', codes: ['HTTP_SERVER_ERROR', 'HTTP_STATUS_402'] },
   },
   {
     name: 'a price as a decimal string',

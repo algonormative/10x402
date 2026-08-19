@@ -45,6 +45,36 @@ describe('the endpoint agrees with the engine', () => {
     });
   }
 
+  test('a hostile envelope cannot make the Worker answer with megabytes', async () => {
+    // THE AMPLIFIER. This endpoint takes a pasted response and returns a report
+    // computed from it, so an input whose report is orders of magnitude larger
+    // than itself is an out-of-memory for the price of half a cent. Measured
+    // before the bounds existed: 60 KB in, 56 MB out — 945x — inside an isolate
+    // with a 128 MB ceiling.
+    //
+    // Asserted through the WORKER rather than only in the engine phase, because
+    // what is being claimed is that the isolate survives and answers, and only
+    // a real workerd can be asked that.
+    const entries = Array.from({ length: 5000 }, () => ({}));
+    const body = JSON.stringify({ x402Version: 1, accepts: entries });
+    const paste = { status: 402, headers: { 'content-type': 'application/json' }, body };
+    const inputBytes = JSON.stringify(paste).length;
+
+    const res = await send(paste);
+    assert.equal(res.status, 200, res.text.slice(0, 400));
+    assert.ok(res.text.length < 256 * 1024, `the answer was ${Math.round(res.text.length / 1024)} KB`);
+    assert.ok(
+      res.text.length < inputBytes * 20,
+      `${(res.text.length / inputBytes).toFixed(1)}x amplification`
+    );
+    assert.ok(res.body.findings.some((f) => f.code === 'ACCEPTS_TRUNCATED'));
+
+    // And the worker is still there afterwards, which is the half of "survives"
+    // that a size assertion cannot make.
+    const after_ = await send({ status: 402, body: JSON.stringify(v1Envelope()) });
+    assert.equal(after_.status, 200, after_.text);
+  });
+
   test('a real production 402 pasted in still grades A', async () => {
     const res = await send({
       status: POSITIVE_CONTROL.status,
@@ -97,10 +127,14 @@ describe('input handling', () => {
   });
 
   test('body may be omitted entirely', async () => {
+    // A v2 envelope and no body is a v2-only seller, which is a choice rather
+    // than a defect: V1_ABSENT, info, and an A. It is V1_BODY_PRESENT — a warn
+    // — only when nothing was published in either transport.
     const input = response({ v2: v2Envelope() });
     const res = await send({ status: 402, headers: input.headers });
     assert.equal(res.status, 200);
-    assert.ok(res.body.findings.some((f) => f.code === 'V1_BODY_PRESENT'));
+    assert.ok(res.body.findings.some((f) => f.code === 'V1_ABSENT'));
+    assert.equal(res.body.grade, 'A');
   });
 
   test('a parsed body object is accepted, and the report says what that costs', async () => {

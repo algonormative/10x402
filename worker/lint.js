@@ -83,6 +83,48 @@ const V1_NETWORK_CHAIN = {
 
 const PAYMENT_REQUIRED_HEADER = 'payment-required';
 
+// ------------------------------------------------------------------ bounds
+//
+// A LINT REPORT IS A FUNCTION OF ATTACKER-CONTROLLED INPUT, and without the
+// three bounds below it is an amplifier: the caller pays for one small request
+// and gets back a response orders of magnitude larger, computed at our expense
+// and rendered into an isolate's memory. Measured before these existed: a 60 KB
+// envelope with a long accepts[] produced a 56 MB report — 945x — which is an
+// out-of-memory for the price of one cent.
+//
+// Each bound reports itself. A silent truncation would be worse than the
+// amplification, because the seller would read a short report as a clean one.
+
+/**
+ * How many accepts[] entries are linted, per envelope.
+ *
+ * Real envelopes publish one entry, occasionally a handful — one per (scheme,
+ * network, asset) pair a seller will take. Past this the entries are no longer
+ * telling the reader anything new: whatever is wrong with the ninth is almost
+ * certainly what was already reported about the first.
+ */
+const MAX_ACCEPTS_LINTED = 8;
+
+/** How many findings a report may carry before the rest are suppressed. */
+const MAX_FINDINGS = 200;
+
+/** How much of any attacker-controlled string may be quoted back in a message. */
+const MAX_QUOTED = 200;
+
+/**
+ * Quote a value from the envelope INTO a message, bounded.
+ *
+ * Every message below that interpolates envelope content goes through this.
+ * A network name, a payTo, a resource URL and a price are all strings the
+ * caller chose, and a check that echoes one unbounded turns a 2 KB field into
+ * 2 KB of report — once per accepts entry, once per check.
+ */
+function clip(value, max = MAX_QUOTED) {
+  const raw =
+    typeof value === 'string' ? value : value === undefined ? 'undefined' : JSON.stringify(value) ?? String(value);
+  return raw.length > max ? `${raw.slice(0, max)}… (+${raw.length - max} more characters)` : raw;
+}
+
 // ------------------------------------------------------------------ the catalogue
 //
 // One entry per check. `id` is the finding's `code`, so the catalogue published
@@ -138,7 +180,14 @@ export const CHECKS = [
     summary: 'maxTimeoutSeconds is present' },
   { id: 'V2_EXTRA_EIP712', area: 'v2', severity: 'warn',
     summary: 'extra carries the EIP-712 domain the client signs over' },
-  { id: 'V2_ACCEPTS_V1_FIELDS', area: 'v2', severity: 'error', core: true,
+  // A WARN, NOT A CORE ERROR, and the downgrade is deliberate. The concern is
+  // real — the client echoes the entry back as `accepted` and the server
+  // deep-equals the two — but it is a claim about what @x402/core's schema
+  // REJECTS that has not been verified against the published v2 schema, and a
+  // stray field must not be an instant F on that much certainty. Where a stray
+  // field genuinely breaks the envelope (a `maxAmountRequired` with no
+  // `amount`), V2_AMOUNT already says so at core severity.
+  { id: 'V2_ACCEPTS_V1_FIELDS', area: 'v2', severity: 'warn',
     summary: 'the accept carries no v1-only fields' },
   { id: 'V2_RESOURCE_OBJECT', area: 'v2', severity: 'error', core: true,
     summary: 'resource is the v2 object, not a v1 flat string' },
@@ -171,12 +220,32 @@ export const CHECKS = [
 
   // --- v1 envelope ------------------------------------------------------
   //
-  // V1_BODY_PRESENT and V1_BODY_JSON are deliberately two checks at two
-  // severities, and the distinction is the same one V2_HEADER_PRESENT draws on
-  // the other side: publishing NO v1 envelope is a choice with a cost (every v1
-  // client), while publishing a BROKEN one is a defect. A v2-only seller is
-  // modern, not broken, and grading them F alongside someone serving an HTML
-  // error page would make the grade meaningless in both directions.
+  // THE V1 CHECKS ONLY RUN ON A V1 ATTEMPT. Four checks divide one question —
+  // "what is in the 402 body?" — and the division is the whole of this repo's
+  // most expensive near-miss, so it is written out.
+  //
+  //   V1_ABSENT           info. There is a v2 envelope in the header and the
+  //                       body is not trying to be a v1 envelope. That is a
+  //                       CHOICE, and the only thing it costs is the shrinking
+  //                       population of pre-header clients. Never a grade.
+  //   V1_BODY_NOT_ENVELOPE warn. The same, except the body is serving something
+  //                       — `{"error":"payment required"}`, an HTML page — that
+  //                       a v1 client will parse as an envelope and get nothing
+  //                       usable from.
+  //   V1_BODY_PRESENT     warn. NOTHING was published, in either transport.
+  //   V1_BODY_JSON        core error. The body IS a v1 attempt and it is broken.
+  //
+  // The asymmetry with V2_HEADER_PRESENT (a warn for the mirror case) is
+  // deliberate rather than an oversight: a v1-only endpoint is invisible to
+  // every CURRENT client and is what CDP Bazaar answers with "upgrade to x402
+  // v2 to be discoverable", while a v2-only endpoint is missing only legacy
+  // ones. A v2-only seller is modern, not broken, and grading them F alongside
+  // someone serving an HTML error page would make the grade meaningless in both
+  // directions.
+  { id: 'V1_ABSENT', area: 'v1', severity: 'info',
+    summary: 'a v1 body envelope is published alongside the v2 header' },
+  { id: 'V1_BODY_NOT_ENVELOPE', area: 'v1', severity: 'warn',
+    summary: 'the 402 body is a v1 envelope or is empty, not something else' },
   { id: 'V1_BODY_PRESENT', area: 'v1', severity: 'warn',
     summary: 'a v1 envelope is published in the 402 body' },
   { id: 'V1_BODY_JSON', area: 'v1', severity: 'error', core: true,
@@ -229,6 +298,16 @@ export const CHECKS = [
     summary: 'the PAYMENT-REQUIRED header does not carry a v1 payload' },
   { id: 'VERSION_BODY_SAYS_V2', area: 'version', severity: 'error', core: true,
     summary: 'the 402 body does not carry a v2 payload' },
+
+  // --- the report's own bounds ------------------------------------------
+  //
+  // Not conformance checks: these say what the LINTER did, and they exist
+  // because the alternative to a bound that reports itself is a bound that
+  // lies. A truncated report read as a clean one is worse than no report.
+  { id: 'ACCEPTS_TRUNCATED', area: 'report', severity: 'info',
+    summary: `at most ${MAX_ACCEPTS_LINTED} accepts[] entries are linted per envelope` },
+  { id: 'FINDINGS_TRUNCATED', area: 'report', severity: 'info',
+    summary: `a report carries at most ${MAX_FINDINGS} findings` },
 ];
 
 export const CHECKS_BY_ID = new Map(CHECKS.map((c) => [c.id, c]));
@@ -255,6 +334,10 @@ class Report {
   constructor() {
     this.findings = [];
     this.ran = new Set();
+    /** Findings dropped by the MAX_FINDINGS cap. Reported, never swallowed. */
+    this.suppressed = 0;
+    /** The open accepts[] group, when one is being collapsed by code. */
+    this.group = null;
   }
 
   /** Record that a check executed. Returns `ok` so callers can chain. */
@@ -273,7 +356,7 @@ class Report {
     this.ran_(id, ok);
     if (ok) return true;
     const def = CHECKS_BY_ID.get(id);
-    this.findings.push({ severity: severity || def.severity, code: id, message, fix });
+    this.emit({ severity: severity || def.severity, code: id, message, fix });
     return false;
   }
 
@@ -282,8 +365,74 @@ class Report {
     const def = CHECKS_BY_ID.get(id);
     if (!def) throw new Error(`unknown check id ${id} — add it to CHECKS`);
     this.ran.add(id);
-    this.findings.push({ severity: severity || def.severity, code: id, message, fix });
+    this.emit({ severity: severity || def.severity, code: id, message, fix });
     return false;
+  }
+
+  /**
+   * The one place a finding enters the report, and therefore the one place the
+   * cap can be applied. Past MAX_FINDINGS the finding is counted and dropped;
+   * lint() turns that count into a terminal FINDINGS_TRUNCATED notice, so a
+   * short report is never mistaken for a clean one.
+   */
+  emit(finding) {
+    if (this.group) return this.groupEmit(finding);
+    if (this.findings.length >= MAX_FINDINGS) {
+      this.suppressed++;
+      return;
+    }
+    this.findings.push(finding);
+  }
+
+  // ---------------------------------------------------------------- accepts groups
+  //
+  // ONE FINDING PER CHECK CODE ACROSS A MULTI-ENTRY accepts[], not one per
+  // entry. Without this the grade scales with the length of the array: an
+  // envelope with forty entries each missing `extra` produced forty identical
+  // findings and a C, while the same fault in a one-entry envelope was a B. The
+  // fault is the same fault; what changes is only how many places it is in, and
+  // that belongs in the message rather than in the count.
+
+  /**
+   * Begin collapsing findings by code. `total` is the array's real length and
+   * `label` is how an entry is named in a message — the same spelling the
+   * per-entry messages use, so the two halves of one sentence agree.
+   */
+  beginAccepts(total, label) {
+    this.group = { total, label, at: 0, byCode: new Map() };
+  }
+
+  /** Which entry the checks that follow are about. */
+  atIndex(index) {
+    if (this.group) this.group.at = index;
+  }
+
+  groupEmit(finding) {
+    const bucket = this.group.byCode.get(finding.code);
+    if (bucket) {
+      bucket.indexes.push(this.group.at);
+      return;
+    }
+    this.group.byCode.set(finding.code, { finding, indexes: [this.group.at] });
+  }
+
+  /** Emit the collapsed findings, each naming every entry it was found in. */
+  endAccepts() {
+    const group = this.group;
+    this.group = null;
+    if (!group) return;
+
+    for (const { finding, indexes } of group.byCode.values()) {
+      if (indexes.length > 1) {
+        // The message already names the FIRST entry, so the list is the rest.
+        const rest = indexes.slice(1);
+        const shown = rest.slice(0, 8).map((i) => `${group.label}[${i}]`).join(', ');
+        const more = rest.length > 8 ? ` and ${rest.length - 8} more` : '';
+        finding.message +=
+          ` The same fault is also in ${shown}${more} — ${indexes.length} of the ${group.total} accepts[] entries in total.`;
+      }
+      this.emit(finding);
+    }
   }
 }
 
@@ -434,7 +583,7 @@ function lintV2(report, headers, requestUrl) {
   report.check(
     'V2_VERSION',
     env.x402Version === 2,
-    `the v2 envelope declares x402Version ${JSON.stringify(env.x402Version)}, not 2.`,
+    `the v2 envelope declares x402Version ${clip(JSON.stringify(env.x402Version))}, not 2.`,
     'Set "x402Version": 2 at the top level of the PAYMENT-REQUIRED envelope. This is the ' +
       'field every client dispatches on.'
   );
@@ -469,7 +618,9 @@ function lintV2Accept(report, accept, accepts) {
     return;
   }
 
-  for (const [i, entry] of accepts.entries()) {
+  report.beginAccepts(accepts.length, 'accepts');
+  for (const [i, entry] of lintedAccepts(accepts).entries()) {
+    report.atIndex(i);
     const where = accepts.length > 1 ? `accepts[${i}]` : 'the v2 accept';
     if (!isObject(entry)) continue;
 
@@ -483,7 +634,7 @@ function lintV2Accept(report, accept, accepts) {
     report.check(
       'V2_SCHEME_KNOWN',
       !nonEmptyString(entry.scheme) || entry.scheme === 'exact',
-      `${where} uses the scheme "${entry.scheme}", which is not the "exact" scheme most clients implement.`,
+      `${where} uses the scheme "${clip(entry.scheme)}", which is not the "exact" scheme most clients implement.`,
       'Unless you have a facilitator that speaks this scheme, publish "exact" as well so ' +
         'ordinary x402 clients can pay you.'
     );
@@ -498,16 +649,16 @@ function lintV2Accept(report, accept, accepts) {
       report.check(
         'V2_NETWORK_CAIP2',
         false,
-        `${where} uses the v1 network name "${entry.network}" in a v2 envelope.`,
-        `v2 networks are CAIP-2 and the schema requires the colon: replace "${entry.network}" ` +
-          `with "${V1_NETWORK_CHAIN[entry.network]}". Keep "${entry.network}" in the v1 body — ` +
+        `${where} uses the v1 network name "${clip(entry.network)}" in a v2 envelope.`,
+        `v2 networks are CAIP-2 and the schema requires the colon: replace "${clip(entry.network)}" ` +
+          `with "${V1_NETWORK_CHAIN[entry.network]}". Keep "${clip(entry.network)}" in the v1 body — ` +
           'the same chain has two spellings and the version decides which one is legal.'
       );
     } else {
       report.check(
         'V2_NETWORK_CAIP2',
         CAIP2_RE.test(entry.network),
-        `${where} network "${entry.network}" is not a CAIP-2 identifier.`,
+        `${where} network "${clip(entry.network)}" is not a CAIP-2 identifier.`,
         'Use `namespace:reference`, e.g. "eip155:8453" (Base mainnet) or "eip155:84532" ' +
           '(Base Sepolia). The colon is required by the v2 schema.'
       );
@@ -520,7 +671,7 @@ function lintV2Accept(report, accept, accepts) {
         'V2_AMOUNT',
         false,
         `${where} carries the v1 field "maxAmountRequired" instead of v2's "amount".`,
-        `Rename it: "amount": "${entry.maxAmountRequired}". v2 reads accepts[].amount; a v2 ` +
+        `Rename it: "amount": ${clip(JSON.stringify(entry.maxAmountRequired))}. v2 reads accepts[].amount; a v2 ` +
           'client that finds no amount has no price to sign over. Keep maxAmountRequired in ' +
           'the v1 body.'
       );
@@ -533,7 +684,7 @@ function lintV2Accept(report, accept, accepts) {
       report.check(
         'V2_AMOUNT_ATOMIC',
         typeof entry.amount === 'string' && /^\d+$/.test(entry.amount),
-        `${where} amount ${JSON.stringify(entry.amount)} is not a decimal string of atomic units.`,
+        `${where} amount ${clip(JSON.stringify(entry.amount))} is not a decimal string of atomic units.`,
         'Amounts are STRINGS of integer atomic units, never numbers and never decimals — ' +
           '"10000", not 0.01 and not "0.01". A JSON number loses precision on large amounts ' +
           'and a decimal string is rejected by the facilitator.'
@@ -543,7 +694,7 @@ function lintV2Accept(report, accept, accepts) {
     report.check(
       'V2_PAYTO',
       ADDRESS_RE.test(String(entry.payTo || '')),
-      entry.payTo ? `${where} payTo "${entry.payTo}" is not a 0x EVM address.`
+      entry.payTo ? `${where} payTo "${clip(entry.payTo)}" is not a 0x EVM address.`
         : `${where} has no payTo — there is nowhere to send the money.`,
       'payTo is the 20-byte receiving address, 0x-prefixed and 40 hex characters. Paste the ' +
         'address from your wallet rather than a name or an ENS entry; clients do not resolve names.'
@@ -599,6 +750,27 @@ function lintV2Accept(report, accept, accepts) {
         'this entry back as `accepted` and the two are deep-compared.'
     );
   }
+  report.endAccepts();
+  acceptsTruncated(report, accepts, 'v2');
+}
+
+/** The accepts[] entries this report will actually read. See MAX_ACCEPTS_LINTED. */
+const lintedAccepts = (accepts) => accepts.slice(0, MAX_ACCEPTS_LINTED);
+
+/** Say so, in the report, when accepts[] was longer than the linter reads. */
+function acceptsTruncated(report, accepts, version) {
+  const skipped = accepts.length - MAX_ACCEPTS_LINTED;
+  report.check(
+    'ACCEPTS_TRUNCATED',
+    skipped <= 0,
+    `the ${version} envelope publishes ${accepts.length} accepts[] entries; the first ` +
+      `${MAX_ACCEPTS_LINTED} were checked and ${skipped} were not.`,
+    `Publish one accepts[] entry per (scheme, network, asset) you will actually take — real ` +
+      `envelopes have one, occasionally a handful. If you genuinely offer more than ` +
+      `${MAX_ACCEPTS_LINTED}, lint the remainder by posting a response whose accepts[] carries ` +
+      'them, or expect that whatever is wrong with the later entries is what this report ' +
+      'already says about the first.'
+  );
 }
 
 function lintV2Resource(report, resource, requestUrl) {
@@ -607,7 +779,7 @@ function lintV2Resource(report, resource, requestUrl) {
       'V2_RESOURCE_OBJECT',
       false,
       'the v2 envelope\'s top-level `resource` is a flat string — that is the v1 form.',
-      `Replace it with the v2 object: { "url": "${resource}", "method": "POST", ` +
+      `Replace it with the v2 object: { "url": "${clip(resource)}", "method": "POST", ` +
         '"description": "<what the call does>", "mimeType": "<what comes back>" } — plus ' +
         'optional serviceName and tags. Keep the flat string in the v1 body\'s accepts entry.'
     );
@@ -635,7 +807,7 @@ function lintV2Resource(report, resource, requestUrl) {
   report.check(
     'V2_RESOURCE_URL',
     parsed !== null,
-    resource.url ? `resource.url "${resource.url}" is not an absolute URL.` : 'resource.url is missing.',
+    resource.url ? `resource.url "${clip(resource.url)}" is not an absolute URL.` : 'resource.url is missing.',
     'resource.url must be the absolute https URL of the paid endpoint, e.g. ' +
       '"https://example.com/api/thing". A relative path cannot be resolved by an indexer ' +
       'that only has the envelope.'
@@ -668,7 +840,7 @@ function lintV2Resource(report, resource, requestUrl) {
     report.check(
       'V2_RESOURCE_URL_MATCHES',
       parsed.href.replace(/\/$/, '') === String(requestUrl).replace(/\/$/, ''),
-      `resource.url is "${parsed.href}" but this envelope was served from "${requestUrl}".`,
+      `resource.url is "${clip(parsed.href)}" but this envelope was served from "${clip(requestUrl)}".`,
       'Point resource.url at the URL that actually answers the 402. A mismatch sends the ' +
         'discovery index — and the settlement record attached to it — at a different URL ' +
         'from the one buyers call.'
@@ -762,7 +934,7 @@ function lintBazaar(report, extensions) {
     report.check(
       'V2_BAZAAR_INFO_VALIDATES',
       problems.length === 0,
-      `bazaar.info does not validate against bazaar.schema: ${problems.slice(0, 4).join('; ')}` +
+      `bazaar.info does not validate against bazaar.schema: ${clip(problems.slice(0, 4).join('; '), 400)}` +
         (problems.length > 4 ? ` (+${problems.length - 4} more)` : ''),
       'Fix whichever half is wrong so the pair agrees. This exact mismatch is what CDP\'s ' +
         'facilitator rejects, and it rejects it SILENTLY — the endpoint keeps taking payments ' +
@@ -775,10 +947,78 @@ function lintBazaar(report, extensions) {
 
 // ------------------------------------------------------------------ v1
 
-/** Lint the v1 half — the 402's JSON body. Returns the facts, or null. */
-function lintV1(report, body, contentType) {
+/**
+ * Is this body TRYING to be a v1 envelope?
+ *
+ * THIS PREDICATE IS THE DIFFERENCE BETWEEN AN A AND AN F FOR EVERY V2-ONLY
+ * SELLER, so it is a named function rather than an inline condition. Before it
+ * existed, the v1 core checks were skipped only when the body was literally
+ * empty — so a perfect v2-only endpoint answering `{"error":"payment required"}`
+ * in the body, which is what most frameworks emit on a 402, ran the entire v1
+ * cascade and graded F. The report told a seller with a flawless envelope that
+ * their endpoint did not work.
+ *
+ * A v1 attempt is a JSON OBJECT carrying at least one field that only a v1
+ * envelope has a reason to carry. Anything else — an error blob, an HTML page,
+ * plain text, an empty body — is not a broken v1 envelope. It is the absence of
+ * one, which is a different finding at a different severity.
+ */
+function isV1Attempt(parsed) {
+  return (
+    isObject(parsed) &&
+    (parsed.x402Version !== undefined || parsed.accepts !== undefined || parsed.maxAmountRequired !== undefined)
+  );
+}
+
+/**
+ * Lint the v1 half — the 402's JSON body. Returns the facts, or null.
+ *
+ * `v2Published` decides what the ABSENCE of a v1 envelope means. With a v2
+ * envelope in the header it is a deliberate, modern choice and costs only the
+ * legacy clients (V1_ABSENT, info). Without one, nothing at all was published,
+ * and ENVELOPE_PRESENT upstream says so as a core error.
+ */
+function lintV1(report, body, contentType, v2Published) {
   const text = typeof body === 'string' ? body : '';
 
+  let parsed;
+  let parseError = null;
+  if (text.trim()) {
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      parseError = err;
+    }
+  }
+
+  // --- v2-only: no v1 attempt, and a v2 envelope to fall back on -------
+  if (!isV1Attempt(parsed) && v2Published) {
+    report.check(
+      'V1_ABSENT',
+      false,
+      'the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only.',
+      'Optional, and only you can price it: a v1 client (x402-fetch v1, and anything written ' +
+        'against the pre-header protocol) reads the 402 BODY and never looks at the ' +
+        'PAYMENT-REQUIRED header, so it cannot pay this endpoint at all. Serving both from one ' +
+        '402 costs one JSON body: { "x402Version": 1, "accepts": [ … ] }, with the v1 spellings ' +
+        '(maxAmountRequired, a plain network name, a flat resource string). Everything else ' +
+        'here is already right.'
+    );
+    report.check(
+      'V1_BODY_NOT_ENVELOPE',
+      !text.trim(),
+      `the 402 body is ${clip(text.trim(), 120)} — ${
+        parseError ? 'not JSON' : 'JSON, but not an x402 envelope'
+      }.`,
+      'Either serve a v1 envelope here or serve nothing. A v1 client parses this body as the ' +
+        'envelope, finds no accepts[], and reports a payment failure that names your error ' +
+        'string rather than the real cause. An empty body is a cleaner signal than a body ' +
+        'that looks like it might have been one.'
+    );
+    return null;
+  }
+
+  // --- nothing published anywhere --------------------------------------
   if (!text.trim()) {
     report.check(
       'V1_BODY_PRESENT',
@@ -793,20 +1033,19 @@ function lintV1(report, body, contentType) {
   }
   report.check('V1_BODY_PRESENT', true);
 
-  let env;
-  try {
-    env = JSON.parse(text);
-  } catch (err) {
+  // --- a v1 attempt, or a body that is nothing with no v2 to fall back on
+  if (parseError) {
     report.check(
       'V1_BODY_JSON',
       false,
-      `the 402 body is not valid JSON: ${String(err.message).slice(0, 120)}`,
+      `the 402 body is not valid JSON: ${clip(String(parseError.message), 120)}`,
       'The v1 envelope is a JSON object in the response body. If you are returning an HTML ' +
         'error page or a plain-text message on 402, replace it — a v1 client parses this body ' +
         'as the envelope and gets nothing.'
     );
     return null;
   }
+  const env = parsed;
   if (!report.check('V1_BODY_JSON', isObject(env), 'the 402 body is JSON but not an object.',
     'The v1 envelope is a JSON object: { "x402Version": 1, "accepts": [ … ] }.')) {
     return null;
@@ -815,7 +1054,7 @@ function lintV1(report, body, contentType) {
   report.check(
     'HTTP_CONTENT_TYPE_JSON',
     /application\/json|\+json/i.test(String(contentType || '')),
-    `the 402 carries content-type ${contentType ? `"${contentType}"` : '(none)'} while its body is a JSON envelope.`,
+    `the 402 carries content-type ${contentType ? `"${clip(contentType)}"` : '(none)'} while its body is a JSON envelope.`,
     'Send "content-type: application/json; charset=utf-8" on the 402. Some clients and most ' +
       'proxies decide whether to parse a body from its content-type, and a JSON envelope ' +
       'labelled text/html is a body they will not read.'
@@ -833,7 +1072,7 @@ function lintV1(report, body, contentType) {
   report.check(
     'V1_VERSION',
     env.x402Version === 1,
-    `the 402 body declares x402Version ${JSON.stringify(env.x402Version)}, not 1.`,
+    `the 402 body declares x402Version ${clip(JSON.stringify(env.x402Version))}, not 1.`,
     'Set "x402Version": 1 in the 402 body. Clients dispatch on this field, and one that is ' +
       'missing or wrong sends the client down the wrong parser.'
   );
@@ -865,7 +1104,9 @@ function lintV1Accept(report, accept, accepts) {
     return;
   }
 
-  for (const [i, entry] of accepts.entries()) {
+  report.beginAccepts(accepts.length, 'v1 accepts');
+  for (const [i, entry] of lintedAccepts(accepts).entries()) {
+    report.atIndex(i);
     const where = accepts.length > 1 ? `v1 accepts[${i}]` : 'the v1 accept';
     if (!isObject(entry)) continue;
 
@@ -878,7 +1119,7 @@ function lintV1Accept(report, accept, accepts) {
         'V1_MAX_AMOUNT_REQUIRED',
         false,
         `${where} carries the v2 field "amount" instead of v1's "maxAmountRequired".`,
-        `Rename it: "maxAmountRequired": "${entry.amount}". v1 reads ` +
+        `Rename it: "maxAmountRequired": ${clip(JSON.stringify(entry.amount))}. v1 reads ` +
           'accepts[].maxAmountRequired; `amount` is the v2 spelling and belongs in the ' +
           'PAYMENT-REQUIRED header envelope, not here.'
       );
@@ -892,7 +1133,7 @@ function lintV1Accept(report, accept, accepts) {
       report.check(
         'V1_AMOUNT_ATOMIC',
         typeof entry.maxAmountRequired === 'string' && /^\d+$/.test(entry.maxAmountRequired),
-        `${where} maxAmountRequired ${JSON.stringify(entry.maxAmountRequired)} is not a decimal string of atomic units.`,
+        `${where} maxAmountRequired ${clip(JSON.stringify(entry.maxAmountRequired))} is not a decimal string of atomic units.`,
         'Amounts are STRINGS of integer atomic units — "10000", never 0.01 and never "0.01".'
       );
     }
@@ -906,8 +1147,8 @@ function lintV1Accept(report, accept, accepts) {
       report.check(
         'V1_NETWORK_NAME',
         false,
-        `${where} uses the CAIP-2 network "${entry.network}" in a v1 envelope.`,
-        `v1 networks are plain names: replace "${entry.network}" with ` +
+        `${where} uses the CAIP-2 network "${clip(entry.network)}" in a v1 envelope.`,
+        `v1 networks are plain names: replace "${clip(entry.network)}" with ` +
           `"${plain ? plain[0] : '<the v1 name for this chain>'}". The CAIP-2 form belongs in ` +
           'the v2 header envelope. Same chain, two spellings, and the version decides which is legal.'
       );
@@ -922,7 +1163,7 @@ function lintV1Accept(report, accept, accepts) {
         false,
         `${where} resource is an object — that is the v2 form.`,
         `In v1 resource is the flat URL STRING: "resource": ` +
-          `"${entry.resource.url || 'https://example.com/your/endpoint'}". The object form, ` +
+          `"${clip(entry.resource.url || 'https://example.com/your/endpoint')}". The object form, ` +
           'with url/method/description/mimeType, belongs at the TOP LEVEL of the v2 header ' +
           'envelope — not inside a v1 accepts entry.'
       );
@@ -939,7 +1180,7 @@ function lintV1Accept(report, accept, accepts) {
     report.check(
       'V1_PAYTO',
       ADDRESS_RE.test(String(entry.payTo || '')),
-      entry.payTo ? `${where} payTo "${entry.payTo}" is not a 0x EVM address.`
+      entry.payTo ? `${where} payTo "${clip(entry.payTo)}" is not a 0x EVM address.`
         : `${where} has no payTo — there is nowhere to send the money.`,
       'payTo is the 0x-prefixed, 40-hex-character receiving address.'
     );
@@ -1002,6 +1243,8 @@ function lintV1Accept(report, accept, accepts) {
       );
     }
   }
+  report.endAccepts();
+  acceptsTruncated(report, accepts, 'v1');
 }
 
 // ------------------------------------------------------------------ dual-stack
@@ -1019,7 +1262,7 @@ function lintDualStack(report, v1, v2) {
   report.check(
     'DUAL_PAYTO',
     String(a.payTo || '').toLowerCase() === String(b.payTo || '').toLowerCase(),
-    `the v1 envelope pays ${a.payTo || '(nothing)'} and the v2 envelope pays ${b.payTo || '(nothing)'}.`,
+    `the v1 envelope pays ${clip(a.payTo || '(nothing)')} and the v2 envelope pays ${clip(b.payTo || '(nothing)')}.`,
     'Build both envelopes from ONE requirements object rather than assembling each ' +
       'separately — derive the v2 accepts entry from the v1 one. Divergent payTo means half ' +
       'your revenue lands in an address you may no longer control.'
@@ -1030,28 +1273,56 @@ function lintDualStack(report, v1, v2) {
   report.check(
     'DUAL_PRICE',
     String(price1 ?? '') === String(price2 ?? ''),
-    `the v1 envelope asks ${price1 ?? '(nothing)'} and the v2 envelope asks ${price2 ?? '(nothing)'} atomic units.`,
+    `the v1 envelope asks ${clip(price1 ?? '(nothing)')} and the v2 envelope asks ${clip(price2 ?? '(nothing)')} atomic units.`,
     'Quote one price and project it into both envelopes. Your two generations of buyers ' +
       'currently see different terms for the same call, and the cheaper one is the one you ' +
       'will be held to.'
   );
 
+  // NETWORK. Both sides have to RESOLVE to a chain before a mismatch between
+  // them means anything, and V1_NETWORK_CHAIN is a nine-entry table of the
+  // chains x402 clients ship with — not a list of the chains that exist. A v1
+  // name outside it (`arbitrum`, `optimism`, `solana`) resolved to null, null
+  // compared unequal to the v2 side, and a correctly paired dual-stack envelope
+  // on any chain the table had not heard of graded F for a fault that was in
+  // this file rather than in the envelope.
+  //
+  // Unknown is now INFO and says so plainly. It is the same leniency
+  // V1_NETWORK_NAME already extends — it accepts any plain name, because a name
+  // it does not recognise is a chain it does not know, not a wrong chain.
   const chain1 = chainOf(a.network);
   const chain2 = chainOf(b.network);
-  report.check(
-    'DUAL_NETWORK',
-    chain1 !== null && chain2 !== null && chain1 === chain2,
-    `the v1 envelope is on ${a.network || '(nothing)'} and the v2 envelope on ${b.network || '(nothing)'}` +
-      (chain1 && chain2 ? ` — chains ${chain1} and ${chain2}.` : '.'),
-    'The two envelopes must name the SAME chain in each version\'s spelling — "base" in v1, ' +
-      '"eip155:8453" in v2. A genuine chain difference means a payment signed on one chain ' +
-      'is worthless on the other.'
-  );
+  const bothResolve = chain1 !== null && chain2 !== null;
+  const pair = `the v1 envelope is on ${clip(a.network || '(nothing)')} and the v2 envelope on ${clip(b.network || '(nothing)')}`;
+  if (bothResolve) {
+    report.check(
+      'DUAL_NETWORK',
+      chain1 === chain2,
+      `${pair} — chains ${clip(chain1)} and ${clip(chain2)}.`,
+      'The two envelopes must name the SAME chain in each version\'s spelling — "base" in v1, ' +
+        '"eip155:8453" in v2. A genuine chain difference means a payment signed on one chain ' +
+        'is worthless on the other.'
+    );
+  } else {
+    report.check(
+      'DUAL_NETWORK',
+      false,
+      `${pair} — this linter does not recognise ${
+        chain1 === null ? 'the v1 name' : 'the v2 identifier'
+      }, so it could not verify that the two name the same chain.`,
+      'Check by hand that the two spellings are the same chain — the v1 plain name and the v2 ' +
+        'CAIP-2 id, e.g. "arbitrum" and "eip155:42161". This linter only knows the nine chains ' +
+        'x402 clients ship a mapping for, so an unrecognised pair is reported as unverified ' +
+        'rather than as wrong. If they DO disagree, a payment signed on one chain is worthless ' +
+        'on the other.',
+      'info'
+    );
+  }
 
   report.check(
     'DUAL_ASSET',
     String(a.asset || '').toLowerCase() === String(b.asset || '').toLowerCase(),
-    `the v1 envelope wants ${a.asset || '(nothing)'} and the v2 envelope wants ${b.asset || '(nothing)'}.`,
+    `the v1 envelope wants ${clip(a.asset || '(nothing)')} and the v2 envelope wants ${clip(b.asset || '(nothing)')}.`,
     'Name one token contract in both envelopes. Different assets means the two versions are ' +
       'selling for different money.'
   );
@@ -1062,7 +1333,7 @@ function lintDualStack(report, v1, v2) {
     report.check(
       'DUAL_RESOURCE',
       String(url1 || '').replace(/\/$/, '') === String(url2 || '').replace(/\/$/, ''),
-      `the v1 envelope names ${url1 || '(nothing)'} and the v2 envelope names ${url2 || '(nothing)'}.`,
+      `the v1 envelope names ${clip(url1 || '(nothing)')} and the v2 envelope names ${clip(url2 || '(nothing)')}.`,
       'Point both at the same absolute URL. Discovery indexes key settlements on the ' +
         'resource, so two URLs split one endpoint\'s track record across two listings.'
     );
@@ -1093,12 +1364,16 @@ export function lint(response) {
     'HTTP_REDIRECT',
     !is3xx && !redirectedTo,
     is3xx
-      ? `the endpoint answered ${status}${redirectedTo ? ` to ${redirectedTo}` : ''} instead of a 402.`
-      : `the 402 was reached through a redirect to ${redirectedTo}.`,
+      ? `the endpoint answered ${status}${redirectedTo ? ` to ${clip(redirectedTo)}` : ''} instead of a 402.`
+      : `the 402 was reached through a redirect to ${clip(redirectedTo)}.`,
     'Serve the 402 directly at the advertised URL. x402 clients do not follow redirects ' +
       'before reading the envelope — the paid request is a POST with a payment header, and ' +
       'redirecting it drops the header — so a 402 behind a redirect is a 402 the buyer never ' +
-      'sees. Advertise the final URL in resource.url instead.'
+      'sees. Advertise the final URL in resource.url instead.' +
+      (redirectedTo
+        ? ` This report is about the redirect itself: to lint the envelope, run this again ` +
+          `against ${clip(redirectedTo)} directly.`
+        : ' To lint the envelope, run this again against the final URL directly.')
   );
 
   report.check(
@@ -1122,32 +1397,63 @@ export function lint(response) {
         'so the anonymous path stays 402.'
     );
   }
+  // A 404 or a 405 is very often not a missing endpoint at all — it is a GET-only
+  // resource answering a POST, which is the method this linter sends by default.
+  // Saying "your route is not wired up" to someone whose route is fine, and
+  // grading them F for it, is a report that sends the seller looking in the
+  // wrong place. The retry is one field.
+  const methodMayBeWrong = status === 405 || status === 404;
   report.check(
     'HTTP_STATUS_402',
     status === 402 || status === 200 || is3xx,
     `the endpoint answered ${status}, not 402.`,
     'An unauthenticated request to a paid x402 endpoint must answer HTTP 402 with the ' +
       'envelope. A 401 or 403 tells a client to find credentials, which is the opposite of ' +
-      'what x402 offers; a 404 means your route is not wired up at all.'
+      'what x402 offers; a 404 means your route is not wired up at all.' +
+      (methodMayBeWrong
+        ? ` A ${status} to the POST this linter sends is just as often a GET-only endpoint: ` +
+          'try again with {"method": "GET"} before changing anything. If GET answers 402, the ' +
+          'endpoint is fine and the finding is this linter using the wrong verb — but say so ' +
+          'in the envelope too, as resource.method and bazaar.info.input.method, or every ' +
+          'agent that finds your listing will call it wrong on the first try.'
+        : '')
   );
 
   // --- the two envelopes ------------------------------------------------
-  const v2 = lintV2(report, headers, url);
-  const v1 = lintV1(report, body, headerOf(headers, 'content-type'));
+  //
+  // THE ENVELOPE CHECKS ARE GATED ON THE STATUS, and the reason is that a 402 is
+  // the only response an envelope was ever promised in. A 307 to the real
+  // endpoint carries no envelope because there is nothing to carry one for; so
+  // does a 200 from a free tier, and so does a 405 to the wrong verb. Running
+  // the cascade on those produced "no x402 envelope was found — neither a JSON
+  // body nor a PAYMENT-REQUIRED header" for a redirect, which is true, useless,
+  // and an F for an endpoint whose envelope nobody has looked at yet.
+  //
+  // The status-level finding above already says what happened. What follows
+  // runs only when there is something to read: a 402, or a non-402 that
+  // published an envelope anyway (which IS worth linting — some sellers do).
+  const headerPresent = nonEmptyString(headerOf(headers, PAYMENT_REQUIRED_HEADER));
+  const bodyLooksLikeEnvelope = isV1Attempt(parseJson(body));
+  const readEnvelopes = status === 402 || headerPresent || bodyLooksLikeEnvelope;
+
+  const v2 = readEnvelopes ? lintV2(report, headers, url) : null;
+  const v1 = readEnvelopes ? lintV1(report, body, headerOf(headers, 'content-type'), v2 !== null) : null;
 
   const versions = [];
   if (v1?.env) versions.push(1);
   if (v2?.env) versions.push(2);
 
-  report.check(
-    'ENVELOPE_PRESENT',
-    versions.length > 0,
-    'no x402 envelope was found — neither a JSON body nor a PAYMENT-REQUIRED header.',
-    'Publish at least one envelope. The dual-stack answer is one 402 carrying BOTH: the v1 ' +
-      'envelope as the JSON body, and the v2 envelope as standard base64 in a ' +
-      'PAYMENT-REQUIRED response header. Neither client version looks at the other\'s ' +
-      'transport, so serving both costs one extra header and reaches every buyer.'
-  );
+  if (readEnvelopes) {
+    report.check(
+      'ENVELOPE_PRESENT',
+      versions.length > 0,
+      'no x402 envelope was found — neither a JSON body nor a PAYMENT-REQUIRED header.',
+      'Publish at least one envelope. The dual-stack answer is one 402 carrying BOTH: the v1 ' +
+        'envelope as the JSON body, and the v2 envelope as standard base64 in a ' +
+        'PAYMENT-REQUIRED response header. Neither client version looks at the other\'s ' +
+        'transport, so serving both costs one extra header and reaches every buyer.'
+    );
+  }
 
   if (v1 && v2) lintDualStack(report, v1, v2);
 
@@ -1157,15 +1463,53 @@ export function lint(response) {
   const atomic = accept2?.amount ?? accept1?.maxAmountRequired ?? accept2?.maxAmountRequired ?? accept1?.amount;
   const price = formatPrice(atomic);
 
+  // THE SUMMARY QUOTES THE ENVELOPE TOO, and it was the last unbounded echo:
+  // three fields copied verbatim out of attacker-controlled JSON, which made a
+  // 20 KB `network` string a 20 KB summary however short the findings were.
+  const payTo = accept2?.payTo ?? accept1?.payTo ?? null;
+  const network = accept2?.network ?? accept1?.network ?? null;
   const summary = {
     versions_detected: versions,
-    payTo: accept2?.payTo ?? accept1?.payTo ?? null,
-    network: accept2?.network ?? accept1?.network ?? null,
-    price: price ? `${price} (${atomic} atomic)` : (atomic != null ? String(atomic) : null),
+    payTo: payTo == null ? null : clip(payTo, 80),
+    network: network == null ? null : clip(network, 80),
+    price: price ? `${price} (${clip(atomic, 40)} atomic)` : (atomic != null ? clip(atomic, 40) : null),
   };
 
+  // A PARTIAL REPORT SAYS SO. Half a report read as a whole one is the failure
+  // mode this whole file exists to prevent in other people's envelopes.
+  if (!readEnvelopes) {
+    summary.partial = `the endpoint answered ${status}, not 402, and published no envelope, so none of the ${
+      CHECKS.filter((c) => c.area === 'v1' || c.area === 'v2' || c.area === 'dual' || c.area === 'version').length
+    } envelope checks could run. ${
+      is3xx ? 'Lint the redirect target directly.' : 'Lint the URL and method that answer the 402.'
+    }`;
+  }
+
   const findings = report.findings;
+  if (report.suppressed) {
+    report.ran_('FINDINGS_TRUNCATED', false);
+    findings.push({
+      severity: 'info',
+      code: 'FINDINGS_TRUNCATED',
+      message: `this report was capped at ${MAX_FINDINGS} findings; ${report.suppressed} further findings were suppressed.`,
+      fix:
+        'Fix what is listed and lint again — the suppressed findings are almost certainly more ' +
+        'of the same. A report this long usually means one fault repeated across a long ' +
+        'accepts[] array rather than that many distinct problems.',
+    });
+  }
+
   return { grade: grade(findings), summary, findings, checks_run: report.ran.size };
+}
+
+/** JSON.parse that answers `undefined` instead of throwing. */
+function parseJson(text) {
+  if (typeof text !== 'string' || !text.trim()) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
