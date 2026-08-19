@@ -33,7 +33,7 @@
 // They are cheap. A service whose entire market is agents should be legible to
 // every convention an agent might already know.
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,6 +57,7 @@ import { atomicAmount, runSample, sampleInputBody } from './worker/envelope.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const DIST = join(ROOT, 'dist');
+const FONTS_SRC = join(ROOT, 'fonts');
 
 // Overridable so a local preview can render against a dev host. Production is
 // the bare default, and a build that used an override warns loudly at the end —
@@ -143,72 +144,383 @@ const jsonForHtml = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 // ---------------------------------------------------------------- the page
 //
-// Plain, and deliberately so. This is a workshop, not a launch spectacle: no
-// gradients, invented demand or testimonial from a company that does not exist.
-// The page gets someone to the right first call, then publishes the evidence.
+// Dark, committed, and self-contained: no external font, image, script or
+// stylesheet, because a page that a crawler, an agent and a buyer all read
+// should have exactly one file to fetch. The visual system is the product's
+// own: a grade ladder (A mint → F coral) used as the accent ramp, mono for
+// anything technical, sans for prose.
+//
+// What it still refuses to do is invent demand. There are no testimonials,
+// usage numbers or customer stories, because there are none. The evidence is
+// the published catalogue, the self-lint and the storage boundary.
+
+// A "402 → A" mark: the ladder's top rung, drawn as an A, with the amber dot of
+// a live quote beside it. Inlined twice (favicon data URI, topbar) and nowhere
+// else — no image file to fetch.
+const MARK_SVG = (size) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true" focusable="false">` +
+  `<rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="#0d1210" stroke="#2b3b34" stroke-width="3"/>` +
+  `<path d="M14 47 L26 17 L38 47" stroke="#6ee7b7" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `<path d="M19.5 38.5 H32.5" stroke="#34d399" stroke-width="5.5" stroke-linecap="round"/>` +
+  `<circle cx="49" cy="21" r="5.5" fill="#fbbf24"/></svg>`;
+
+const FAVICON = `data:image/svg+xml,${encodeURIComponent(MARK_SVG(64))}`;
+
+// Self-hosted, first-party, OFL. No third-party font request: the page still
+// fetches nothing but its own origin. Latin subsets as shipped by Fontsource,
+// only the weights the page uses (96 KB total), `font-display: swap` so text is
+// readable on the first paint, and the system stack stays in every font-family
+// list so the page is intact if these files never arrive. Provenance, versions,
+// hashes and the OFL text live in fonts/LICENSE-fonts.md.
+const LATIN_RANGE =
+  'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,' +
+  'U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
+
+const FONT_FILES = [
+  { family: 'Space Grotesk', weight: 400, file: 'space-grotesk-latin-400-normal.woff2', preload: true },
+  { family: 'Space Grotesk', weight: 500, file: 'space-grotesk-latin-500-normal.woff2', preload: false },
+  { family: 'Space Grotesk', weight: 700, file: 'space-grotesk-latin-700-normal.woff2', preload: true },
+  { family: 'JetBrains Mono', weight: 400, file: 'jetbrains-mono-latin-400-normal.woff2', preload: true },
+  { family: 'JetBrains Mono', weight: 700, file: 'jetbrains-mono-latin-700-normal.woff2', preload: false },
+];
+
+const FONT_FACES = FONT_FILES.map(
+  ({ family, weight, file }) => `@font-face {
+  font-family: "${family}"; font-style: normal; font-weight: ${weight}; font-display: swap;
+  src: url("/fonts/${file}") format("woff2");
+  unicode-range: ${LATIN_RANGE};
+}`
+).join('\n');
 
 const CSS = `
+${FONT_FACES}
 :root {
-  color-scheme: light dark;
-  --bg: #fbfaf7; --fg: #1b1a17; --muted: #625e55; --rule: #d9d3c5;
-  --accent: #793c00; --panel: #f6f3ec; --code-bg: #eeebe3;
-  --warn: #805900; --err: #94221d; --ok: #176329; --focus: #1e66b2;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16150f; --fg: #eee9de; --muted: #aaa291; --rule: #3a372e;
-    --accent: #e4aa65; --panel: #1c1b15; --code-bg: #25231c;
-    --warn: #d7a743; --err: #eb8178; --ok: #83ca92; --focus: #83bfff;
-  }
+  color-scheme: dark;
+  --ground: #0a0e0c; --ground-2: #0d1210; --panel: #0f1513; --panel-2: #121a17;
+  --rule: #1f2a25; --rule-bright: #2b3b34;
+  --fg: #e7ece9; --muted: #9fb0a8; --dim: #7f9188;
+  --mint: #6ee7b7; --emerald: #34d399; --amber: #fbbf24; --amber-deep: #f59e0b; --coral: #fb7185;
+  --focus: #7dd3fc;
+  --ok: var(--mint); --warn: var(--amber); --err: var(--coral); --accent: var(--mint);
+  --sans: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --ramp: linear-gradient(90deg, var(--mint), var(--emerald) 30%, var(--amber) 70%, var(--coral));
+  --shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 24px 48px -34px rgba(0,0,0,.95);
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; padding: 0 1.25rem 5rem; background: var(--bg); color: var(--fg); font: 16px/1.65 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
-main { max-width: 66rem; margin: 0 auto; }
-header { padding: 4rem 0 2.5rem; }
-h1 { max-width: 18ch; font-size: clamp(2.2rem, 6vw, 4.4rem); line-height: 1.03; margin: .2rem 0 1rem; letter-spacing: -.055em; }
-h2 { font-size: clamp(1.25rem, 3vw, 1.55rem); line-height: 1.25; margin: 4rem 0 1rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); }
-h3 { font-size: 1.08rem; line-height: 1.4; margin: 2rem 0 .5rem; color: var(--accent); }
-p { max-width: 49rem; }
-a { color: var(--accent); text-underline-offset: .16em; }
-a:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 2px; }
-.eyebrow { margin: 0; color: var(--accent); font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.lede { max-width: 48rem; font-size: clamp(1.05rem, 2vw, 1.22rem); }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; padding: 0 1.25rem 6rem; background: var(--ground); color: var(--fg);
+  font: 16px/1.7 var(--sans); letter-spacing: -.004em; overflow-x: hidden;
+}
+/* The glow field. Low alpha on purpose: body text keeps AA against the ground. */
+body::before {
+  content: ""; position: fixed; inset: -25% -12%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42rem 30rem at 16% 3%, rgba(52,211,153,.11), transparent 62%),
+    radial-gradient(38rem 26rem at 88% 10%, rgba(45,212,191,.07), transparent 60%),
+    radial-gradient(34rem 24rem at 64% 40%, rgba(245,158,11,.05), transparent 62%),
+    radial-gradient(52rem 34rem at 28% 88%, rgba(52,211,153,.05), transparent 66%);
+  animation: drift 54s ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform: translate3d(0,0,0); } to { transform: translate3d(-2.4%, 1.8%, 0); } }
+
+/* ---- shell ---- */
+.topbar {
+  position: sticky; top: 0; z-index: 20; margin: 0 -1.25rem 0; padding: 0 1.25rem;
+  background: rgba(10,14,12,.78); backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2); border-bottom: 1px solid var(--rule);
+}
+.topbar-inner {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem 1.5rem;
+  flex-wrap: wrap; max-width: 68rem; margin: 0 auto; padding: .65rem 0;
+}
+.brand { display: inline-flex; align-items: center; gap: .55rem; font-family: var(--mono); font-weight: 700; font-size: .95rem; letter-spacing: -.02em; color: var(--fg); text-decoration: none; }
+.brand svg { display: block; }
+.brand .say { color: var(--dim); font-weight: 400; font-size: .72rem; letter-spacing: .04em; }
+.topnav { display: flex; flex-wrap: wrap; gap: .2rem .35rem; font-size: .82rem; }
+.topnav a { padding: .3rem .6rem; border-radius: 999px; color: var(--muted); text-decoration: none; }
+.topnav a:hover { color: var(--fg); background: rgba(110,231,183,.09); }
+main { max-width: 68rem; margin: 0 auto; }
+
+/* ---- type ---- */
+h1 {
+  font-size: clamp(2.25rem, 6.6vw, 4.15rem); line-height: 1.04; font-weight: 700;
+  margin: 1.1rem auto 1.1rem; letter-spacing: -.03em; max-width: 20ch;
+}
+h1 .line { display: block; }
+.grad { color: var(--mint); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .grad {
+    background-image: linear-gradient(96deg, var(--mint) 6%, var(--emerald) 34%, var(--amber) 92%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+  }
+}
+h2 {
+  position: relative; font-size: clamp(1.35rem, 3.2vw, 1.85rem); line-height: 1.22; font-weight: 700;
+  letter-spacing: -.022em; margin: 4.5rem 0 1rem; padding-top: 1.9rem; border-top: 1px solid var(--rule);
+  scroll-margin-top: 5rem;
+}
+h2::before { content: ""; position: absolute; top: -1px; left: 0; width: 5.5rem; height: 2px; background: var(--ramp); }
+h3 { font-size: 1.06rem; line-height: 1.45; font-weight: 700; letter-spacing: -.015em; margin: 2rem 0 .5rem; scroll-margin-top: 5rem; }
+h3 code { color: var(--mint); background: none; padding: 0; font-size: .95em; }
+p { max-width: 46rem; }
+a { color: var(--mint); text-underline-offset: .18em; text-decoration-color: rgba(110,231,183,.45); }
+a:hover { text-decoration-color: var(--mint); }
+.eyebrow { margin: 0; font-family: var(--mono); color: var(--dim); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+.lede { max-width: 42rem; margin-inline: auto; font-size: clamp(1.06rem, 1.9vw, 1.24rem); font-weight: 500; color: var(--muted); }
 .muted { color: var(--muted); }
-.small { font-size: .86rem; }
-.new-note, .callout { margin: 1.2rem 0; padding: .8rem 1rem; border-left: 3px solid var(--accent); background: var(--panel); }
-.spine { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: 1.6rem 0 .5rem; padding: 0; list-style: none; font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: 700; }
-.spine li:not(:last-child)::after { content: "→"; padding-left: .5rem; color: var(--accent); }
-.spine-note { margin-top: 0; max-width: 54rem; }
-.quick-nav { display: flex; flex-wrap: wrap; gap: .45rem 1rem; max-width: none; margin-top: 2rem; padding: 0; list-style: none; font-size: .84rem; }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
-.path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.card { padding: 1rem 1.1rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
-.card h3 { margin-top: 0; }
-.trust { border-top: 3px solid var(--accent); }
-code { background: var(--code-bg); padding: .1em .35em; border-radius: 3px; font-size: .9em; }
-pre { margin: .65rem 0 1rem; background: var(--code-bg); padding: .9rem 1rem; border-radius: 5px; overflow-x: auto; font-size: .83rem; line-height: 1.5; }
-pre code { background: none; padding: 0; font-size: 1em; }
-table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .84rem; }
-caption { text-align: left; color: var(--muted); padding: 0 0 .45rem; }
-th, td { text-align: left; padding: .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
-th { color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .7rem; }
-td.code { white-space: nowrap; font-weight: 600; }
-.scroll { overflow-x: auto; }
-.scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-.sev { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
-.sev-error { color: var(--err); } .sev-warn { color: var(--warn); } .sev-info { color: var(--muted); }
-.core-label { display: inline-block; margin-left: .35rem; color: var(--muted); font-size: .66rem; }
-.grade { font-weight: 700; }
-ul, ol { max-width: 49rem; padding-left: 1.3rem; }
+.small { font-size: .875rem; }
+.section-lede { font-size: 1.05rem; font-weight: 500; color: var(--muted); }
+ul, ol { max-width: 46rem; padding-left: 1.25rem; }
 li { margin: .4rem 0; }
-details { margin: .75rem 0; border: 1px solid var(--rule); border-radius: 5px; background: var(--panel); }
-summary { display: flex; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; cursor: pointer; color: var(--accent); font-weight: 700; }
-.details-body { padding: 0 1rem .5rem; }
-.count { color: var(--muted); font-weight: 400; white-space: nowrap; }
-footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .83rem; }
-@media (max-width: 44rem) { body { padding-inline: .9rem; } header { padding-top: 2.5rem; } .grid, .path-grid { grid-template-columns: 1fr; } }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+strong { color: var(--fg); font-weight: 700; }
+
+/* ---- hero ---- */
+header.hero { padding: 4rem 0 1rem; text-align: center; }
+.badge {
+  display: inline-flex; align-items: center; gap: .55rem; padding: .34rem .8rem .34rem .6rem;
+  border: 1px solid var(--rule-bright); border-radius: 999px; background: rgba(110,231,183,.05);
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+  box-shadow: 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 3px rgba(110,231,183,.14), 0 0 10px 1px rgba(110,231,183,.7); animation: pulse 2.8s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.cta-row { display: flex; flex-wrap: wrap; gap: .7rem; justify-content: center; margin: 1.9rem 0 1.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem; padding: .78rem 1.35rem; border-radius: 11px;
+  font: 700 .95rem/1.2 var(--sans); text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  transition: transform .12s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.btn-primary { background: linear-gradient(180deg, #fcd34d, var(--amber-deep)); color: #1a1204; box-shadow: 0 12px 30px -14px rgba(245,158,11,.75), 0 1px 0 rgba(255,255,255,.35) inset; }
+.btn-secondary { border-color: rgba(110,231,183,.32); color: var(--mint); background: rgba(110,231,183,.05); }
+.btn:hover { transform: translateY(-1px); }
+.btn-secondary:hover { background: rgba(110,231,183,.11); }
+.spine { display: flex; gap: .45rem .6rem; align-items: center; flex-wrap: wrap; justify-content: center; max-width: none; margin: 1.6rem 0 .9rem; padding: 0; list-style: none; }
+.spine li { margin: 0; padding: .3rem .8rem; border: 1px solid var(--rule); border-radius: 999px; background: rgba(255,255,255,.02); font-family: var(--mono); font-size: .82rem; }
+.spine li:not(:last-child)::after { content: "→"; margin-left: .8rem; color: var(--mint); }
+.spine-note { max-width: 44rem; margin: 0 auto; color: var(--muted); font-size: .95rem; }
+.new-note {
+  max-width: 44rem; margin: 1.5rem auto 0; padding: .9rem 1.1rem; text-align: left;
+  border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 10px;
+  background: var(--panel); color: var(--muted); font-size: .93rem;
+}
+.ramp-rule { height: 2px; max-width: 68rem; margin: 2.75rem auto 0; border-radius: 2px; background: var(--ramp); opacity: .5; }
+
+/* ---- cards, grids, steps ---- */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.4rem 0; }
+.start-grid { grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); align-items: start; }
+.path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card {
+  position: relative; padding: 1.25rem 1.35rem; border: 1px solid var(--rule); border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.024), rgba(255,255,255,0)) var(--panel);
+  box-shadow: var(--shadow);
+}
+.card > h3 { margin-top: 0; }
+.card p { max-width: none; }
+.card-tag {
+  display: inline-block; margin: 0 0 .55rem; padding: .18rem .55rem; border-radius: 999px;
+  border: 1px solid var(--rule-bright); background: rgba(110,231,183,.06);
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.card-person { border-color: rgba(110,231,183,.24); }
+.card-person .card-tag { color: var(--mint); border-color: rgba(110,231,183,.3); }
+.card-agent .card-tag { color: var(--amber); border-color: rgba(251,191,36,.28); background: rgba(251,191,36,.06); }
+.trust { border-top: 1px solid rgba(110,231,183,.3); }
+.link-list { max-width: none; margin: .3rem 0 .8rem; padding: 0; list-style: none; }
+.link-list li { display: flex; gap: .5rem; align-items: baseline; margin: .45rem 0; font-size: .93rem; color: var(--muted); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; max-width: none; margin: 1.4rem 0; padding: 0; list-style: none; counter-reset: none; }
+.steps li { margin: 0; }
+.step-num {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+  margin-bottom: .55rem; border-radius: 50%; border: 1px solid rgba(110,231,183,.35);
+  background: rgba(110,231,183,.07); color: var(--mint); font: 700 .82rem/1 var(--mono);
+}
+.callout { margin: 1.4rem 0; padding: 1rem 1.15rem; border: 1px solid var(--rule); border-left: 3px solid var(--mint); border-radius: 10px; background: var(--panel); }
+.callout p:last-child { margin-bottom: 0; }
+
+/* ---- code ---- */
+/* An inline contract address is one unbreakable 42-character token: without
+   this it is the single thing that pushes a 360px viewport sideways. */
+code { font-family: var(--mono); background: rgba(110,231,183,.08); color: #cfeadd; padding: .1em .36em; border-radius: 4px; font-size: .88em; overflow-wrap: anywhere; }
+a code { color: inherit; }
+pre {
+  margin: .9rem 0 1.25rem; padding: 1rem 1.05rem; padding-right: 5.2rem; background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 12px; overflow-x: auto;
+  font: .82rem/1.6 var(--mono); color: #dbe7e1;
+}
+pre code { background: none; color: inherit; padding: 0; font-size: 1em; overflow-wrap: normal; }
+.codeblock { position: relative; margin: .9rem 0 1.25rem; }
+.codeblock pre { margin: 0; }
+.copy-btn {
+  position: absolute; top: .55rem; right: .55rem; z-index: 2; padding: .3rem .6rem;
+  border: 1px solid var(--rule-bright); border-radius: 7px; background: rgba(15,21,19,.92);
+  color: var(--muted); font: 700 .7rem/1.4 var(--mono); letter-spacing: .04em; cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.copy-btn:hover { color: var(--fg); border-color: var(--mint); background: rgba(110,231,183,.1); }
+.copy-btn.is-copied { color: var(--ground); background: var(--mint); border-color: var(--mint); }
+
+/* ---- tables ---- */
+.scroll { overflow-x: auto; }
+.tablewrap { border: 1px solid var(--rule); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; margin: 0; font-size: .875rem; }
+caption { text-align: left; padding: .75rem 1.05rem; border-bottom: 1px solid var(--rule); color: var(--dim); font: .7rem/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+th, td { text-align: left; padding: .62rem 1.05rem; border-bottom: 1px solid rgba(31,42,37,.75); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(110,231,183,.03); }
+th { color: var(--dim); font: 700 .68rem/1.5 var(--mono); text-transform: uppercase; letter-spacing: .1em; }
+td code { background: none; padding: 0; color: var(--mint); }
+td.code { white-space: nowrap; font-family: var(--mono); font-size: .84rem; color: var(--fg); }
+.price { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
+.price-free { color: var(--mint); }
+
+/* ---- grades + severities ---- */
+.pill {
+  display: inline-block; padding: .1rem .45rem; border-radius: 999px; border: 1px solid transparent;
+  font: 700 .66rem/1.6 var(--mono); letter-spacing: .07em; text-transform: uppercase;
+}
+.pill-error { color: var(--err); background: rgba(251,113,133,.1); border-color: rgba(251,113,133,.28); }
+.pill-warn { color: var(--warn); background: rgba(251,191,36,.09); border-color: rgba(251,191,36,.26); }
+.pill-info { color: var(--muted); background: rgba(159,176,168,.08); border-color: rgba(159,176,168,.22); }
+.sev { white-space: nowrap; }
+.sev-error { color: var(--err); } .sev-warn { color: var(--warn); } .sev-info { color: var(--muted); }
+.core-label { display: inline-block; margin-left: .35rem; padding: .05rem .35rem; border-radius: 4px; background: rgba(251,191,36,.1); color: var(--amber); font: 700 .62rem/1.6 var(--mono); letter-spacing: .06em; }
+.grade { font: 700 1rem/1 var(--mono); }
+.grade-A { color: var(--mint); } .grade-B { color: var(--emerald); }
+.grade-C { color: var(--amber); } .grade-D { color: var(--amber-deep); } .grade-F { color: var(--coral); }
+.ladder { display: inline-flex; gap: .35rem; margin: .2rem 0 1rem; padding: 0; list-style: none; max-width: none; }
+.ladder li { margin: 0; }
+.ladder span {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem;
+  border: 1px solid currentColor; border-radius: 7px; font: 700 .8rem/1 var(--mono);
+  background: rgba(255,255,255,.02);
+}
+
+/* ---- disclosure ---- */
+details { margin: .7rem 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--panel); overflow: hidden; }
+details[open] { background: linear-gradient(180deg, rgba(110,231,183,.03), rgba(255,255,255,0)) var(--panel); }
+summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .9rem 1.1rem; cursor: pointer; color: var(--fg); font-weight: 700; font-size: .95rem; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; flex: none; color: var(--mint); font: 700 1.1rem/1 var(--mono); }
+details[open] > summary::after { content: "–"; }
+.faq summary { font-size: 1rem; }
+.details-body { padding: 0 1.1rem .9rem; }
+.details-body > p:first-child { margin-top: 0; }
+.count { color: var(--dim); font: 400 .78rem/1.5 var(--mono); white-space: nowrap; }
+
+/* ---- misc ---- */
+.area-nav { display: flex; flex-wrap: wrap; gap: .5rem; max-width: none; margin: 1.25rem 0 1.5rem; padding: 0; list-style: none; }
+.area-nav li { margin: 0; }
+.area-nav a {
+  display: inline-flex; align-items: baseline; gap: .45rem; padding: .35rem .8rem; border-radius: 999px;
+  border: 1px solid var(--rule); background: rgba(255,255,255,.02); color: var(--muted);
+  font-size: .84rem; text-decoration: none;
+}
+.area-nav a:hover { color: var(--fg); border-color: rgba(110,231,183,.35); background: rgba(110,231,183,.07); }
+.limits li { color: var(--muted); }
+footer { max-width: 68rem; margin: 4.5rem auto 0; padding-top: 1.6rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .85rem; }
+footer .foot-mark { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; font-family: var(--mono); color: var(--fg); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+a:focus-visible, summary:focus-visible, button:focus-visible, .scroll:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px;
+}
+
+@media (max-width: 60rem) {
+  .path-grid, .steps { grid-template-columns: 1fr; }
+  .start-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 44rem) {
+  body { padding-inline: .9rem; }
+  /* The nav wraps to two rows here; sticky would eat a third of the screen. */
+  .topbar { position: static; margin-inline: -.9rem; padding-inline: .9rem; }
+  .brand .say { display: none; }
+  .topnav { font-size: .8rem; }
+  h2, h3 { scroll-margin-top: 1rem; }
+  header.hero { padding-top: 2.75rem; }
+  .grid { grid-template-columns: 1fr; }
+  .btn { width: 100%; justify-content: center; }
+  th, td, caption { padding-inline: .75rem; }
+  pre { padding-right: 1.05rem; padding-top: 2.9rem; }
+  .copy-btn { top: .5rem; right: .5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .btn:hover { transform: none; }
+}
+`;
+
+// Copy-to-clipboard, vanilla and inline: every <pre> on the page gets a button,
+// wrapped without touching the markup the build emits. navigator.clipboard
+// first, execCommand second, and a keyboard hint if both are refused (a
+// clipboard write can be denied outright, and a silent no-op is worse than a
+// button that says so). The aria-label reuses the scroll region's own label, so
+// "Copy" announces WHICH block.
+const COPY_JS = `
+(function () {
+  var IDLE = 'Copy';
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { done(true); },
+        function () { done(fallbackCopy(text)); }
+      );
+      return;
+    }
+    done(fallbackCopy(text));
+  }
+  function attach(pre) {
+    var parent = pre.parentNode;
+    var host = parent && parent.classList && parent.classList.contains('scroll') ? parent : pre;
+    var wrap = document.createElement('div');
+    wrap.className = 'codeblock';
+    host.parentNode.insertBefore(wrap, host);
+    wrap.appendChild(host);
+    var what = (host.getAttribute && host.getAttribute('aria-label')) || 'code block';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copy-btn';
+    btn.textContent = IDLE;
+    btn.setAttribute('aria-label', 'Copy ' + what + ' to clipboard');
+    var live = document.createElement('span');
+    live.className = 'visually-hidden';
+    live.setAttribute('role', 'status');
+    var timer;
+    btn.addEventListener('click', function () {
+      copyText(pre.textContent, function (ok) {
+        btn.textContent = ok ? 'Copied \\u2713' : 'Press \\u2318C';
+        if (ok) { btn.className = 'copy-btn is-copied'; }
+        live.textContent = ok ? 'Copied to clipboard' : 'Copy blocked by the browser';
+        if (timer) { clearTimeout(timer); }
+        timer = setTimeout(function () {
+          btn.textContent = IDLE;
+          btn.className = 'copy-btn';
+          live.textContent = '';
+        }, 1500);
+      });
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(live);
+  }
+  var pres = document.querySelectorAll('pre');
+  for (var i = 0; i < pres.length; i++) { attach(pres[i]); }
+})();
 `;
 
 function checkTable(area) {
@@ -216,7 +528,7 @@ function checkTable(area) {
     .map(
       (c) => `        <tr>
           <td class="code">${esc(c.id)}</td>
-          <td class="sev sev-${c.severity}">${c.severity}${c.core ? ' <span class="core-label">core</span>' : ''}</td>
+          <td class="sev"><span class="pill pill-${c.severity}">${c.severity}</span>${c.core ? '<span class="core-label">core</span>' : ''}</td>
           <td>${inline(c.summary)}</td>
         </tr>`
     )
@@ -233,9 +545,9 @@ ${rows}
 function endpointSection(endpoint) {
   const sample = sampleInputBody(endpoint);
   const report = runSample(endpoint);
-  return `      <h3 id="offer-${esc(endpoint.id)}"><code>${endpoint.method} ${esc(endpoint.path)}</code> &mdash; ${priceLabel(endpoint.price_usd)} per report</h3>
+  return `      <h3 id="offer-${esc(endpoint.id)}"><code>${endpoint.method} ${esc(endpoint.path)}</code> &mdash; <span class="price">${priceLabel(endpoint.price_usd)} per report</span></h3>
       <p>${esc(endpoint.long)}</p>
-      <p><strong>First, request the quote.</strong> This unauthenticated call returns HTTP <code>402</code> with the price and payment terms. It does not return the lint report yet.</p>
+      <p><strong>First, request the quote.</strong> This unpaid call returns HTTP <code>402</code> with the price and payment terms. It does not return the report yet.</p>
       <div class="scroll" role="region" aria-label="${esc(endpoint.path)} request example" tabindex="0"><pre><code>curl -sS -X POST ${esc(BASE)}${esc(endpoint.path)} \\
   -H 'content-type: application/json' \\
   -d '${esc(sample)}'</code></pre></div>
@@ -310,60 +622,95 @@ const html = `<!doctype html>
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Your 402 works. Agents still can't pay you.">
 <meta name="twitter:description" content="${esc(PAGE_DESCRIPTION)}">
+<meta name="theme-color" content="#0a0e0c">
+<link rel="icon" href="${FAVICON}" type="image/svg+xml">
+${FONT_FILES.filter((f) => f.preload)
+  .map((f) => `<link rel="preload" as="font" type="font/woff2" href="/fonts/${f.file}" crossorigin>`)
+  .join('\n')}
 <script type="application/ld+json">${jsonForHtml(structuredData)}</script>
 <style>${CSS}</style>
 </head>
 <body>
-<main>
-  <header>
-    <p class="eyebrow">${esc(SERVICE_NAME)} <span class="say">&middot; ten-ex-four-oh-two</span></p>
-    <h1>Your 402 works. Agents still can't pay you.</h1>
+<nav class="topbar" aria-label="Site">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">${MARK_SVG(24)}<span>${esc(SERVICE_NAME)}</span><span class="say">ten-ex-four-oh-two</span></a>
+    <div class="topnav">
+      <a href="#start">Start here</a><a href="#worked-examples">Worked requests</a>
+      <a href="#trust">Trust boundaries</a><a href="#checklist">Full checklist</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </div>
+</nav>
+<main id="top">
+  <header class="hero">
+    <p class="eyebrow"><span class="badge"><span class="dot" aria-hidden="true"></span>${CHECKS.length} published checks &middot; self-lints at grade A</span></p>
+    <h1><span class="line">Your 402 works.</span><span class="line">Agents still <span class="grad">can't pay you.</span></span></h1>
     <p class="lede">A ${CHECKS.length}-check catalogue against your live 402, with a specific fix
     for each finding &mdash; the rules the Bazaar docs never wrote down.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#start">Run the free check &rarr;</a>
+      <a class="btn btn-secondary" href="#checklist">See all ${CHECKS.length} checks</a>
+    </div>
     <ol class="spine" aria-label="From a correct 402 to payment">
       <li>Ship a correct 402</li>
       <li>Get indexed</li>
       <li>Get paid</li>
     </ol>
-    <p class="muted spine-note">10x402 identifies observable conformance blockers between those
-    steps and gives you the fix for each finding. It cannot guarantee a Bazaar listing, demand, or
-    a payment that settles.</p>
+    <p class="muted spine-note">10x402 finds the blockers between those steps that are visible in
+    your response, and gives you the fix for each finding. It cannot guarantee a Bazaar listing,
+    demand, or a payment that settles.</p>
     <p class="new-note"><strong>10x402 is new.</strong> There are no customer stories, usage claims,
     or testimonials here. The evidence is the published catalogue, self-lint, and storage boundary.</p>
-    <nav class="quick-nav" aria-label="Page sections">
-      <a href="#start">Start here</a><a href="#worked-examples">Worked requests</a>
-      <a href="#trust">Trust boundaries</a><a href="#checklist">Full checklist</a>
-      <a href="#faq">FAQ</a>
-    </nav>
+    <div class="ramp-rule" aria-hidden="true"></div>
   </header>
 
   <section aria-labelledby="start">
     <h2 id="start">Start here</h2>
-    <p>The catalogue is free. Lint reports are paid per served report; there is no free lint tier.</p>
-    <div class="grid">
-      <article class="card">
+    <p class="section-lede">The catalogue is free. You pay per report served; there is no free lint tier.</p>
+    <div class="grid start-grid">
+      <article class="card card-person">
+        <p class="card-tag">free &middot; no payment</p>
         <h3>For a person building an endpoint</h3>
-        <p>Read every check and price before paying:</p>
+        <p>Read every check and price before you pay anything:</p>
         <div class="scroll" role="region" aria-label="Free catalogue curl command" tabindex="0"><pre><code>curl -sS ${esc(BASE)}${esc(FREE_ENDPOINT.path)}</code></pre></div>
         <p class="small">Then use <code>/lint</code> for a public URL, or
-        <code>/lint/envelope</code> for a response captured from local, staging, or authenticated code.
-        To pay and retry, follow the official <a href="https://docs.x402.org/getting-started/quickstart-for-buyers">x402 buyer quickstart</a>
+        <code>/lint/envelope</code> for a response you captured from local, staging, or
+        authenticated code. To pay and retry, follow the official
+        <a href="https://docs.x402.org/getting-started/quickstart-for-buyers">x402 buyer quickstart</a>
         for <code>@x402/fetch</code> or another supported client.</p>
       </article>
-      <article class="card">
+      <article class="card card-agent">
+        <p class="card-tag">machine surfaces</p>
         <h3>For an agent</h3>
-        <p>Read <a href="/skill.md">skill.md</a> for the operating instructions, or
-        <a href="/llms.txt">llms.txt</a> for the complete compact reference. The
-        <a href="/openapi.json">OpenAPI contract</a> and free <code>GET /check</code> route are
-        machine-readable. In MCP, call <code>x402_checks</code> first.</p>
+        <ul class="link-list">
+          <li><a href="/skill.md">skill.md</a> &mdash; the operating instructions</li>
+          <li><a href="/llms.txt">llms.txt</a> &mdash; the complete compact reference</li>
+          <li><a href="/openapi.json">openapi.json</a> &mdash; the machine contract</li>
+          <li><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code> &mdash; free, and machine-readable</li>
+        </ul>
+        <p class="small">In MCP, call <code>x402_checks</code> first.</p>
       </article>
     </div>
-    <div class="scroll" role="region" aria-label="10x402 prices" tabindex="0"><table class="pricing">
+    <ol class="steps" aria-label="How a paid lint works">
+      <li class="card"><span class="step-num" aria-hidden="true">1</span>
+        <h3>Ask for the quote</h3>
+        <p>Your unpaid call answers <code>402</code> with the price and payment terms. That is the
+        quote, not an error.</p></li>
+      <li class="card"><span class="step-num" aria-hidden="true">2</span>
+        <h3>Your client pays and retries</h3>
+        <p>An x402-capable client holding USDC on Base reads the terms, pays, and retries the same
+        request. No login, no API key.</p></li>
+      <li class="card"><span class="step-num" aria-hidden="true">3</span>
+        <h3>Read the report</h3>
+        <p>A grade, the findings, and a specific <code>fix</code> for each one. You are only charged
+        for a report that is served.</p></li>
+    </ol>
+    <div class="scroll tablewrap" role="region" aria-label="10x402 prices" tabindex="0"><table class="pricing">
       <caption>One route for each stage of the job</caption>
       <thead><tr><th scope="col">route</th><th scope="col">use it for</th><th scope="col">price</th></tr></thead>
       <tbody>
-        <tr><td><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code></td><td>Catalogue, prices, and grade rules</td><td>free</td></tr>
-${ENDPOINTS.map((e) => `        <tr><td><code>${e.method} ${esc(e.path)}</code></td><td>${e.id === 'lint' ? 'A live public endpoint' : 'A captured or local 402 response'}</td><td>${priceLabel(e.price_usd)} per report</td></tr>`).join('\n')}
+        <tr><td><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code></td><td>Catalogue, prices, and grade rules</td><td class="price price-free">free</td></tr>
+${ENDPOINTS.map((e) => `        <tr><td><code>${e.method} ${esc(e.path)}</code></td><td>${e.id === 'lint' ? 'A live public endpoint' : 'A captured or local 402 response'}</td><td class="price">${priceLabel(e.price_usd)} per report</td></tr>`).join('\n')}
       </tbody>
     </table></div>
   </section>
@@ -371,11 +718,14 @@ ${ENDPOINTS.map((e) => `        <tr><td><code>${e.method} ${esc(e.path)}</code><
   <section aria-labelledby="outcome-path">
     <h2 id="outcome-path">Ship a correct 402 → get indexed → get paid</h2>
     <div class="grid path-grid">
-      <article class="card"><h3>1. Ship a correct 402</h3><p>Check the HTTP response, v1 body,
+      <article class="card"><span class="step-num" aria-hidden="true">1</span>
+      <h3>Ship a correct 402</h3><p>Check the HTTP response, v1 body,
       v2 <code>PAYMENT-REQUIRED</code> header, and the fields an agent must sign.</p></article>
-      <article class="card"><h3>2. Remove indexing blockers</h3><p>Check Bazaar metadata,
+      <article class="card"><span class="step-num" aria-hidden="true">2</span>
+      <h3>Remove indexing blockers</h3><p>Check Bazaar metadata,
       info-to-schema consistency, discoverability flags, and what an unpaid probe receives.</p></article>
-      <article class="card"><h3>3. Publish payable terms</h3><p>Check that an agent can read the
+      <article class="card"><span class="step-num" aria-hidden="true">3</span>
+      <h3>Publish payable terms</h3><p>Check that an agent can read the
       amount, asset, network, recipient, and EIP-712 domain. The linter does not make a payment.</p></article>
     </div>
   </section>
@@ -408,11 +758,14 @@ ${ENDPOINTS.map(endpointSection).join('\n\n')}
 
   <section aria-labelledby="report">
     <h2 id="report">Read the report: fix payment blockers first</h2>
-    <div class="scroll" role="region" aria-label="Grade rules" tabindex="0"><table>
+    <ul class="ladder" aria-hidden="true">
+${GRADE_RULES.map((g) => `      <li class="grade grade-${g.grade}"><span>${g.grade}</span></li>`).join('\n')}
+    </ul>
+    <div class="scroll tablewrap" role="region" aria-label="Grade rules" tabindex="0"><table>
       <caption>The grade ladder</caption>
       <thead><tr><th scope="col">grade</th><th scope="col">when</th></tr></thead>
       <tbody>
-${GRADE_RULES.map((g) => `        <tr><td class="grade">${g.grade}</td><td>${esc(g.when)}</td></tr>`).join('\n')}
+${GRADE_RULES.map((g) => `        <tr><td class="grade grade-${g.grade}">${g.grade}</td><td>${esc(g.when)}</td></tr>`).join('\n')}
       </tbody>
     </table></div>
     <p><strong>Core</strong> checks are the failures that make an envelope unusable as published.
@@ -450,12 +803,12 @@ ${GRADE_RULES.map((g) => `        <tr><td class="grade">${g.grade}</td><td>${esc
     <p>Sixty-two checks inspect HTTP and x402 conformance. Two report safeguards disclose truncated
     input or findings, so a partial report cannot read as clean. Every finding includes a code,
     message, severity, and specific <code>fix</code>.</p>
-    <ul class="quick-nav" aria-label="Checklist areas">
-${AREA_ORDER.map((area) => `      <li><a href="#checks-${area}">${esc(AREAS[area])} (${byArea(area).length})</a></li>`).join('\n')}
+    <ul class="area-nav" aria-label="Checklist areas">
+${AREA_ORDER.map((area) => `      <li><a href="#checks-${area}">${esc(AREAS[area])} <span class="count">${byArea(area).length}</span></a></li>`).join('\n')}
     </ul>
 ${AREA_ORDER.map((area) => `    <details id="checks-${area}"${area === 'http' ? ' open' : ''}>
       <summary><span>${esc(AREAS[area])}</span><span class="count">${byArea(area).length} checks</span></summary>
-      <div class="details-body"><div class="scroll" role="region" aria-label="${esc(AREAS[area])} checks" tabindex="0">
+      <div class="details-body"><div class="scroll tablewrap" role="region" aria-label="${esc(AREAS[area])} checks" tabindex="0">
 ${checkTable(area)}
       </div></div>
     </details>`).join('\n')}
@@ -471,7 +824,7 @@ ${FAQS.map(({ question, answer }) => `    <details class="faq">
 
   <section aria-labelledby="limits">
     <h2 id="limits">Limits, stated plainly</h2>
-    <ul>
+    <ul class="limits">
       <li><code>POST /lint</code> sends one unauthenticated request with no payment header and
       follows no redirects. A redirect is reported as a finding.</li>
       <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB, and one 10s deadline covers the
@@ -488,12 +841,14 @@ ${FAQS.map(({ question, answer }) => `    <details class="faq">
   </section>
 
   <footer>
-    <p>${esc(SERVICE_NAME)} &middot; <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> &middot;
+    <p class="foot-mark">${MARK_SVG(20)}<span>${esc(SERVICE_NAME)}</span></p>
+    <p><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> &middot;
     machine surfaces: <a href="/openapi.json">openapi.json</a>,
     <a href="/llms.txt">llms.txt</a>, <a href="/skill.md">skill.md</a>,
     <a href="/.well-known/x402">.well-known/x402</a></p>
   </footer>
 </main>
+<script>${COPY_JS}</script>
 </body>
 </html>
 `;
@@ -885,6 +1240,22 @@ for (const endpoint of ENDPOINTS) {
 
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(join(DIST, '.well-known'), { recursive: true });
+mkdirSync(join(DIST, 'fonts'), { recursive: true });
+
+// The bundled OFL faces, plus their licence text, which travels with them. A
+// face referenced by @font-face and missing from dist/ is a 404 the page
+// survives (the system stack renders it) and nobody notices — so the build
+// asserts every file the CSS names is actually here.
+const fontDir = readdirSync(FONTS_SRC);
+for (const { file } of FONT_FILES) {
+  if (!fontDir.includes(file)) throw new Error(`build: fonts/${file} is referenced by the CSS but missing`);
+}
+for (const name of fontDir) {
+  if (/\.woff2$/.test(name) || /^(OFL-.*\.txt|LICENSE-fonts\.md)$/.test(name)) {
+    copyFileSync(join(FONTS_SRC, name), join(DIST, 'fonts', name));
+  }
+}
+
 writeFileSync(join(DIST, 'index.html'), html);
 writeFileSync(join(DIST, 'openapi.json'), `${JSON.stringify(openapi, null, 2)}\n`);
 writeFileSync(join(DIST, '.well-known', 'x402'), `${JSON.stringify(wellKnown, null, 2)}\n`);
@@ -904,4 +1275,5 @@ if (HOST !== CANONICAL_HOST) {
   );
 }
 console.log('build: NOTE — 10x402.com is not registered yet; nothing in this build depends on it resolving.');
+console.log(`build: bundled ${FONT_FILES.length} self-hosted OFL font files into dist/fonts/ (licences alongside)`);
 console.log('build: wrote dist/index.html dist/openapi.json dist/.well-known/x402 dist/llms.txt dist/skill.md dist/robots.txt');
