@@ -43,5 +43,27 @@ export async function claimQuota(db, day, key, ceiling) {
   return typeof row?.used === 'number' ? row.used : null;
 }
 
+/**
+ * Hand back one unit against `key` for `day` — the compensating write for a
+ * claim whose report was never served.
+ *
+ * Floored at zero by the WHERE guard: a refund can never mint allowance that
+ * was not claimed. Best-effort by design — a failed refund costs the caller
+ * one unit until tomorrow, where failing the response over it would cost them
+ * the answer to a request we already declined for another reason.
+ */
+export async function refundQuota(db, day, key) {
+  try {
+    await db
+      .prepare(
+        'UPDATE call_quota SET used = used - 1 WHERE day = ?1 AND ip_hash = ?2 AND used > 0'
+      )
+      .bind(day, key)
+      .run();
+  } catch {
+    /* best-effort by design */
+  }
+}
+
 /** The UTC date the counters are keyed on, YYYY-MM-DD. */
 export const utcDay = (nowMs = Date.now()) => new Date(nowMs).toISOString().slice(0, 10);

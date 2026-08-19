@@ -13,7 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { callers, client, TIER_ON_VARS, useWorker } from './harness.mjs';
+import { callers, client, FREE_TIER_ENABLED, TIER_ON_VARS, useWorker } from './harness.mjs';
 
 const ips = callers('ssrf');
 let worker;
@@ -124,5 +124,72 @@ describe('input validation on /lint', () => {
     const res = await api.lint({ url: 'https://x402-lint-probe.invalid/x', method: 'get' }, { ip: ips.next() });
     assert.equal(res.status, 400);
     assert.match(res.body.error, /could not reach|did not answer/);
+  });
+});
+
+// ------------------------------------------------------------------ the refund
+//
+// A lint that produced no report must not spend a free call — the free unit is
+// claimed up front (so the tier is never billed past) and handed back on every
+// 4xx before a served report. This suite proved the bug the fix answers: the
+// house's own session burned its whole local tier on two unreachable-hostname
+// typos, silently — the exact free-trial failure this service's market research
+// mocked in a competitor. The ATTEMPT is metered separately and is NOT handed
+// back: each /lint try costs this service real work whether or not a report
+// came back, and an unrefunded attempt bound is what keeps the refund from
+// becoming an unlimited free-fetch amplifier.
+
+describe('a lint that produced no report costs nothing', () => {
+  test('refused targets and bad requests do not spend the free tier', async () => {
+    const ip = ips.next();
+    // Two more refusals than the whole tier: if any of these spent a unit, the
+    // later ones would answer 402 (tier exhausted), not the refusal itself.
+    for (let i = 0; i < FREE_TIER_ENABLED + 2; i++) {
+      const res = await api.lint({ url: 'https://169.254.169.254/latest/' }, { ip });
+      assert.equal(res.status, 400, `refusal ${i + 1} leaked into the tier: ${res.text}`);
+    }
+    const bad = await api.lint({}, { ip });
+    assert.equal(bad.status, 400, `a bad request spent a unit: ${bad.text}`);
+
+    // And the proof positive: a served report afterwards sees the FULL tier
+    // minus exactly this one call. Any junk envelope serves a real (graded)
+    // report — what matters here is the header, not the grade.
+    const served = await api.lintEnvelope({ status: 402, headers: {}, body: '{}' }, { ip });
+    assert.equal(served.status, 200, served.text);
+    assert.equal(
+      served.headers.get('x-free-tier-remaining'),
+      String(FREE_TIER_ENABLED - 1),
+      'the refunds did not all land'
+    );
+  });
+});
+
+describe('attempts are still bounded (the refund is not a free-fetch amplifier)', () => {
+  let bounded;
+  let boundedApi;
+  before(async () => {
+    bounded = await useWorker({ vars: { ...TIER_ON_VARS, VERIFY_DAILY: '2' } });
+    boundedApi = client(bounded);
+  });
+  after(async () => {
+    await bounded?.stop();
+  });
+
+  test('the third failed /lint of the day is a 429, and /lint/envelope is unaffected', async () => {
+    const ip = ips.next();
+    for (let i = 0; i < 2; i++) {
+      const res = await boundedApi.lint({ url: 'https://169.254.169.254/latest/' }, { ip });
+      assert.equal(res.status, 400, `attempt ${i + 1}: ${res.text}`);
+    }
+    const third = await boundedApi.lint({ url: 'https://169.254.169.254/latest/' }, { ip });
+    assert.equal(third.status, 429, third.text);
+    assert.match(third.body.error, /lint-attempt/);
+    assert.match(third.body.detail, /lint\/envelope/);
+    assert.ok(third.headers.get('retry-after'), 'a 429 must say when');
+
+    // The bound is on the outbound cost, so the fetch-free endpoint is exempt —
+    // and the refunds above mean the tier is still whole for it.
+    const served = await boundedApi.lintEnvelope({ status: 402, headers: {}, body: '{}' }, { ip });
+    assert.equal(served.status, 200, served.text);
   });
 });

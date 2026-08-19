@@ -80,7 +80,7 @@ import {
   resourceInfoV2,
 } from './envelope.js';
 import { fetchTarget, unsafeTargetsAllowed } from './fetch-target.js';
-import { claimQuota } from './quota.js';
+import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
   paymentPresented,
@@ -316,20 +316,39 @@ async function handlePaid(request, env, ctx, endpoint) {
   // — no payment, an unverified one, or a claim that belonged to another request.
   let paymentHash = null;
 
+  // The free-tier unit claimed for this request, held for the same reason and
+  // refunded on the same exits. Before this existed, a typo in the URL or an
+  // unreachable target burned a free call silently — the exact free-trial
+  // failure this service's own market research mocked in a competitor: the
+  // allowance was spent before the work was possible, and nothing said so.
+  let freeClaim = null;
+
   /**
-   * Hand the payment back, then answer.
+   * Hand back whatever this request claimed, then answer.
    *
-   * Wraps every 4xx between the single-use claim and the served report.
-   * Best-effort by construction: if the DELETE fails the caller must re-sign,
-   * which is an inconvenience, where the alternative — refusing to answer a
-   * request we already declined for another reason — helps nobody. Nothing is
-   * ever charged either way: settlement is queued only after a report exists.
+   * Wraps every 4xx between the claims and the served report — payment claim
+   * and free-tier unit alike: a request that gets no report must leave the
+   * caller exactly as able to get one as they were before they asked.
+   * Best-effort by construction: if a compensating write fails the caller
+   * loses one unit or must re-sign, which is an inconvenience, where the
+   * alternative — refusing to answer a request we already declined for
+   * another reason — helps nobody. Nothing is ever charged either way:
+   * settlement is queued only after a report exists.
+   *
+   * The ATTEMPT counter is deliberately NOT refunded here — it bounds what a
+   * request costs US (an outbound fetch, a facilitator round trip), and that
+   * cost was paid whether or not a report came back.
    */
   const abandon = async (response) => {
     if (paymentHash) {
       const hash = paymentHash;
       paymentHash = null;
       await releasePaymentSafely(db, hash);
+    }
+    if (freeClaim) {
+      const key = freeClaim;
+      freeClaim = null;
+      await refundQuota(db, day, key);
     }
     return response;
   };
@@ -358,6 +377,36 @@ async function handlePaid(request, env, ctx, endpoint) {
     const free = tier > 0 ? await claimQuota(db, day, ipHash, tier) : null;
 
     if (free !== null) {
+      freeClaim = ipHash;
+      // THE ATTEMPT BOUND, free /lint only. The free unit above is refunded
+      // when no report is served (see `abandon`) — which, alone, would hand an
+      // attacker unlimited free outbound fetches: name an unreachable target,
+      // eat the 10s timeout, get the unit back, repeat. So the ATTEMPT is
+      // metered separately and never refunded, on the same ceiling and the
+      // same reasoning as the verify bound below: the bound has to be on what
+      // the request costs US, not on whether it produced anything. /lint/envelope
+      // fetches nothing and needs no attempt claim; the paid path's outbound
+      // work is already bounded by the verify claim it must pass first.
+      if (endpoint.id === 'lint') {
+        const attempt = await claimQuota(db, day, `attempt:${ipHash}`, verifyDaily(env));
+        if (attempt === null) {
+          return abandon(
+            json(
+              {
+                error: 'daily lint-attempt limit reached',
+                detail:
+                  'free /lint attempts — served or failed — are bounded per caller per UTC day, ' +
+                  'because each one costs this service an outbound request whether or not it ' +
+                  'produced a report. POST /lint/envelope runs the same checks on a pasted ' +
+                  'response with no fetch, and is not bounded this way.',
+                retry: 'tomorrow UTC',
+              },
+              429,
+              { 'retry-after': String(secondsToReset(now, dayStart)) }
+            )
+          );
+        }
+      }
       outcome = { kind: 'free', remaining: tier - free, presented };
     } else {
       if (!payTo || !presented) return unpaid(endpoint, { payTo, tier, now, dayStart });
