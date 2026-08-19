@@ -44,14 +44,13 @@ const TOOLS = [
   {
     name: 'lint_x402',
     description:
-      'Check a LIVE x402 endpoint for conformance and get back every problem with its exact fix. ' +
-      'Sends one unauthenticated request to the URL and lints the response: HTTP status, the v1 ' +
-      'body envelope, the v2 PAYMENT-REQUIRED header envelope, dual-stack consistency between ' +
-      'them, and CDP Bazaar discovery requirements. Use this when an x402 endpoint "works" but ' +
-      'nothing happens — no buyers, no listing in a discovery index, or payments failing with a ' +
-      'signature error nobody can reproduce. Those failures are silent by nature and this is what ' +
-      'surfaces them. Costs $0.01 per call, paid over x402; the first call answers 402 with the ' +
-      'terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
+      'Find conformance blockers when an x402 endpoint passes validate but is not indexed, is not ' +
+      'showing up in Bazaar, or publishes terms an agent cannot pay. Sends one unauthenticated ' +
+      'request to the live URL and checks the HTTP response, v1 body envelope, v2 PAYMENT-REQUIRED ' +
+      'header envelope, dual-stack consistency, and Bazaar discovery metadata. Each finding includes ' +
+      'a specific fix. This identifies technical blockers; it does not guarantee indexing, demand, or ' +
+      'successful settlement. Costs $0.01 per call, paid over x402; the first call answers 402 with ' +
+      'the terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
       'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope.',
     inputSchema: {
       type: 'object',
@@ -70,11 +69,12 @@ const TOOLS = [
   {
     name: 'lint_x402_envelope',
     description:
-      'Run the same conformance checks over a 402 response you ALREADY HAVE, by pasting its ' +
-      'status, headers and body. Nothing is fetched, so this works on staging, on localhost, ' +
-      'behind auth, and on an endpoint that is not deployed yet. Cheaper than lint_x402 ($0.005) ' +
-      'because there is no outbound request. Use it whenever you can already see the response — ' +
-      'from a curl, from a test, or from the code that builds it.',
+      'Check a 402 response you already have for the same conformance and discovery blockers. Paste ' +
+      'its status, headers and body; each finding includes a specific fix. Nothing is fetched, so ' +
+      'this works during an x402 v1 vs v2 migration, on staging, on localhost, behind auth, and on ' +
+      'an endpoint that is not deployed yet. Costs $0.005, less than lint_x402 because there is no ' +
+      'outbound request. Use it whenever you can already see the response — from a curl, a test, or ' +
+      'the code that builds it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -96,9 +96,9 @@ const TOOLS = [
   {
     name: 'x402_checks',
     description:
-      'List every conformance check 10x402 runs, with its code, severity and one-line summary, ' +
-      'plus prices and the grade ladder. FREE — no payment. Call this to see what will be checked ' +
-      'before spending anything, or to look up what a code in a report means.',
+      'Start here. List the complete 64-check x402 catalogue, including code, severity, ' +
+      'one-line summary, prices, and the grade ladder. FREE — no payment. Call this before choosing ' +
+      'a paid lint, or to look up what a finding code means.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
 ];

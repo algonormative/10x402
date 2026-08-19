@@ -128,12 +128,12 @@ export const ENDPOINTS = [
     method: 'POST',
     price_usd: 0.01,
     mimeType: 'application/json',
-    description: 'Lint a live x402 endpoint for conformance and report every fix',
+    description: 'Find conformance blockers to x402 indexing and payment on a live endpoint',
     long:
       'Sends ONE unauthenticated request to the URL you name and lints the response: HTTP ' +
       'status, the v1 body envelope, the v2 PAYMENT-REQUIRED header envelope, dual-stack ' +
-      'consistency, and CDP Bazaar discovery requirements. Returns a grade and a list of ' +
-      'findings, each with the exact fix.',
+      'consistency, and CDP Bazaar discovery requirements. Returns a grade and a specific fix ' +
+      'for each finding. It identifies technical blockers; it does not verify a listing or payment.',
     inputDescription:
       'a JSON object: { "url": "https://…" } and optionally { "method": "POST" | "GET" }, ' +
       'default POST',
@@ -146,11 +146,11 @@ export const ENDPOINTS = [
     method: 'POST',
     price_usd: 0.005,
     mimeType: 'application/json',
-    description: 'Lint a pasted x402 402 response — same checks, no outbound request',
+    description: 'Check a captured x402 402 for indexing and payment blockers — no fetch',
     long:
       'Runs the same check catalogue against a response you already have: paste the status, ' +
-      'the headers and the body. Nothing is fetched, so it works on staging, on localhost and ' +
-      'on an endpoint that is not deployed yet.',
+      'headers and body. Nothing is fetched, so it works for v1/v2 migration work, on staging, ' +
+      'on localhost and on an endpoint that is not deployed yet.',
     inputDescription:
       'a JSON object: { "status": 402, "headers": { "payment-required": "…", … }, "body": "…" }',
     outputDescription: 'a JSON lint report: grade, summary, findings[] and checks_run',
@@ -166,7 +166,7 @@ export const FREE_ENDPOINT = {
   path: '/check',
   method: 'GET',
   price_usd: 0,
-  description: 'Service info, the full check catalogue, prices and the grade ladder. Free.',
+  description: 'Start here: service info, the full 64-check catalogue, prices and grades. Free.',
 };
 
 export const priceLabel = (usd) =>

@@ -103,58 +103,112 @@ const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 
 const byArea = (area) => CHECKS.filter((c) => c.area === area);
 
+const PAGE_TITLE = `x402 endpoint not indexed? Check the published 402 | ${SERVICE_NAME}`;
+const PAGE_DESCRIPTION =
+  'Check the published 402 for response-level blockers when a service passes validate but is not indexed or showing up in Bazaar. Get a fix for each finding.';
+
+const FAQS = [
+  {
+    question: 'Why does my x402 endpoint pass validate but not get indexed?',
+    answer:
+      'Base envelope validation and discovery are different layers. Bazaar metadata can be missing or fail its own schema, discoverable can be in the wrong place, or the unauthenticated probe can receive something other than a 402. 10x402 checks those technical blockers, but it cannot confirm whether Bazaar has crawled or approved a URL.',
+  },
+  {
+    question: 'Why is my x402 service not showing up in Bazaar?',
+    answer:
+      'Check the HTTP response and the discovery metadata together: extensions.bazaar, the info-to-schema match, the v1 discoverable flag, and the status returned to an unpaid probe. A conformant response removes common listing blockers; it does not guarantee a listing.',
+  },
+  {
+    question: 'What should I check during an x402 v1 vs v2 migration?',
+    answer:
+      'Check the version-specific network spelling, price field, resource shape, header encoding, and EIP-712 extra fields. If both versions are published, also check that payTo, price, chain, asset, and resource agree.',
+  },
+  {
+    question: 'What is on the x402 conformance checklist?',
+    answer: `${CHECKS.length} published checks: HTTP behavior, x402 v1 and v2 envelopes, dual-stack consistency, version hygiene, Bazaar discovery metadata, and two report safeguards that disclose truncation. Every finding includes a specific fix.`,
+  },
+  {
+    question: 'Why is my x402 endpoint not discoverable?',
+    answer:
+      'Discoverability depends on more than returning status 402. The response must publish readable payment terms and the discovery fields expected by the indexer. 10x402 can identify response-level blockers; it cannot measure demand or inspect the index itself.',
+  },
+  {
+    question: 'Does 10x402 store my URL, envelope, or report?',
+    answer:
+      'No linted URL, pasted envelope, or report is persisted in the application store. It retains aggregate lint results plus the quota and payment records needed to operate the service. What you lint is your business.',
+  },
+];
+
+const jsonForHtml = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+
 // ---------------------------------------------------------------- the page
 //
-// Plain, and deliberately so. This is a workshop, not a launch: no hero, no
-// gradient, no testimonial from a company that does not exist. The most
-// valuable thing on the page is a table of sixty checks, and the second most
-// valuable is a curl command that works.
+// Plain, and deliberately so. This is a workshop, not a launch spectacle: no
+// gradients, invented demand or testimonial from a company that does not exist.
+// The page gets someone to the right first call, then publishes the evidence.
 
 const CSS = `
 :root {
   color-scheme: light dark;
-  --bg: #fbfaf7; --fg: #1b1a17; --muted: #5f5b52; --rule: #ddd8cc;
-  --accent: #7a3d00; --code-bg: #f1eee6; --warn: #8a6100; --err: #99201a; --ok: #1f6b2e;
+  --bg: #fbfaf7; --fg: #1b1a17; --muted: #625e55; --rule: #d9d3c5;
+  --accent: #793c00; --panel: #f6f3ec; --code-bg: #eeebe3;
+  --warn: #805900; --err: #94221d; --ok: #176329; --focus: #1e66b2;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16150f; --fg: #ece7db; --muted: #a49d8d; --rule: #34312a;
-    --accent: #e0a45c; --code-bg: #211f18; --warn: #d0a03a; --err: #e07a72; --ok: #7cc48c;
+    --bg: #16150f; --fg: #eee9de; --muted: #aaa291; --rule: #3a372e;
+    --accent: #e4aa65; --panel: #1c1b15; --code-bg: #25231c;
+    --warn: #d7a743; --err: #eb8178; --ok: #83ca92; --focus: #83bfff;
   }
 }
 * { box-sizing: border-box; }
-body {
-  margin: 0; padding: 0 1.25rem 5rem; background: var(--bg); color: var(--fg);
-  font: 16px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-}
-main { max-width: 62rem; margin: 0 auto; }
-header { padding: 3.5rem 0 2rem; border-bottom: 1px solid var(--rule); }
-h1 { font-size: 2.1rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
-h1 .say { color: var(--muted); font-size: .95rem; font-weight: normal; letter-spacing: 0; }
-h2 { font-size: 1.15rem; margin: 3rem 0 .75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
-h3 { font-size: .95rem; margin: 2rem 0 .5rem; color: var(--accent); }
-p { max-width: 46rem; }
-a { color: var(--accent); }
-.lede { font-size: 1.05rem; color: var(--fg); max-width: 44rem; }
+html { scroll-behavior: smooth; }
+body { margin: 0; padding: 0 1.25rem 5rem; background: var(--bg); color: var(--fg); font: 16px/1.65 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+main { max-width: 66rem; margin: 0 auto; }
+header { padding: 4rem 0 2.5rem; }
+h1 { max-width: 18ch; font-size: clamp(2.2rem, 6vw, 4.4rem); line-height: 1.03; margin: .2rem 0 1rem; letter-spacing: -.055em; }
+h2 { font-size: clamp(1.25rem, 3vw, 1.55rem); line-height: 1.25; margin: 4rem 0 1rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.08rem; line-height: 1.4; margin: 2rem 0 .5rem; color: var(--accent); }
+p { max-width: 49rem; }
+a { color: var(--accent); text-underline-offset: .16em; }
+a:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 2px; }
+.eyebrow { margin: 0; color: var(--accent); font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.lede { max-width: 48rem; font-size: clamp(1.05rem, 2vw, 1.22rem); }
 .muted { color: var(--muted); }
+.small { font-size: .86rem; }
+.new-note, .callout { margin: 1.2rem 0; padding: .8rem 1rem; border-left: 3px solid var(--accent); background: var(--panel); }
+.spine { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: 1.6rem 0 .5rem; padding: 0; list-style: none; font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: 700; }
+.spine li:not(:last-child)::after { content: "→"; padding-left: .5rem; color: var(--accent); }
+.spine-note { margin-top: 0; max-width: 54rem; }
+.quick-nav { display: flex; flex-wrap: wrap; gap: .45rem 1rem; max-width: none; margin-top: 2rem; padding: 0; list-style: none; font-size: .84rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+.path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card { padding: 1rem 1.1rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
+.card h3 { margin-top: 0; }
+.trust { border-top: 3px solid var(--accent); }
 code { background: var(--code-bg); padding: .1em .35em; border-radius: 3px; font-size: .9em; }
-pre {
-  background: var(--code-bg); padding: .9rem 1rem; border-radius: 5px;
-  overflow-x: auto; font-size: .85rem; line-height: 1.5;
-}
+pre { margin: .65rem 0 1rem; background: var(--code-bg); padding: .9rem 1rem; border-radius: 5px; overflow-x: auto; font-size: .83rem; line-height: 1.5; }
 pre code { background: none; padding: 0; font-size: 1em; }
-table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .85rem; }
-th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
-th { color: var(--muted); font-weight: normal; text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .84rem; }
+caption { text-align: left; color: var(--muted); padding: 0 0 .45rem; }
+th, td { text-align: left; padding: .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .7rem; }
 td.code { white-space: nowrap; font-weight: 600; }
 .scroll { overflow-x: auto; }
-.sev { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.sev { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
 .sev-error { color: var(--err); } .sev-warn { color: var(--warn); } .sev-info { color: var(--muted); }
-.core::after { content: " core"; color: var(--muted); font-size: .72rem; }
+.core-label { display: inline-block; margin-left: .35rem; color: var(--muted); font-size: .66rem; }
 .grade { font-weight: 700; }
-ul { max-width: 46rem; padding-left: 1.2rem; }
-li { margin: .35rem 0; }
-footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .85rem; }
+ul, ol { max-width: 49rem; padding-left: 1.3rem; }
+li { margin: .4rem 0; }
+details { margin: .75rem 0; border: 1px solid var(--rule); border-radius: 5px; background: var(--panel); }
+summary { display: flex; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; cursor: pointer; color: var(--accent); font-weight: 700; }
+.details-body { padding: 0 1rem .5rem; }
+.count { color: var(--muted); font-weight: 400; white-space: nowrap; }
+footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .83rem; }
+@media (max-width: 44rem) { body { padding-inline: .9rem; } header { padding-top: 2.5rem; } .grid, .path-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 `;
 
 function checkTable(area) {
@@ -162,13 +216,14 @@ function checkTable(area) {
     .map(
       (c) => `        <tr>
           <td class="code">${esc(c.id)}</td>
-          <td class="sev sev-${c.severity}${c.core ? ' core' : ''}">${c.severity}</td>
+          <td class="sev sev-${c.severity}">${c.severity}${c.core ? ' <span class="core-label">core</span>' : ''}</td>
           <td>${inline(c.summary)}</td>
         </tr>`
     )
     .join('\n');
   return `      <table>
-        <thead><tr><th>code</th><th>severity</th><th>what it checks</th></tr></thead>
+        <caption>${esc(AREAS[area])}: ${byArea(area).length} checks</caption>
+        <thead><tr><th scope="col">code</th><th scope="col">severity</th><th scope="col">what it checks</th></tr></thead>
         <tbody>
 ${rows}
         </tbody>
@@ -178,14 +233,59 @@ ${rows}
 function endpointSection(endpoint) {
   const sample = sampleInputBody(endpoint);
   const report = runSample(endpoint);
-  return `      <h3>${endpoint.method} ${esc(endpoint.path)} &mdash; ${priceLabel(endpoint.price_usd)}</h3>
+  return `      <h3 id="offer-${esc(endpoint.id)}"><code>${endpoint.method} ${esc(endpoint.path)}</code> &mdash; ${priceLabel(endpoint.price_usd)} per report</h3>
       <p>${esc(endpoint.long)}</p>
-      <div class="scroll"><pre><code>curl -sS -X POST ${esc(BASE)}${esc(endpoint.path)} \\
+      <p><strong>First, request the quote.</strong> This unauthenticated call returns HTTP <code>402</code> with the price and payment terms. It does not return the lint report yet.</p>
+      <div class="scroll" role="region" aria-label="${esc(endpoint.path)} request example" tabindex="0"><pre><code>curl -sS -X POST ${esc(BASE)}${esc(endpoint.path)} \\
   -H 'content-type: application/json' \\
   -d '${esc(sample)}'</code></pre></div>
-      <p class="muted">That call really returns this &mdash; the example is computed by running it, not written by hand:</p>
-      <div class="scroll"><pre><code>${esc(JSON.stringify(report, null, 2))}</code></pre></div>`;
+      <p class="muted small">Then let an x402-capable client pay and retry the same request. A successful paid retry returns the report.</p>
+      <details><summary><span>Example paid report</span><span class="count">generated by the current engine</span></summary>
+        <div class="details-body"><p class="small">This build-computed example shows the successful paid response shape. The unpaid <code>curl</code> above returns the 402 quote instead.</p>
+        <div class="scroll" role="region" aria-label="${esc(endpoint.path)} report example" tabindex="0"><pre><code>${esc(JSON.stringify(report, null, 2))}</code></pre></div></div>
+      </details>`;
 }
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${CANONICAL_BASE}/#software`,
+      name: SERVICE_NAME,
+      url: `${CANONICAL_BASE}/`,
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Web',
+      description: PAGE_DESCRIPTION,
+      offers: [
+        {
+          '@type': 'Offer',
+          name: `${FREE_ENDPOINT.method} ${FREE_ENDPOINT.path} service catalogue`,
+          url: `${CANONICAL_BASE}${FREE_ENDPOINT.path}`,
+          price: '0',
+          priceCurrency: 'USD',
+        },
+        ...ENDPOINTS.map((e) => ({
+          '@type': 'Offer',
+          name: `${e.method} ${e.path} report`,
+          url: `${CANONICAL_BASE}/#offer-${e.id}`,
+          price: String(e.price_usd),
+          priceCurrency: 'USD',
+          description: 'Paid in USDC on Base.',
+        })),
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${CANONICAL_BASE}/#faq`,
+      mainEntity: FAQS.map(({ question, answer }) => ({
+        '@type': 'Question',
+        name: question,
+        acceptedAnswer: { '@type': 'Answer', text: answer },
+      })),
+    },
+  ],
+};
 
 // `<meta charset>` FIRST, before the title, and it has to be in the first 1024
 // bytes or the browser has already guessed. Caught by looking at the rendered
@@ -194,105 +294,198 @@ function endpointSection(endpoint) {
 // latin-1, and this page is full of em dashes and curly quotes. Cloudflare
 // Pages would have sent the charset and hidden it; the file should be right on
 // its own.
-const html = `<meta charset="utf-8">
-<title>${esc(SERVICE_NAME)} — ${esc(SERVICE_TAGLINE)}</title>
+const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="${esc(
-  `${SERVICE_NAME} lints x402 payment envelopes for conformance: ${CHECKS.length} checks over the v1 body envelope, the v2 PAYMENT-REQUIRED header, dual-stack consistency and CDP Bazaar discovery. Paid per call over x402.`
-)}">
+<title>${esc(PAGE_TITLE)}</title>
+<meta name="description" content="${esc(PAGE_DESCRIPTION)}">
 <link rel="canonical" href="${CANONICAL_BASE}/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="${esc(SERVICE_NAME)}">
+<meta property="og:title" content="Your 402 works. Agents still can't pay you.">
+<meta property="og:description" content="${esc(PAGE_DESCRIPTION)}">
+<meta property="og:url" content="${CANONICAL_BASE}/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Your 402 works. Agents still can't pay you.">
+<meta name="twitter:description" content="${esc(PAGE_DESCRIPTION)}">
+<script type="application/ld+json">${jsonForHtml(structuredData)}</script>
 <style>${CSS}</style>
+</head>
+<body>
 <main>
   <header>
-    <h1>${esc(SERVICE_NAME)} <span class="say">(&ldquo;ten-ex-four-oh-two&rdquo;)</span></h1>
-    <p class="lede">${esc(SERVICE_TAGLINE)}. Point it at a paid endpoint and it tells you,
-    in ${CHECKS.length} checks, everything a client, a facilitator or a discovery index will
-    quietly refuse to tell you.</p>
-    <p class="muted">Shovels for x402 sellers: the conformance tuition we paid, sold per call.</p>
+    <p class="eyebrow">${esc(SERVICE_NAME)} <span class="say">&middot; ten-ex-four-oh-two</span></p>
+    <h1>Your 402 works. Agents still can't pay you.</h1>
+    <p class="lede">A ${CHECKS.length}-check catalogue against your live 402, with a specific fix
+    for each finding &mdash; the rules the Bazaar docs never wrote down.</p>
+    <ol class="spine" aria-label="From a correct 402 to payment">
+      <li>Ship a correct 402</li>
+      <li>Get indexed</li>
+      <li>Get paid</li>
+    </ol>
+    <p class="muted spine-note">10x402 identifies observable conformance blockers between those
+    steps and gives you the fix for each finding. It cannot guarantee a Bazaar listing, demand, or
+    a payment that settles.</p>
+    <p class="new-note"><strong>10x402 is new.</strong> There are no customer stories, usage claims,
+    or testimonials here. The evidence is the published catalogue, self-lint, and storage boundary.</p>
+    <nav class="quick-nav" aria-label="Page sections">
+      <a href="#start">Start here</a><a href="#worked-examples">Worked requests</a>
+      <a href="#trust">Trust boundaries</a><a href="#checklist">Full checklist</a>
+      <a href="#faq">FAQ</a>
+    </nav>
   </header>
 
-  <h2>What goes wrong</h2>
-  <p>An x402 endpoint fails silently in every direction at once. A url-safe base64 envelope is
-  discarded by the client before it is decoded, so you look like a seller who published nothing.
-  A <code>bazaar.info</code> that does not validate against its own <code>bazaar.schema</code> is
-  declined by the facilitator without a word, and your listing simply never appears. A missing
-  <code>extra.name</code> makes every genuine payment fail as
-  <code>invalid_exact_evm_payload_signature</code> with nothing in your logs to explain it. A free
-  tier hands the discovery prober a 200 and delists an endpoint that was already indexed.</p>
-  <p>None of those produce an error you will see. They produce an absence &mdash; of buyers, of a
-  listing, of anything at all &mdash; and an absence is very hard to debug.</p>
+  <section aria-labelledby="start">
+    <h2 id="start">Start here</h2>
+    <p>The catalogue is free. Lint reports are paid per served report; there is no free lint tier.</p>
+    <div class="grid">
+      <article class="card">
+        <h3>For a person building an endpoint</h3>
+        <p>Read every check and price before paying:</p>
+        <div class="scroll" role="region" aria-label="Free catalogue curl command" tabindex="0"><pre><code>curl -sS ${esc(BASE)}${esc(FREE_ENDPOINT.path)}</code></pre></div>
+        <p class="small">Then use <code>/lint</code> for a public URL, or
+        <code>/lint/envelope</code> for a response captured from local, staging, or authenticated code.
+        To pay and retry, follow the official <a href="https://docs.x402.org/getting-started/quickstart-for-buyers">x402 buyer quickstart</a>
+        for <code>@x402/fetch</code> or another supported client.</p>
+      </article>
+      <article class="card">
+        <h3>For an agent</h3>
+        <p>Read <a href="/skill.md">skill.md</a> for the operating instructions, or
+        <a href="/llms.txt">llms.txt</a> for the complete compact reference. The
+        <a href="/openapi.json">OpenAPI contract</a> and free <code>GET /check</code> route are
+        machine-readable. In MCP, call <code>x402_checks</code> first.</p>
+      </article>
+    </div>
+    <div class="scroll" role="region" aria-label="10x402 prices" tabindex="0"><table class="pricing">
+      <caption>One route for each stage of the job</caption>
+      <thead><tr><th scope="col">route</th><th scope="col">use it for</th><th scope="col">price</th></tr></thead>
+      <tbody>
+        <tr><td><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code></td><td>Catalogue, prices, and grade rules</td><td>free</td></tr>
+${ENDPOINTS.map((e) => `        <tr><td><code>${e.method} ${esc(e.path)}</code></td><td>${e.id === 'lint' ? 'A live public endpoint' : 'A captured or local 402 response'}</td><td>${priceLabel(e.price_usd)} per report</td></tr>`).join('\n')}
+      </tbody>
+    </table></div>
+  </section>
 
-  <h2>The endpoints</h2>
+  <section aria-labelledby="outcome-path">
+    <h2 id="outcome-path">Ship a correct 402 → get indexed → get paid</h2>
+    <div class="grid path-grid">
+      <article class="card"><h3>1. Ship a correct 402</h3><p>Check the HTTP response, v1 body,
+      v2 <code>PAYMENT-REQUIRED</code> header, and the fields an agent must sign.</p></article>
+      <article class="card"><h3>2. Remove indexing blockers</h3><p>Check Bazaar metadata,
+      info-to-schema consistency, discoverability flags, and what an unpaid probe receives.</p></article>
+      <article class="card"><h3>3. Publish payable terms</h3><p>Check that an agent can read the
+      amount, asset, network, recipient, and EIP-712 domain. The linter does not make a payment.</p></article>
+    </div>
+  </section>
+
+  <section aria-labelledby="validate-not-indexed">
+    <h2 id="validate-not-indexed">Why an x402 endpoint passes validate but is not indexed</h2>
+    <p>Validation, discovery, and payment do not all read the same parts of a 402. If your x402
+    service is not showing up in Bazaar, the base envelope may be valid while discovery metadata
+    is missing, placed incorrectly, or inconsistent with its schema.</p>
+    <p>A url-safe base64 v2 envelope can be rejected before it is decoded. Missing EIP-712
+    <code>extra</code> fields can make the client and facilitator sign different domains. A free
+    response can give an unpaid discovery probe a 200 when it expects a 402. These are response-level
+    blockers 10x402 can surface; it does not inspect Bazaar&rsquo;s index or infer demand.</p>
+  </section>
+
+  <section aria-labelledby="worked-examples">
+    <h2 id="worked-examples">Choose a lint, then pay and retry</h2>
+    <p>Every paid route answers <code>402</code> first. The v1 terms are in the JSON body and the v2
+    terms are standard base64 in the <code>PAYMENT-REQUIRED</code> header. An x402-capable client
+    holding USDC on Base reads those terms, pays, and retries the same request. There is no login or
+    API key; the payment is the authorization.</p>
 ${ENDPOINTS.map(endpointSection).join('\n\n')}
+    <div class="callout">
+      <p><strong>Payment terms:</strong> USDC on Base at <code>${USDC_BASE}</code>;
+      <code>${NETWORK_V1}</code> in v1 and <code>${NETWORK_V2}</code> in v2.</p>
+      <p>You are only charged for a report that is served. A bad URL, unreachable target, or malformed
+      paste settles nothing, even if the payment verified.</p>
+    </div>
+  </section>
 
-  <h3>GET ${esc(FREE_ENDPOINT.path)} &mdash; free</h3>
-  <p>${esc(FREE_ENDPOINT.description)} No payment, no account, no key.</p>
-  <div class="scroll"><pre><code>curl -sS ${esc(BASE)}${esc(FREE_ENDPOINT.path)}</code></pre></div>
+  <section aria-labelledby="report">
+    <h2 id="report">Read the report: fix payment blockers first</h2>
+    <div class="scroll" role="region" aria-label="Grade rules" tabindex="0"><table>
+      <caption>The grade ladder</caption>
+      <thead><tr><th scope="col">grade</th><th scope="col">when</th></tr></thead>
+      <tbody>
+${GRADE_RULES.map((g) => `        <tr><td class="grade">${g.grade}</td><td>${esc(g.when)}</td></tr>`).join('\n')}
+      </tbody>
+    </table></div>
+    <p><strong>Core</strong> checks are the failures that make an envelope unusable as published.
+    One core error is an F. Ordinary errors are a D; warnings count toward B or C.</p>
+    <p class="muted">Severities: ${Object.entries(SEVERITY_BLURB)
+      .map(([k, v]) => `<strong class="sev-${k}">${k}</strong> &mdash; ${esc(v)}`)
+      .join('; ')}.</p>
+    <p><code>checks_run</code> is the number of catalogue checks that applied, not the total
+    available. A v1-only response legitimately skips v2 checks.</p>
+  </section>
 
-  <h2>Paying</h2>
-  <p>Every paid call answers <code>402</code> first, with an x402 envelope in
-  <strong>both</strong> protocol versions: v1 as the JSON body, v2 as standard base64 in a
-  <code>PAYMENT-REQUIRED</code> response header. Retry through any x402-capable client
-  (<code>x402-fetch</code>, the x402 SDK, Coinbase AgentKit) holding a wallet with USDC on Base.
-  There is no login and no account &mdash; the payment is the auth.</p>
-  <ul>
-    <li>Asset: USDC on Base, <code>${USDC_BASE}</code></li>
-    <li>Network: <code>${NETWORK_V1}</code> in v1, <code>${NETWORK_V2}</code> in v2 &mdash; one chain, two legal spellings</li>
-    <li>Prices: ${ENDPOINTS.map((e) => `<code>${esc(e.path)}</code> ${priceLabel(e.price_usd)} (${atomicAmount(e.price_usd)} atomic)`).join(', ')}</li>
-    <li>There is no free tier, on purpose. A free tier would fail this service&rsquo;s own
-    <code>HTTP_FREE_TIER_200</code> check.</li>
-    <li>You are only charged for reports that are actually served. A bad URL or a malformed paste
-    settles nothing, even when the payment verified.</li>
-  </ul>
+  <section aria-labelledby="trust">
+    <h2 id="trust">Two things you should not have to take on faith</h2>
+    <div class="grid">
+      <article class="card trust">
+        <h3>It has to pass its own lint</h3>
+        <p>The test suite runs the production-configured Worker under workerd, takes the 402 it
+        actually serves for both paid endpoints, and requires grade A with zero findings. Every
+        build also constructs both paid envelopes, self-lints them, and fails on any finding before
+        writing <code>dist/</code>.</p>
+      </article>
+      <article class="card trust">
+        <h3>What you lint is your business</h3>
+        <p>The application store keeps no linted URLs, no pasted envelopes, and no reports. It
+        retains aggregate lint results plus the quota and payment records needed to operate the
+        service; it does not persist the material being linted.</p>
+      </article>
+    </div>
+    <p class="small muted">The suite also keeps a frozen 402 captured from a live production seller
+    as a positive control. It is not presented as a current live-domain check.</p>
+  </section>
 
-  <h2>The grade</h2>
-  <div class="scroll"><table>
-    <thead><tr><th>grade</th><th>when</th></tr></thead>
-    <tbody>
-${GRADE_RULES.map((g) => `      <tr><td class="grade">${g.grade}</td><td>${esc(g.when)}</td></tr>`).join('\n')}
-    </tbody>
-  </table></div>
-  <p><strong>Core</strong> checks are the ones whose failure makes the envelope unusable as
-  published, rather than merely impoverished. One core error is an F: the endpoint does not work.
-  Ordinary errors are a D: it works, and something about it is wrong.</p>
-  <p class="muted">Severities: ${Object.entries(SEVERITY_BLURB)
-    .map(([k, v]) => `<strong class="sev-${k}">${k}</strong> &mdash; ${esc(v)}`)
-    .join('; ')}.</p>
+  <section aria-labelledby="checklist">
+    <h2 id="checklist">The x402 conformance checklist: ${CHECKS.length} published checks</h2>
+    <p>Sixty-two checks inspect HTTP and x402 conformance. Two report safeguards disclose truncated
+    input or findings, so a partial report cannot read as clean. Every finding includes a code,
+    message, severity, and specific <code>fix</code>.</p>
+    <ul class="quick-nav" aria-label="Checklist areas">
+${AREA_ORDER.map((area) => `      <li><a href="#checks-${area}">${esc(AREAS[area])} (${byArea(area).length})</a></li>`).join('\n')}
+    </ul>
+${AREA_ORDER.map((area) => `    <details id="checks-${area}"${area === 'http' ? ' open' : ''}>
+      <summary><span>${esc(AREAS[area])}</span><span class="count">${byArea(area).length} checks</span></summary>
+      <div class="details-body"><div class="scroll" role="region" aria-label="${esc(AREAS[area])} checks" tabindex="0">
+${checkTable(area)}
+      </div></div>
+    </details>`).join('\n')}
+  </section>
 
-  <h2>The ${CHECKS.length} checks</h2>
-  <p>Published in full, before you spend anything. Every finding in a report carries one of these
-  codes plus a <code>fix</code> saying exactly what to change.</p>
-${AREA_ORDER.map((area) => `      <h3>${esc(AREAS[area])} &mdash; ${byArea(area).length} checks</h3>\n<div class="scroll">\n${checkTable(area)}\n</div>`).join('\n')}
+  <section aria-labelledby="faq">
+    <h2 id="faq">x402 discovery and migration FAQ</h2>
+${FAQS.map(({ question, answer }) => `    <details class="faq">
+      <summary>${esc(question)}</summary>
+      <div class="details-body"><p>${esc(answer)}</p></div>
+    </details>`).join('\n')}
+  </section>
 
-  <h2>It lints itself</h2>
-  <p>10x402&rsquo;s own <code>402</code> &mdash; for both paid endpoints, in the production
-  configuration &mdash; is run through 10x402&rsquo;s own engine on every build. It must grade
-  <strong>A</strong> with zero findings, info included, or the build fails. A conformance linter
-  that does not pass its own lint is a shop with a broken sign.</p>
-  <p>The suite also holds a real 402 captured from a live production seller, frozen, as a positive
-  control: a linter that grades every stranger&rsquo;s endpoint an F is indistinguishable, from the
-  outside, from a linter that has found something.</p>
-
-  <h2>Limits, stated plainly</h2>
-  <ul>
-    <li><code>POST /lint</code> sends exactly one unauthenticated request, carrying no payment
-    header of either version, and follows no redirects. A redirect is reported as a finding, because
-    it is one.</li>
-    <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB of the response, and one 10s deadline
-    covers the whole call &mdash; the connection, the headers and the body read. A target that
-    answers and then dribbles is cut off on the same clock as one that never answers at all.</li>
-    <li>It refuses plain http, private and reserved addresses, private-network names, and any port
-    but 443 and 8443. For an endpoint that is not deployed yet, or on another port, use
-    <code>/lint/envelope</code> and paste the response.</li>
-    <li>The report is bounded: at most 8 <code>accepts[]</code> entries are linted, at most 200
-    findings come back, and anything quoted out of your envelope is clipped. Each bound reports
-    itself, so a short report is never a quietly truncated one.</li>
-    <li>It does not resolve DNS, so it cannot defend against DNS rebinding. It is a public-URL
-    linter and should not be deployed anywhere its egress can see a private network.</li>
-    <li>It does not make a payment, so it cannot tell you whether your facilitator would accept
-    one. It checks the envelope, which is where the failures actually are.</li>
-    <li>Revenue to date: zero.</li>
-  </ul>
+  <section aria-labelledby="limits">
+    <h2 id="limits">Limits, stated plainly</h2>
+    <ul>
+      <li><code>POST /lint</code> sends one unauthenticated request with no payment header and
+      follows no redirects. A redirect is reported as a finding.</li>
+      <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB, and one 10s deadline covers the
+      connection, headers, and body read.</li>
+      <li>It refuses plain http, private and reserved addresses, private-network names, and ports
+      other than 443 and 8443. Use <code>/lint/envelope</code> for anything else.</li>
+      <li>At most 8 <code>accepts[]</code> entries are linted, at most 200 findings come back, and
+      quoted input is clipped. Each bound reports itself.</li>
+      <li>The URL guard does not pre-resolve DNS, so it cannot defend against DNS rebinding. This is
+      a public-URL linter and should not be deployed where egress can reach a private network.</li>
+      <li>It checks the published HTTP 402 and envelopes. It does not make a payment to the seller,
+      confirm a live Bazaar listing, or measure demand.</li>
+    </ul>
+  </section>
 
   <footer>
     <p>${esc(SERVICE_NAME)} &middot; <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> &middot;
@@ -301,6 +494,8 @@ ${AREA_ORDER.map((area) => `      <h3>${esc(AREAS[area])} &mdash; ${byArea(area)
     <a href="/.well-known/x402">.well-known/x402</a></p>
   </footer>
 </main>
+</body>
+</html>
 `;
 
 // ---------------------------------------------------------------- openapi
@@ -374,10 +569,11 @@ const openapi = {
     version: '0.1.0',
     summary: SERVICE_TAGLINE,
     description:
-      `${SERVICE_NAME} checks an x402 402 for conformance: ${CHECKS.length} checks over the v1 body ` +
-      'envelope, the v2 PAYMENT-REQUIRED header envelope, dual-stack consistency between them, and ' +
-      'the CDP Bazaar discovery requirements. Every finding carries the exact fix. Paid per call ' +
-      'over x402 itself, in USDC on Base; there is no account and no API key — the payment is the auth.',
+      `${SERVICE_NAME} finds conformance blockers between a working 402, discovery and payment. Its ` +
+      `${CHECKS.length}-check catalogue covers the HTTP response, v1 body, v2 PAYMENT-REQUIRED ` +
+      'header, dual-stack consistency, Bazaar discovery metadata and report safeguards. Every ' +
+      'finding includes a specific fix. Paid per call over x402 itself, in USDC on Base; there is ' +
+      'no account and no API key — the payment is the auth.',
     contact: { email: SUPPORT_EMAIL },
   },
   servers: [{ url: CANONICAL_BASE }],
@@ -489,15 +685,17 @@ const wellKnown = {
 
 const llms = `# ${SERVICE_NAME} ("ten-ex-four-oh-two")
 
-${SERVICE_TAGLINE}.
+Your 402 works. Agents still cannot pay you.
 
-${CHECKS.length} conformance checks over an x402 402: the v1 body envelope, the v2
-PAYMENT-REQUIRED header envelope, dual-stack consistency between them, and CDP
-Bazaar discovery requirements. Every finding carries the exact fix.
+Ship a correct 402 → remove indexing blockers → publish payable terms. 10x402
+cannot guarantee indexing, demand or settlement. Its ${CHECKS.length}-check catalogue covers the
+HTTP response, v1 body envelope, v2 PAYMENT-REQUIRED header, dual-stack
+consistency, Bazaar discovery metadata and report safeguards. Every finding
+includes a specific fix.
 
 ## Endpoints
 
-GET ${FREE_ENDPOINT.path} — free. Service info, prices, the grade ladder, the full check catalogue.
+GET ${FREE_ENDPOINT.path} — free. Start here: service info, prices, grades, full check catalogue.
 ${ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}. ${e.description}.\n  takes: ${e.inputDescription}\n  returns: ${e.outputDescription}`).join('\n')}
 
 ## Paying
@@ -544,9 +742,8 @@ POST /lint sends exactly one unauthenticated request with no payment header,
 follows no redirects, reads at most ${MAX_BODY_BYTES / 1024} KB, and gives the whole call — connect,
 headers and body read — one 10s deadline. It refuses plain http,
 private/reserved addresses, private-network names, and any port but 443 and
-8443. It does not resolve DNS, so it cannot defend against DNS rebinding. It
-does not make a payment, so it cannot tell you whether your facilitator would
-accept one.
+8443. The URL guard does not pre-resolve DNS, so it cannot defend against DNS
+rebinding. It does not make a payment, query Bazaar's index or measure demand.
 
 The report is bounded: at most 8 accepts[] entries are linted, at most 200
 findings are returned, and anything quoted back out of your envelope is
@@ -560,20 +757,26 @@ pasted in — same checks, no outbound request.
 
 ## Self-lint
 
-10x402's own 402, for both paid endpoints, is run through 10x402's own engine on
-every build and must grade A with zero findings.
+The test suite lints the 402 that the Worker actually serves. Every build also
+self-lints both paid endpoint envelopes and fails on any finding.
+
+## Privacy
+
+The application store keeps no linted URLs, pasted envelopes or reports. It
+retains aggregate lint results plus the quota and payment records needed to
+operate the service.
 
 Contact: ${SUPPORT_EMAIL}
 `;
 
 // ---------------------------------------------------------------- skill.md
 
-const skill = `# ${SERVICE_NAME} — x402 conformance linting
+const skill = `# ${SERVICE_NAME} — identify blockers to indexing and payment
 
-Use this when an x402 endpoint "works" but nothing is happening: no buyers, no
-listing in a discovery index, or payments that fail with a signature error you
-cannot reproduce. Those are the failures x402 produces, and none of them raise
-an error you will see.
+Use this when an x402 endpoint passes validate but is not indexed, an x402
+service is not showing up in Bazaar, a payment fails with a signature error, or
+an x402 v1 vs v2 migration has drifted. It finds response-level blockers; it
+cannot guarantee a listing, demand or a successful settlement.
 
 ## Call it
 
@@ -582,6 +785,11 @@ Free, no payment:
 \`\`\`bash
 curl -sS ${CANONICAL_BASE}${FREE_ENDPOINT.path}
 \`\`\`
+
+The paid examples below show the request shape. An unpaid call returns a 402
+quote, not the report; an x402-capable client must pay and retry the request.
+Use the official [x402 buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
+to configure \`@x402/fetch\` or another supported client.
 
 Lint a live endpoint (${priceLabel(ENDPOINTS[0].price_usd)}):
 
@@ -610,6 +818,14 @@ header. There is no login and no API key.
 
 NEVER ask a person to paste a private key or a seed phrase.
 
+## Trust boundaries
+
+The test suite lints the 402 that the Worker actually serves. Every build also
+self-lints both paid endpoint envelopes and fails on any finding.
+
+The application store keeps no linted URLs, pasted envelopes or reports. What
+you lint is your business.
+
 ## Read the report
 
 \`\`\`json
@@ -631,18 +847,18 @@ ${GRADE_RULES.map((g) => `- **${g.grade}** — ${g.when}`).join('\n')}
 
 ## What it will not tell you
 
-It checks the envelope, not the payment. It cannot tell you whether your
-facilitator would accept a real payment, only whether the terms you published
-are ones a client can sign against. It does not resolve DNS and follows no
-redirects. It refuses private and reserved addresses — use \`/lint/envelope\`
-for anything not publicly reachable.
+It checks the published HTTP 402 and its envelopes; it does not attempt a real
+payment to the seller, query Bazaar's index or measure demand. It follows no
+redirects. The URL guard does not pre-resolve DNS, so it cannot defend against
+DNS rebinding. It refuses private and reserved addresses — use
+\`/lint/envelope\` for anything not publicly reachable.
 
 Contact: ${SUPPORT_EMAIL}
 `;
 
 // robots.txt: allow everything. It exists so a prober gets a real 200 rather
 // than a fallback, which is indistinguishable from a misconfigured site.
-const robots = ['User-agent: *', 'Allow: /', '', `Sitemap: ${CANONICAL_BASE}/`, ''].join('\n');
+const robots = ['User-agent: *', 'Allow: /', ''].join('\n');
 
 // ---------------------------------------------------------------- write
 //

@@ -2,10 +2,12 @@
 
 *("ten-ex-four-oh-two")*
 
-x402 conformance linting, sold per call over x402.
+**Your 402 works. Agents still can't pay you.**
 
-Point it at a paid endpoint and it tells you, in 64 checks, everything a client,
-a facilitator or a discovery index will quietly refuse to tell you.
+Ship a correct 402 → get indexed → get paid. 10x402 finds the conformance
+blockers between those steps and gives you a specific fix for each finding. It
+does not promise demand, a Bazaar listing, or a successful payment; it shows you
+what in the published 402 can prevent them.
 
 **Status: built, not deployed. Zero revenue to date. `10x402.com` is not
 registered yet.** Nothing in this repo depends on that domain resolving — no
@@ -14,42 +16,42 @@ generated copy and in envelope metadata.
 
 ---
 
-## Positioning
+## Why a working x402 endpoint can still be undiscoverable
 
-Shovels for x402 sellers: the conformance tuition we paid, sold per call.
+An endpoint can pass `validate`, return a 402, and still not be indexed. The
+validator, a client, a facilitator, and Bazaar discovery do not all inspect the
+same parts of the response. The failure often shows up as a missing listing, an
+agent that cannot read the payment terms, or a payment signature that will not
+verify:
 
-An x402 endpoint fails silently in every direction at once, and that is the
-whole product thesis:
-
-- A **url-safe base64** v2 envelope is discarded by the client *before* it is
-  decoded — clients validate against `/^[A-Za-z0-9+/]*={0,2}$/` first — so you
-  look like a seller who published nothing at all.
+- A **url-safe base64** v2 envelope can be discarded by the client *before* it
+  is decoded — clients validate against `/^[A-Za-z0-9+/]*={0,2}$/` first — so
+  the agent behaves as though no payment terms were published.
 - A `bazaar.info` that does not validate against its own `bazaar.schema` is
-  declined by the facilitator **without a word**. The endpoint keeps taking
-  payments and simply never appears in the directory.
-- A missing `extra.name` / `extra.version` makes every genuine payment fail as
-  `invalid_exact_evm_payload_signature`, because the client signs over an
-  undefined EIP-712 domain while the facilitator recomputes it from its own
-  table. Nothing in your logs mentions it.
-- A **free tier** hands the discovery prober a 200 and delists an endpoint that
-  was already indexed.
+  a discovery blocker even when the base envelope validates.
+- A missing `extra.name` / `extra.version` can make a genuine payment fail as
+  `invalid_exact_evm_payload_signature` when the client and facilitator build
+  different EIP-712 domains.
+- A **free tier** hands the discovery prober a 200 instead of the 402 it expects.
 - A `maxAmountRequired` left in a v2 accepts entry means a v2 client reads
   `amount`, finds `undefined`, and has no price to sign against.
 
-None of those produce an error you will see. They produce an *absence* — of
-buyers, of a listing, of anything at all — and an absence is very hard to debug.
-That is what this sells: the difference between "my listing is missing, I wonder
-why" and a one-line diff.
+10x402 turns those absences into named findings and concrete changes. Its
+64-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
+consistency, version hygiene, Bazaar metadata, and two safeguards that disclose
+when the report itself had to stop or truncate work.
 
 ## The self-lint invariant
 
-**10x402 lints itself in CI; grade A or the build fails.**
+**The test suite lints the 402 that the Worker actually serves. Every build also
+self-lints both paid endpoint envelopes and fails on any finding.**
 
 `test/self-lint.test.mjs` takes 10x402's *own* 402 — for both paid endpoints, in
 the production configuration, off the wire through wrangler and workerd — and
 runs it through 10x402's *own* lint engine. It must grade **A with zero
-findings**, info included. `node build.mjs` runs the same check and refuses to
-emit `dist/` if it fails.
+findings**, info included. Separately, `node build.mjs` constructs the production
+envelopes, runs the same engine, and refuses to emit `dist/` if either has a
+finding.
 
 A conformance linter that does not pass its own lint is a shop with a broken
 sign. When this fails, the honest question is which half is wrong: if the check
@@ -63,19 +65,40 @@ A linter that grades every stranger's endpoint an F is indistinguishable, from
 the outside, from a linter that has found something. Ground the measurement on a
 known-good before trusting any negative verdict.
 
+## What you lint is your business
+
+The application store keeps no linted URLs, no pasted envelopes, and no reports.
+It retains the endpoint id (`lint` or `lint-envelope`), grade, and error/warning
+counts as aggregate product telemetry, plus the quota and payment records needed
+to operate the service. It does not persist the material being linted.
+
+## Start here
+
+Once the service is deployed, a person can inspect the complete checklist and
+prices without paying:
+
+```bash
+curl -sS https://10x402.com/check
+```
+
+An agent should read [`skills/10x402/SKILL.md`](skills/10x402/SKILL.md) or the
+generated `/skill.md`, then call the free `x402_checks` tool before choosing a
+paid lint. Use `/lint` for a public URL and `/lint/envelope` for a response you
+already captured from local, staging, or authenticated code.
+
 ## What it does
 
 | | | |
 |---|---|---|
 | `POST /lint` | **$0.01** | Sends one unauthenticated request to a URL you name and lints the response. |
-| `POST /lint/envelope` | **$0.005** | The same 64 checks over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope` | **$0.005** | The same 64-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
 Both paid endpoints return the same shape:
 
 ```json
 {
-  "grade": "A",
+  "grade": "F",
   "summary": {
     "versions_detected": [1, 2],
     "payTo": "0x…",
@@ -102,10 +125,12 @@ needs to know the denominator moved.
 and stops has told the seller nothing they did not already know from the
 silence.
 
-## The check catalogue
+## The x402 conformance checklist: 64 published checks
 
-64 checks in six areas. Published in full at `GET /check` and on the page,
-before anyone spends anything.
+The catalogue is published in full at `GET /check` and on the page before anyone
+spends anything. Sixty-two checks inspect HTTP and x402 conformance; two report
+safeguards disclose truncated input or findings instead of letting a partial
+report read as clean.
 
 | area | checks | what it covers |
 |---|---|---|
