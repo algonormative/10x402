@@ -16,6 +16,7 @@ import {
   response,
   v1Accept,
   v1Envelope,
+  v2Accept,
   v2Envelope,
   v2Resource,
   RESOURCE_URL,
@@ -231,6 +232,71 @@ describe('the report is bounded, because the input is not', () => {
     assert.match(extra[0].message, /4 of the 4 accepts\[\] entries/);
     // One warning, so a B — exactly what the same fault in one entry scores.
     assert.equal(report.grade, 'B');
+  });
+
+  test('two DIFFERENT faults under one code stay two findings', () => {
+    // THE DEDUPE MUST NOT LIE. Several checks reach the same code from branches
+    // that diagnose different things: V2_NETWORK_CAIP2 fires for "names no
+    // network", for "uses the v1 name base" — whose fix spells out the exact
+    // CAIP-2 replacement, the most actionable string in the catalogue — and for
+    // "is not a CAIP-2 identifier". Collapsing on the code alone kept the first
+    // and threw the other two away, then appended "the same fault is also in
+    // accepts[1]", which was false: a seller checking accepts[1] would find a
+    // network there and conclude the linter was wrong.
+    const v2 = v2Envelope();
+    const missing = v2Accept();
+    delete missing.network;
+    const v1Spelling = { ...v2Accept(), network: 'base' };
+    const nonsense = { ...v2Accept(), network: 'no-colon-here' };
+    v2.accepts = [missing, v1Spelling, nonsense];
+
+    const findings = lint(response({ v1: v1Envelope(), v2, url: RESOURCE_URL })).findings.filter(
+      (f) => f.code === 'V2_NETWORK_CAIP2'
+    );
+    assert.equal(findings.length, 3, JSON.stringify(findings.map((f) => f.message), null, 2));
+    assert.match(findings[0].message, /accepts\[0\] names no network/);
+    assert.match(findings[1].message, /accepts\[1\] uses the v1 network name "base"/);
+    assert.match(findings[1].fix, /eip155:8453/, 'the replacement value was lost in the collapse');
+    assert.match(findings[2].message, /accepts\[2\].*is not a CAIP-2 identifier/);
+    // And none of them claims the others are the same fault.
+    for (const f of findings) assert.ok(!/The same fault/.test(f.message), f.message);
+  });
+
+  test('a non-object accepts[] entry is reported wherever it is', () => {
+    // Two silences, at two indexes. A non-object at index 0 returned early and
+    // skipped the entire array — including the truncation notice, so unread
+    // entries went unmentioned — and one at any later index was skipped with
+    // nothing said. A client iterating accepts[] faults on both.
+    const v2 = v2Envelope();
+    v2.accepts = [null, v2Accept(), 'a string', 12345];
+    const report = lint(response({ v1: v1Envelope(), v2, url: RESOURCE_URL }));
+    const junk = report.findings.filter((f) => f.code === 'V2_SCHEME');
+
+    assert.equal(junk.length, 3, JSON.stringify(report.findings.map((f) => f.code)));
+    assert.match(junk[0].message, /accepts\[0\] is null, not an object/);
+    assert.match(junk[1].message, /accepts\[2\] is "a string", not an object/);
+    assert.match(junk[2].message, /accepts\[3\] is 12345, not an object/);
+  });
+
+  test('a non-object first entry no longer hides how much went unread', () => {
+    const v2 = v2Envelope();
+    v2.accepts = [null, ...Array.from({ length: 40 }, () => v2Accept())];
+    const report = lint(response({ v1: v1Envelope(), v2, url: RESOURCE_URL }));
+    const truncated = report.findings.find((f) => f.code === 'ACCEPTS_TRUNCATED');
+    assert.ok(truncated, 'forty unread entries and nothing said about them');
+    assert.match(truncated.message, /41 accepts\[\] entries/);
+  });
+
+  test('summary.price is clipped like everything else that leaves here', () => {
+    // It looks derived rather than copied, which is how it escaped: formatPrice
+    // turns any run of digits into a dollar figure the same length, so a
+    // 60,000-digit amount produced a 60,000-character price sitting next to a
+    // dutifully clipped atomic value.
+    const v2 = v2Envelope();
+    v2.accepts[0].amount = '1'.repeat(60_000);
+    const report = lint(response({ v2, url: RESOURCE_URL }));
+    assert.ok(report.summary.price.length < 200, `price is ${report.summary.price.length} characters`);
+    assert.ok(JSON.stringify(report).length < 16_000, 'the report grew with the amount');
   });
 
   test('the grade of a repeated fault does not move with the array length', () => {

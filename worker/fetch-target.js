@@ -411,7 +411,10 @@ const unreachable = (url) => ({
  */
 async function readCapped(res, max, signal) {
   const body = res.body;
-  if (!body) return { text: '', truncated: false, aborted: false };
+  // A response with no body stream reached AFTER the deadline fired is still a
+  // timeout — every other return path derives this from the signal, and
+  // hardcoding false here would report it as a clean empty-body lint.
+  if (!body) return { text: '', truncated: false, aborted: signal?.aborted === true };
 
   const reader = body.getReader();
   const chunks = [];

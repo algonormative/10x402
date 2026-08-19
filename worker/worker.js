@@ -311,6 +311,29 @@ async function handlePaid(request, env, ctx, endpoint) {
   let settle = null;
   let alert = null;
 
+  // The single-use claim taken on a verified payment, held so it can be given
+  // back if the report is never served. Null means there is nothing to give back
+  // — no payment, an unverified one, or a claim that belonged to another request.
+  let paymentHash = null;
+
+  /**
+   * Hand the payment back, then answer.
+   *
+   * Wraps every 4xx between the single-use claim and the served report.
+   * Best-effort by construction: if the DELETE fails the caller must re-sign,
+   * which is an inconvenience, where the alternative — refusing to answer a
+   * request we already declined for another reason — helps nobody. Nothing is
+   * ever charged either way: settlement is queued only after a report exists.
+   */
+  const abandon = async (response) => {
+    if (paymentHash) {
+      const hash = paymentHash;
+      paymentHash = null;
+      await releasePaymentSafely(db, hash);
+    }
+    return response;
+  };
+
   try {
     const salt = await currentSalt(db, day);
     const ip = request.headers.get('cf-connecting-ip') || '';
@@ -400,14 +423,34 @@ async function handlePaid(request, env, ctx, endpoint) {
       // first request through owns the payment and the rest are turned away
       // having cost nothing. The loser writes no settlements row — the original
       // request owns that too.
+      //
+      // AND IT IS RELEASED IF THE REPORT IS NEVER SERVED. Claiming here means
+      // claiming BEFORE the request body has even been read, and every 4xx
+      // between here and the response — an empty body, a typo in the JSON, a
+      // missing `url`, an SSRF-refused target, an unreachable one — would
+      // otherwise leave the caller's authorization permanently spent on nothing,
+      // and answer their retry with "this payment has already bought a report",
+      // which would be false. That is the exact rule stated at the top of this
+      // file: NOBODY IS CHARGED FOR A LINT THAT WAS NOT SERVED, and a payment
+      // consumed is a charge whether or not a settlement followed it. So the
+      // claim is compensated on every one of those exits — see `abandon` below.
       if (verdict.verified) {
-        const fresh = await claimPaymentOnce(db, await sha256Hex(payment.raw), now);
-        if (!fresh) return paymentAlreadyUsed(endpoint, payTo);
+        paymentHash = await sha256Hex(payment.raw);
+        const fresh = await claimPaymentOnce(db, paymentHash, now);
+        if (!fresh) {
+          // Not ours to release: the request that owns it is the one that
+          // claimed it, and releasing here would hand a live payment back to
+          // whoever replayed it.
+          paymentHash = null;
+          return paymentAlreadyUsed(endpoint, payTo);
+        }
       }
 
-      // Past this point the lint WILL be served, so claim against the runaway bound.
+      // The runaway bound on served work. A request that 4xxs after this point
+      // has still cost us a facilitator round trip, so it is not free to us
+      // either — but it did not get a report, so the payment goes back.
       const used = await claimQuota(db, day, ipHash, PAID_DAILY);
-      if (used === null) return paidCeilingReached({ now, dayStart });
+      if (used === null) return abandon(paidCeilingReached({ now, dayStart }));
 
       if (verdict.verified) {
         outcome = { kind: 'paid', presented };
@@ -456,19 +499,24 @@ async function handlePaid(request, env, ctx, endpoint) {
   // --- read the request -------------------------------------------------
   //
   // PAYMENT FAIRNESS. Every exit from here to the settle block is a 4xx, and
-  // `settle` is only ever queued after a report actually exists.
+  // `settle` is only ever queued after a report actually exists. Each one also
+  // goes through `abandon`, which gives back the single-use claim taken on the
+  // payment: a request that gets no report must leave the caller exactly as
+  // able to buy one as they were before they asked.
   let body;
   try {
     const buf = await request.arrayBuffer();
-    if (buf.byteLength > MAX_REQUEST_BODY) return tooLarge();
+    if (buf.byteLength > MAX_REQUEST_BODY) return abandon(tooLarge());
     const raw = new TextDecoder().decode(buf).trim();
-    if (!raw) return badRequest('the request body is empty', usageFor(endpoint));
+    if (!raw) return abandon(badRequest('the request body is empty', usageFor(endpoint)));
     body = JSON.parse(raw);
   } catch (err) {
-    return badRequest(`the request body is not valid JSON: ${oneLineMessage(err)}`, usageFor(endpoint));
+    return abandon(
+      badRequest(`the request body is not valid JSON: ${oneLineMessage(err)}`, usageFor(endpoint))
+    );
   }
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-    return badRequest('the request body must be a JSON object', usageFor(endpoint));
+    return abandon(badRequest('the request body must be a JSON object', usageFor(endpoint)));
   }
 
   // --- do the work ------------------------------------------------------
@@ -476,9 +524,9 @@ async function handlePaid(request, env, ctx, endpoint) {
   try {
     report = endpoint.id === 'lint' ? await runUrlLint(body, env) : runEnvelopeLint(body);
   } catch (err) {
-    return badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint));
+    return abandon(badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint)));
   }
-  if (report.error) return badRequest(report.error, report.fix || usageFor(endpoint));
+  if (report.error) return abandon(badRequest(report.error, report.fix || usageFor(endpoint)));
 
   // Telemetry, and deliberately thin: WHICH endpoint, WHAT grade, how many
   // findings. Never the URL, never the envelope, never the report. What was
@@ -821,6 +869,22 @@ async function claimPaymentOnce(db, hash, now) {
     .bind(hash, now)
     .first();
   return row?.hash === hash;
+}
+
+/**
+ * Give a claimed payment back, because the report it bought never existed.
+ *
+ * Best-effort on purpose: this runs on a path that is already answering 4xx for
+ * some other reason, and turning a failed DELETE into a different failure would
+ * replace an inconvenience (the caller re-signs) with an outage. Nothing is
+ * charged either way — settlement is queued only after a report exists.
+ */
+async function releasePaymentSafely(db, hash) {
+  try {
+    await db.prepare('DELETE FROM payment_seen WHERE hash = ?1').bind(hash).run();
+  } catch {
+    /* see above */
+  }
 }
 
 async function recordSettlement(db, { now, endpoint, payer, amount, verifyOk, settleOk, txHash, error }) {

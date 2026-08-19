@@ -684,6 +684,54 @@ describe('one payment buys one report', () => {
     for (const res of refused) assert.equal(res.body.invalidReason, 'payment_already_used');
   });
 
+  test('a request that gets no report gives the payment back', async () => {
+    // THE RULE AT THE TOP OF worker.js: nobody is charged for a lint that was
+    // not served, and a payment CONSUMED is a charge whether or not a
+    // settlement followed it. The single-use claim is taken before the request
+    // body has even been read, so without a compensating release every typo
+    // between here and the report — an empty body, bad JSON, a missing `url`,
+    // an unreachable target — permanently spent the caller's authorization and
+    // answered their retry with "this payment has already bought a report",
+    // which would have been false.
+    const header = paymentHeaderV1();
+
+    const typo = await paid('/lint/envelope', { notAStatus: true }, { 'x-payment': header }, ips.next());
+    assert.equal(typo.status, 400, typo.text);
+
+    const retry = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(retry.status, 200, `the payment was burned by a 400: ${retry.text}`);
+    assert.equal(retry.headers.get('x-payment-verified'), 'true');
+    assert.ok(retry.body.grade);
+  });
+
+  test('an unreachable lint target gives the payment back too', async () => {
+    // The same rule on the other endpoint, where the failure happens after the
+    // outbound fetch rather than during input validation.
+    const header = paymentHeaderV1({ value: '10000' });
+
+    const dead = await paid(
+      '/lint',
+      { url: 'https://x402-release-probe.invalid/x' },
+      { 'x-payment': header },
+      ips.next()
+    );
+    assert.equal(dead.status, 400, dead.text);
+
+    const retry = await paid('/lint', { url: lintTarget.url }, { 'x-payment': header }, ips.next());
+    assert.equal(retry.status, 200, `the payment was burned by an unreachable target: ${retry.text}`);
+    assert.ok(retry.body.grade);
+  });
+
+  test('but a payment that DID buy a report stays spent', async () => {
+    // The control. Releasing on failure must not become releasing on success,
+    // which would put the replay back.
+    const header = paymentHeaderV1();
+    assert.equal((await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next())).status, 200);
+    const replay = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ips.next());
+    assert.equal(replay.status, 402);
+    assert.equal(replay.body.invalidReason, 'payment_already_used');
+  });
+
   test('a payment that did NOT verify does not burn the hash', async () => {
     // Otherwise anyone could spend a stranger's payment by presenting it while
     // the facilitator was down: the claim would be taken, and the real buyer

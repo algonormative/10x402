@@ -211,12 +211,28 @@ function renderReport(body, res) {
   const warns = report.findings.filter((f) => f.severity === 'warn');
   const infos = report.findings.filter((f) => f.severity === 'info');
 
-  const lines = [
-    `Grade ${report.grade} — ${errors.length} error(s), ${warns.length} warning(s), ` +
-      `${infos.length} info, from ${report.checks_run} checks that applied.`,
-  ];
+  // A PARTIAL REPORT MUST NOT LEAD WITH A GRADE THAT READS AS A PASS. When the
+  // endpoint answered something other than a 402 there was no envelope to read,
+  // so the envelope checks did not run — and "Grade B, from 3 checks that
+  // applied" is a sentence an agent will summarise as "it's fine". The caveat
+  // goes FIRST, before the number, because that is the order it will be read in.
+  const partial = report.summary?.partial;
+  const lines = partial
+    ? [
+        `INCOMPLETE — ${partial}`,
+        '',
+        `Grade ${report.grade} is about the ${report.checks_run} checks that could run, and is NOT`,
+        'a verdict on this endpoint\'s x402 envelope, which has not been read.',
+      ]
+    : [
+        `Grade ${report.grade} — ${errors.length} error(s), ${warns.length} warning(s), ` +
+          `${infos.length} info, from ${report.checks_run} checks that applied.`,
+      ];
 
-  if (report.grade === 'A' && !report.findings.length) {
+  if (partial) {
+    // The advice block below is about working through envelope findings, and
+    // there are none to work through.
+  } else if (report.grade === 'A' && !report.findings.length) {
     lines.push('');
     lines.push('Nothing to fix. This envelope is conformant on every check that applied to it.');
   } else {

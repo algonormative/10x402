@@ -386,20 +386,34 @@ class Report {
 
   // ---------------------------------------------------------------- accepts groups
   //
-  // ONE FINDING PER CHECK CODE ACROSS A MULTI-ENTRY accepts[], not one per
-  // entry. Without this the grade scales with the length of the array: an
-  // envelope with forty entries each missing `extra` produced forty identical
-  // findings and a C, while the same fault in a one-entry envelope was a B. The
-  // fault is the same fault; what changes is only how many places it is in, and
-  // that belongs in the message rather than in the count.
+  // ONE FINDING PER FAULT ACROSS A MULTI-ENTRY accepts[], not one per entry.
+  // Without this the grade scales with the length of the array: an envelope with
+  // forty entries each missing `extra` produced forty identical findings and a
+  // C, while the same fault in a one-entry envelope was a B. The fault is the
+  // same fault; what changes is only how many places it is in, and that belongs
+  // in the message rather than in the count.
+  //
+  // PER FAULT, NOT PER CODE, and the distinction is the whole correctness of
+  // this. Several checks reach the same code from branches that diagnose
+  // different things — V2_NETWORK_CAIP2 fires for "names no network", for "uses
+  // the v1 name base" (whose fix spells out the exact CAIP-2 replacement) and
+  // for "is not a CAIP-2 identifier". Collapsing those three on the code alone
+  // kept the first message and threw the other two away, then asserted "the
+  // same fault is also in accepts[1]" — which was FALSE, and cost the seller
+  // the most actionable fix string in the catalogue. Two findings are the same
+  // fault only when they say the same thing.
 
   /**
-   * Begin collapsing findings by code. `total` is the array's real length and
+   * Begin collapsing findings by fault. `total` is the array's real length and
    * `label` is how an entry is named in a message — the same spelling the
    * per-entry messages use, so the two halves of one sentence agree.
    */
   beginAccepts(total, label) {
-    this.group = { total, label, at: 0, byCode: new Map() };
+    // A group left open would silently swallow everything buffered in it. Not
+    // reachable in the current call graph — the v2 group closes before the v1
+    // one opens — and nothing enforced that, so this does.
+    if (this.group) this.endAccepts();
+    this.group = { total, label, at: 0, byFault: new Map() };
   }
 
   /** Which entry the checks that follow are about. */
@@ -408,12 +422,13 @@ class Report {
   }
 
   groupEmit(finding) {
-    const bucket = this.group.byCode.get(finding.code);
+    const key = faultKey(finding);
+    const bucket = this.group.byFault.get(key);
     if (bucket) {
       bucket.indexes.push(this.group.at);
       return;
     }
-    this.group.byCode.set(finding.code, { finding, indexes: [this.group.at] });
+    this.group.byFault.set(key, { finding, indexes: [this.group.at] });
   }
 
   /** Emit the collapsed findings, each naming every entry it was found in. */
@@ -422,7 +437,7 @@ class Report {
     this.group = null;
     if (!group) return;
 
-    for (const { finding, indexes } of group.byCode.values()) {
+    for (const { finding, indexes } of group.byFault.values()) {
       if (indexes.length > 1) {
         // The message already names the FIRST entry, so the list is the rest.
         const rest = indexes.slice(1);
@@ -435,6 +450,23 @@ class Report {
     }
   }
 }
+
+/**
+ * The identity of a FAULT, for collapsing a multi-entry accepts[].
+ *
+ * Code, message and fix — with the entry index normalised out of all three, so
+ * `accepts[0] names no scheme` and `accepts[3] names no scheme` are one fault
+ * while `accepts[1] uses the v1 network name "base"` stays its own. The values
+ * quoted out of the envelope are deliberately LEFT IN: two entries naming two
+ * different unknown schemes are two things for the seller to look at, and a
+ * report that mentioned only the first would be hiding the second.
+ */
+const faultKey = (finding) => {
+  const normalise = (text) => String(text ?? '').replace(/\b(?:v1 )?accepts\[\d+\]/g, 'accepts[]');
+  // JSON.stringify of the triple rather than a joined string: it needs no
+  // separator character, so there is none for a message to contain.
+  return JSON.stringify([finding.code, normalise(finding.message), normalise(finding.fix)]);
+};
 
 const isCore = (code) => CHECKS_BY_ID.get(code)?.core === true;
 
@@ -612,17 +644,28 @@ function lintV2(report, headers, requestUrl) {
 }
 
 function lintV2Accept(report, accept, accepts) {
-  if (!isObject(accept)) {
-    report.add('V2_SCHEME', 'the first v2 accepts[] entry is not an object.',
-      'Each accepts[] entry is an object: { scheme, network, amount, asset, payTo, maxTimeoutSeconds, extra }.');
-    return;
-  }
-
   report.beginAccepts(accepts.length, 'accepts');
   for (const [i, entry] of lintedAccepts(accepts).entries()) {
     report.atIndex(i);
     const where = accepts.length > 1 ? `accepts[${i}]` : 'the v2 accept';
-    if (!isObject(entry)) continue;
+
+    // A NON-OBJECT ENTRY IS A FINDING WHEREVER IT IS. This used to be two
+    // different silences: a non-object at index 0 returned early and skipped
+    // the whole array — including the truncation notice, so forty unread
+    // entries went unmentioned — and a non-object at any later index was
+    // `continue`d past with nothing said at all. A v2 client iterating accepts
+    // faults on those entries; a report that does not mention them is telling
+    // the seller their envelope is better than it is.
+    if (!isObject(entry)) {
+      report.add(
+        'V2_SCHEME',
+        `${where} is ${clip(JSON.stringify(entry), 60)}, not an object.`,
+        'Each accepts[] entry is an object: { scheme, network, amount, asset, payTo, ' +
+          'maxTimeoutSeconds, extra }. A null or a string in the array is not skipped by a ' +
+          'client — it is iterated, and reading a field off it is where the client throws.'
+      );
+      continue;
+    }
 
     report.check(
       'V2_SCHEME',
@@ -1098,17 +1141,22 @@ function lintV1(report, body, contentType, v2Published) {
 }
 
 function lintV1Accept(report, accept, accepts) {
-  if (!isObject(accept)) {
-    report.add('V1_SCHEME', 'the first v1 accepts[] entry is not an object.',
-      'Each accepts[] entry is an object of payment terms.');
-    return;
-  }
-
   report.beginAccepts(accepts.length, 'v1 accepts');
   for (const [i, entry] of lintedAccepts(accepts).entries()) {
     report.atIndex(i);
     const where = accepts.length > 1 ? `v1 accepts[${i}]` : 'the v1 accept';
-    if (!isObject(entry)) continue;
+
+    // Reported wherever it is — see the note on the v2 side.
+    if (!isObject(entry)) {
+      report.add(
+        'V1_SCHEME',
+        `${where} is ${clip(JSON.stringify(entry), 60)}, not an object.`,
+        'Each accepts[] entry is an object of payment terms: { scheme, network, ' +
+          'maxAmountRequired, resource, description, mimeType, payTo, maxTimeoutSeconds, asset, ' +
+          'extra }. A null or a string in the array is iterated by a client like any other entry.'
+      );
+      continue;
+    }
 
     report.check('V1_SCHEME', nonEmptyString(entry.scheme), `${where} names no scheme.`,
       'Set "scheme": "exact" — the EIP-3009 scheme every current client and facilitator supports.');
@@ -1464,15 +1512,26 @@ export function lint(response) {
   const price = formatPrice(atomic);
 
   // THE SUMMARY QUOTES THE ENVELOPE TOO, and it was the last unbounded echo:
-  // three fields copied verbatim out of attacker-controlled JSON, which made a
+  // four fields copied verbatim out of attacker-controlled JSON, which made a
   // 20 KB `network` string a 20 KB summary however short the findings were.
+  //
+  // `price` is the one that is easy to miss, because it looks derived rather
+  // than copied: formatPrice() takes any run of digits and returns a dollar
+  // figure the same length, so a 60,000-digit `amount` produced a 60,000-
+  // character price while the atomic value beside it was dutifully clipped to
+  // 40. Everything that leaves here goes through clip(), including the things
+  // this file computed itself.
   const payTo = accept2?.payTo ?? accept1?.payTo ?? null;
   const network = accept2?.network ?? accept1?.network ?? null;
   const summary = {
     versions_detected: versions,
     payTo: payTo == null ? null : clip(payTo, 80),
     network: network == null ? null : clip(network, 80),
-    price: price ? `${price} (${clip(atomic, 40)} atomic)` : (atomic != null ? clip(atomic, 40) : null),
+    price: price
+      ? `${clip(price, 40)} (${clip(atomic, 40)} atomic)`
+      : atomic != null
+        ? clip(atomic, 40)
+        : null,
   };
 
   // A PARTIAL REPORT SAYS SO. Half a report read as a whole one is the failure
