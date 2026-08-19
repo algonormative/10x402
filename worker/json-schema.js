@@ -74,14 +74,74 @@ const short = (v) => {
 };
 
 /**
+ * How many schema nodes one validation may visit.
+ *
+ * THE DEPTH CAP ALONE WAS NOT A BOUND ON WORK, and the difference is the gap
+ * between a linear walk and an exponential one. `anyOf` with n branches, each
+ * containing a `$ref` back to its own parent, describes n^depth distinct paths
+ * in a document whose SIZE is linear — so the depth cap of 24 stopped it going
+ * deeper while doing nothing about how wide it got on the way. Measured against
+ * the bazaar schema field, which is entirely caller-supplied on a $0.005
+ * endpoint:
+ *
+ *     352 bytes  ->   932 ms of CPU
+ *     403 bytes  ->  3132 ms
+ *     454 bytes  ->  8896 ms
+ *
+ * Two more branches exceed any Workers CPU limit, from half a kilobyte of
+ * request body. A report bounded to 256 KB is not much use if producing it can
+ * be made to cost ten seconds of isolate.
+ *
+ * Ten thousand nodes is several orders of magnitude above any real bazaar
+ * schema — the ones this service publishes for itself visit about thirty — and
+ * runs in around a millisecond.
+ */
+const MAX_SCHEMA_NODES = 10_000;
+
+/**
  * Validate `value` against `schema`.
  *
  * @returns {string[]} one human sentence per problem, each naming the path. Empty means valid.
  */
-export function validateAgainstSchema(value, schema, { root = schema, path = '$', depth = 0 } = {}) {
+export function validateAgainstSchema(value, schema, options = {}) {
+  const budget = options.budget ?? { left: MAX_SCHEMA_NODES, exhausted: false };
+  const problems = validate(value, schema, { root: schema, path: '$', depth: 0, ...options, budget });
+
+  // REPORTED HERE, AT THE TOP, and it has to be here rather than at the point
+  // it happens. `anyOf` and `oneOf` reduce a sub-validation to a BOOLEAN — they
+  // ask "did this branch match?" and throw the sentences away — so a message
+  // pushed deep inside a branch is swallowed by the very construct that caused
+  // the exhaustion. The budget carries a flag out instead.
+  //
+  // Saying it matters more than usual: the whole failure mode this file exists
+  // to catch is a facilitator declining SILENTLY. Declining silently ourselves,
+  // and returning an empty problem list that reads as "this schema is fine",
+  // would be the same bug from the other side.
+  if (budget.exhausted) {
+    problems.push(
+      `validation stopped after ${MAX_SCHEMA_NODES} schema nodes — this schema is too expensive ` +
+        'to check, so what is reported here is incomplete. Almost always a $ref cycle inside an ' +
+        'anyOf/oneOf/allOf: the document is small but describes an exponential number of paths ' +
+        'through itself, and a facilitator validating it will hit the same wall.'
+    );
+  }
+  return problems;
+}
+
+function validate(value, schema, { root, path, depth, budget }) {
   const problems = [];
 
-  // A pathological self-referential schema must not hang a paid request.
+  // THE WORK BUDGET, spent across the whole validation rather than per branch —
+  // a per-branch limit is no limit at all when the branching is the attack.
+  if (budget.left <= 0) {
+    budget.exhausted = true;
+    return problems;
+  }
+  budget.left--;
+
+  // A pathological self-referential schema must not hang a paid request. The
+  // budget above bounds the WIDTH; this bounds the depth, and a runaway schema
+  // usually needs both to be caught.
   if (depth > 24) return problems;
   // `true` admits everything, `false` admits nothing — both are legal schemas.
   if (schema === true) return problems;
@@ -93,7 +153,7 @@ export function validateAgainstSchema(value, schema, { root = schema, path = '$'
     // An unresolvable $ref is the SCHEMA's bug, not the info's, and reporting it
     // as an info problem would point the seller at the wrong file.
     if (target !== undefined) {
-      problems.push(...validateAgainstSchema(value, target, { root, path, depth: depth + 1 }));
+      problems.push(...validate(value, target, { root, path, depth: depth + 1, budget }));
     }
   }
 
@@ -157,7 +217,7 @@ export function validateAgainstSchema(value, schema, { root = schema, path = '$'
     if (schema.items !== undefined && !Array.isArray(schema.items)) {
       value.forEach((item, i) => {
         problems.push(
-          ...validateAgainstSchema(item, schema.items, { root, path: `${path}[${i}]`, depth: depth + 1 })
+          ...validate(item, schema.items, { root, path: `${path}[${i}]`, depth: depth + 1, budget })
         );
       });
     }
@@ -173,7 +233,7 @@ export function validateAgainstSchema(value, schema, { root = schema, path = '$'
     for (const [key, sub] of Object.entries(properties)) {
       if (key in value) {
         problems.push(
-          ...validateAgainstSchema(value[key], sub, { root, path: `${path}.${key}`, depth: depth + 1 })
+          ...validate(value[key], sub, { root, path: `${path}.${key}`, depth: depth + 1, budget })
         );
       }
     }
@@ -198,10 +258,11 @@ export function validateAgainstSchema(value, schema, { root = schema, path = '$'
       } else {
         for (const key of extra) {
           problems.push(
-            ...validateAgainstSchema(value[key], schema.additionalProperties, {
+            ...validate(value[key], schema.additionalProperties, {
               root,
               path: `${path}.${key}`,
               depth: depth + 1,
+              budget,
             })
           );
         }
@@ -216,25 +277,25 @@ export function validateAgainstSchema(value, schema, { root = schema, path = '$'
   // lines about the branches that were never meant to match are not.
   if (Array.isArray(schema.allOf)) {
     for (const sub of schema.allOf) {
-      problems.push(...validateAgainstSchema(value, sub, { root, path, depth: depth + 1 }));
+      problems.push(...validate(value, sub, { root, path, depth: depth + 1, budget }));
     }
   }
   if (Array.isArray(schema.anyOf) && schema.anyOf.length) {
     const ok = schema.anyOf.some(
-      (sub) => validateAgainstSchema(value, sub, { root, path, depth: depth + 1 }).length === 0
+      (sub) => validate(value, sub, { root, path, depth: depth + 1, budget }).length === 0
     );
     if (!ok) problems.push(`${path} matches none of the ${schema.anyOf.length} anyOf alternatives`);
   }
   if (Array.isArray(schema.oneOf) && schema.oneOf.length) {
     const matched = schema.oneOf.filter(
-      (sub) => validateAgainstSchema(value, sub, { root, path, depth: depth + 1 }).length === 0
+      (sub) => validate(value, sub, { root, path, depth: depth + 1, budget }).length === 0
     ).length;
     if (matched !== 1) {
       problems.push(`${path} matches ${matched} of the ${schema.oneOf.length} oneOf alternatives, not exactly 1`);
     }
   }
   if (schema.not !== undefined) {
-    if (validateAgainstSchema(value, schema.not, { root, path, depth: depth + 1 }).length === 0) {
+    if (validate(value, schema.not, { root, path, depth: depth + 1, budget }).length === 0) {
       problems.push(`${path} matches the schema's \`not\` clause`);
     }
   }

@@ -295,3 +295,76 @@ describe('the real bazaar shape', () => {
     invalid(drifted, schema, '$.input.body is required by the schema but missing');
   });
 });
+
+describe('the work budget, because the schema is the caller’s', () => {
+  // THE DEPTH CAP WAS NOT A BOUND ON WORK. `anyOf` with n branches, each
+  // holding a `$ref` back to its own parent, describes n^depth distinct paths
+  // through a document whose SIZE is linear — so the depth cap stopped the
+  // walk going deeper while doing nothing about how wide it got on the way.
+  // Measured on this exact shape before the budget existed:
+  //
+  //     352 bytes -> 932 ms   403 bytes -> 3132 ms   454 bytes -> 8896 ms
+  //
+  // Two more branches exceed any Workers CPU limit, from half a kilobyte of
+  // request body on a $0.005 endpoint. Bounding the report to 256 KB is not
+  // much use if producing it can be made to cost ten seconds of isolate.
+  const exponential = (branches) => ({
+    $defs: {
+      a: {
+        anyOf: Array.from({ length: branches }, () => ({
+          allOf: [{ $ref: '#/$defs/a' }, { type: 'string' }],
+        })),
+      },
+    },
+    $ref: '#/$defs/a',
+  });
+
+  test('an exponential schema is bounded to milliseconds, not seconds', () => {
+    for (const branches of [6, 7, 8]) {
+      const schema = exponential(branches);
+      const started = Date.now();
+      validateAgainstSchema({ input: {} }, schema);
+      const elapsed = Date.now() - started;
+      assert.ok(
+        elapsed < 500,
+        `anyOf x${branches} (${JSON.stringify(schema).length} bytes) took ${elapsed}ms`
+      );
+    }
+  });
+
+  test('it SAYS it stopped — an unchecked schema must not read as a passing one', () => {
+    // The whole failure mode this file exists to catch is a silent decline.
+    // Declining silently ourselves would be the same bug on the other side.
+    const problems = validateAgainstSchema({ input: {} }, exponential(8));
+    assert.ok(problems.length > 0, 'a schema too expensive to check reported no problems');
+    assert.ok(
+      problems.some((p) => /validation stopped after \d+ schema nodes/.test(p)),
+      JSON.stringify(problems.slice(0, 3))
+    );
+    assert.ok(problems.some((p) => /\$ref cycle/.test(p)), 'the report does not say what to look for');
+  });
+
+  test('the budget is spent across the whole validation, not per branch', () => {
+    // A per-branch limit is no limit at all when the branching IS the attack.
+    const wide = {
+      $defs: { a: { anyOf: Array.from({ length: 40 }, () => ({ $ref: '#/$defs/a' })) } },
+      $ref: '#/$defs/a',
+    };
+    const started = Date.now();
+    validateAgainstSchema({}, wide);
+    assert.ok(Date.now() - started < 500, 'a wide fan-out outran the budget');
+  });
+
+  test('this service OWN bazaar pair is nowhere near the budget', async () => {
+    // The bound must be invisible to every honest caller, or it is a bug of its
+    // own — and the reference for honest is the pair this service publishes
+    // about itself, which the self-lint already requires to validate clean.
+    const { bazaarExtension, paymentRequirements } = await import('../worker/envelope.js');
+    const { ENDPOINTS } = await import('../worker/catalog.js');
+    for (const endpoint of ENDPOINTS) {
+      const requirements = paymentRequirements(endpoint, '0x000000000000000000000000000000000000dEaD');
+      const pair = bazaarExtension(requirements, endpoint).bazaar;
+      assert.deepEqual(validateAgainstSchema(pair.info, pair.schema), [], endpoint.path);
+    }
+  });
+});

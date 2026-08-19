@@ -118,7 +118,7 @@ before anyone spends anything.
 
 ### What a report is NOT allowed to do
 
-Three properties the catalogue holds to, because a linter that gets them wrong
+Four properties the catalogue holds to, because a linter that gets them wrong
 is worse than none:
 
 - **A partial report says it is partial.** A response that is not a 402 —
@@ -134,6 +134,12 @@ is worse than none:
   entries are linted, at most 200 findings are returned, and every string quoted
   back out of the envelope is clipped. Each bound reports itself — a truncated
   report read as a clean one would be worse than the amplification it prevents.
+- **The WORK is bounded too, not just the report.** A `bazaar.schema` is
+  caller-supplied, and `anyOf` around a `$ref` cycle describes an exponential
+  number of paths through a document whose size is linear — 454 bytes bought
+  8.9 seconds of CPU. Validation now has a node budget, and says when it stops.
+  A 256 KB cap on the answer is not much use if producing it can be made to
+  cost ten seconds of isolate.
 
 ### Grades
 
@@ -211,7 +217,7 @@ worker/
 build.mjs              generates dist/ and runs the self-lint
 mcp/server.mjs         MCP server; a 402 is a price quote, never isError
 skills/10x402/         a drop-in agent skill
-test/                  six phases, 412 tests, no live or billed calls
+test/                  six phases, 416 tests, no live or billed calls
 ```
 
 **The Worker has no production npm dependencies.** The lint engine, the JSON
@@ -226,14 +232,14 @@ npm install
 npm test
 ```
 
-412 tests in six phases. **No live network calls and no billed calls, ever** —
+416 tests in six phases. **No live network calls and no billed calls, ever** —
 the facilitator, Telegram and the lint targets are all http servers the suite
 runs on 127.0.0.1, and the CDP credentials are generated per run and worth
 nothing.
 
 | phase | tests | what |
 |---|---|---|
-| engine | 176 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
+| engine | 180 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
 | served calls | 91 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
 | outbound lint | 48 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
 | production default | 40 | the 402 front door, and **the self-lint invariant** |
