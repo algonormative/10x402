@@ -1,0 +1,596 @@
+// Real payment verification and settlement, against a MOCK CDP facilitator.
+//
+// This suite is the one that proves the paid path is a PAYMENT path rather than
+// a header check. It boots its own Worker — PAYTO set, structurally real (and
+// worthless) CDP credentials, FACILITATOR_URL pointing at an http server this
+// file runs — so every assertion is about what the Worker actually sent and
+// what it did with the answer.
+//
+// NOTHING HERE IS BILLED. There is no live facilitator, no chain, no wallet and
+// no money; the mock is in-process and the credentials are generated per run.
+//
+// Four things are worth knowing before reading further.
+//
+// 1. THE MOCK IS PROGRAMMABLE AND RECORDS EVERY HIT. That is what makes the
+//    NEGATIVE assertions possible: "the facilitator was not called" is
+//    `mock.hits.length === 0`, not an inference from a response header.
+//
+// 2. THE JWT IS REAL. The Worker signs an Ed25519 CDP bearer token with
+//    WebCrypto inside workerd; the mock structure-checks the header and claims.
+//    It deliberately does NOT verify the signature — that would be testing
+//    Ed25519, not the Worker — but a Worker that failed to sign would produce
+//    no Authorization header at all, and these assertions would catch it.
+//
+// 3. SETTLEMENT IS ASYNCHRONOUS. It runs in ctx.waitUntil AFTER the response,
+//    so the ledger assertions poll rather than read once.
+//
+// 4. THE MOCK IS STRICT ABOUT VERSION SHAPE. v1 and v2 send the same
+//    three-field body to the same endpoint and differ entirely in the shapes
+//    inside it, so a Worker that shipped a v1 envelope alongside a v2 payload
+//    would look completely healthy against a mock that only echoes canned
+//    answers — and would verify as invalid against the real facilitator, which
+//    recovers the signature from what it is handed. Every hit is shape-checked
+//    against its own declared version and a mismatch answers 400. Drift is
+//    meant to be loud.
+
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { after, before, beforeEach, describe, test } from 'node:test';
+import { bootWorker, callers, client, fakeCdpCredentials, isSqlNull, PAYTO_TEST } from './harness.mjs';
+
+const ips = callers('settlement');
+
+// A payer address and a settlement hash the mock hands back, so the ledger
+// assertions can prove the values came from the FACILITATOR rather than from
+// the payload the caller sent.
+const VERIFIED_PAYER = '0x00000000000000000000000000000000000Fa11e5';
+const CLAIMED_PAYER = '0x000000000000000000000000000000000000Bad1';
+const TX_HASH = '0xfeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface';
+
+let worker;
+let api;
+let mock;
+
+// ------------------------------------------------------------------ the mock
+
+/**
+ * Is this facilitator call self-consistent? Returns a sentence, or null.
+ *
+ * The two versions are checked against each other rather than each on its own:
+ * it is not enough that a v1 body has `maxAmountRequired`, it must ALSO not
+ * have `amount`, because the failure this guards against is a half-migrated
+ * envelope carrying both and being waved through by a lenient reader.
+ */
+function shapeProblem(body) {
+  if (!body || typeof body !== 'object') return 'the body is not a JSON object';
+  const { x402Version: version, paymentPayload: payload, paymentRequirements: req } = body;
+
+  if (version !== 1 && version !== 2) return `x402Version ${JSON.stringify(version)} is neither 1 nor 2`;
+  if (!payload || typeof payload !== 'object') return 'no paymentPayload';
+  if (!req || typeof req !== 'object') return 'no paymentRequirements';
+  if (payload.x402Version !== version) {
+    return `paymentPayload.x402Version ${payload.x402Version} disagrees with the body's ${version}`;
+  }
+
+  const missing = (obj, fields, what) => {
+    for (const f of fields) if (obj[f] === undefined) return `${what} is missing ${f}`;
+    return null;
+  };
+  const foreign = (obj, fields, what, other) => {
+    for (const f of fields) if (obj[f] !== undefined) return `${what} carries the v${other} field ${f}`;
+    return null;
+  };
+
+  if (version === 1) {
+    return (
+      missing(req, ['scheme', 'network', 'maxAmountRequired', 'resource', 'description', 'payTo', 'asset'], 'v1 paymentRequirements') ||
+      foreign(req, ['amount'], 'v1 paymentRequirements', 2) ||
+      (typeof req.resource !== 'string' ? 'v1 paymentRequirements.resource must be the URL string' : null) ||
+      (req.network.includes(':') ? `v1 network must be a plain name, got the CAIP-2 ${req.network}` : null) ||
+      missing(payload, ['payload'], 'v1 paymentPayload')
+    );
+  }
+
+  return (
+    missing(req, ['scheme', 'network', 'amount', 'asset', 'payTo', 'maxTimeoutSeconds'], 'v2 paymentRequirements') ||
+    foreign(req, ['maxAmountRequired', 'resource', 'description', 'mimeType', 'outputSchema'], 'v2 paymentRequirements', 1) ||
+    (!/^[a-z0-9-]+:[a-zA-Z0-9-]+$/.test(req.network) ? `v2 network must be CAIP-2, got ${req.network}` : null) ||
+    missing(payload, ['accepted', 'payload'], 'v2 paymentPayload') ||
+    foreign(payload, ['scheme', 'network'], 'v2 paymentPayload', 1) ||
+    // The signature was made over `accepted`, so a requirements object that
+    // does not match it is a payment the facilitator cannot recover. Compared
+    // key-order-independently, the way x402's own server does it.
+    (canonical(payload.accepted) !== canonical(req)
+      ? 'v2 paymentRequirements is not the accepts entry the payload signed against'
+      : null)
+  );
+}
+
+/** JSON with object keys sorted, so a comparison is about values not order. */
+const canonical = (value) =>
+  JSON.stringify(value, (_key, v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v
+  );
+
+/** A programmable stand-in for https://api.cdp.coinbase.com/platform/v2/x402. */
+async function startMockFacilitator() {
+  const defaults = () => ({
+    verify: { status: 200, body: { isValid: true, payer: VERIFIED_PAYER } },
+    settle: {
+      status: 200,
+      body: { success: true, transaction: TX_HASH, network: 'base', payer: VERIFIED_PAYER },
+    },
+    delayMs: { verify: 0, settle: 0 },
+    // Enforcement, on by default. One test turns it off to prove the check
+    // itself has teeth — a strictness nothing ever trips is indistinguishable
+    // from no strictness at all.
+    strict: true,
+  });
+
+  const state = { hits: [], ...defaults() };
+
+  const server = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (chunk) => (raw += chunk));
+    req.on('end', async () => {
+      const endpoint = new URL(req.url, 'http://mock').pathname.split('/').pop();
+      let body = null;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        /* recorded as null — a malformed body is itself a finding */
+      }
+      const problem = shapeProblem(body);
+      state.hits.push({
+        endpoint,
+        method: req.method,
+        url: req.url,
+        authorization: req.headers.authorization || null,
+        contentType: req.headers['content-type'] || null,
+        version: body?.x402Version ?? null,
+        problem,
+        body,
+      });
+
+      const delay = state.delayMs[endpoint] || 0;
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+
+      const canned = state[endpoint];
+      if (!canned) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        return res.end('{"error":"no such endpoint"}');
+      }
+      if (problem && state.strict) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'x402_shape', detail: problem }));
+      }
+      res.writeHead(canned.status, { 'content-type': 'application/json' });
+      res.end(typeof canned.body === 'string' ? canned.body : JSON.stringify(canned.body));
+    });
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  return {
+    state,
+    url: `http://127.0.0.1:${port}/platform/v2/x402`,
+    get hits() {
+      return state.hits;
+    },
+    hitsOn: (endpoint) => state.hits.filter((h) => h.endpoint === endpoint),
+    problems: () =>
+      state.hits
+        .filter((h) => h.problem)
+        .map((h) => `${h.endpoint} (v${h.version}): ${h.problem}`)
+        .join('; '),
+    reset: () => {
+      state.hits.length = 0;
+      Object.assign(state, defaults());
+    },
+    stop: () => new Promise((resolve) => server.close(resolve)),
+  };
+}
+
+// ------------------------------------------------------------------ helpers
+
+/**
+ * A well-formed x402 v1 payment payload, base64 as X-PAYMENT.
+ *
+ * The signature is nonsense — the mock decides valid from invalid, so a real
+ * one would prove nothing and would need a funded key. The SHAPE is real,
+ * because the Worker reads `payload.authorization.from` out of it.
+ */
+function paymentHeaderV1({ from = CLAIMED_PAYER, value = '5000' } = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  return Buffer.from(
+    JSON.stringify({
+      x402Version: 1,
+      scheme: 'exact',
+      network: 'base',
+      payload: {
+        signature: `0x${'ab'.repeat(65)}`,
+        authorization: {
+          from,
+          to: PAYTO_TEST,
+          value,
+          validAfter: String(now - 600),
+          validBefore: String(now + 60),
+          nonce: `0x${'cd'.repeat(32)}`,
+        },
+      },
+    })
+  ).toString('base64');
+}
+
+/** The v2 envelope this Worker publishes for an endpoint, read off its own 402. */
+async function v2EnvelopeFor(path, ip) {
+  const probe = await api.post(path, { status: 402 }, { ip });
+  assert.equal(probe.status, 402, `${path} did not answer the 402 front door: ${probe.text}`);
+  const header = probe.headers.get('payment-required');
+  assert.ok(header, `${path} published no v2 envelope`);
+  return JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+}
+
+/**
+ * A well-formed x402 v2 payment, base64 as PAYMENT-SIGNATURE.
+ *
+ * Built FROM the Worker's own 402 rather than typed out here, which is what a
+ * real client does and is the only version that stays true: `accepted` has to
+ * be the accepts entry we advertised, or the signature was made over something
+ * else.
+ */
+async function paymentHeaderV2(path, { ip, from = CLAIMED_PAYER } = {}) {
+  const env = await v2EnvelopeFor(path, ip);
+  const accepted = env.accepts[0];
+  const now = Math.floor(Date.now() / 1000);
+  return Buffer.from(
+    JSON.stringify({
+      x402Version: 2,
+      resource: env.resource,
+      accepted,
+      payload: {
+        signature: `0x${'ab'.repeat(65)}`,
+        authorization: {
+          from,
+          to: accepted.payTo,
+          value: accepted.amount,
+          validAfter: String(now - 600),
+          validBefore: String(now + accepted.maxTimeoutSeconds),
+          nonce: `0x${'cd'.repeat(32)}`,
+        },
+      },
+      extensions: env.extensions,
+    })
+  ).toString('base64');
+}
+
+const settlements = () =>
+  worker.d1(
+    'SELECT ts, endpoint, payer, amount, verify_ok, settle_ok, tx_hash, error FROM settlements ORDER BY ts, rowid;'
+  );
+
+/** Settlement runs in ctx.waitUntil, so the ledger is polled rather than read. */
+async function awaitSettlement(predicate, what, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const rows = await settlements();
+    const hit = rows.find(predicate);
+    if (hit) return hit;
+    if (Date.now() > deadline) {
+      throw new Error(`no settlements row matching ${what} within ${timeoutMs} ms; saw ${JSON.stringify(rows)}`);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+const paid = (path, payload, header, ip) =>
+  api.post(path, payload, { ip, headers: header });
+
+// ------------------------------------------------------------------ lifecycle
+
+before(async () => {
+  mock = await startMockFacilitator();
+  worker = await bootWorker({
+    vars: { PAYTO: PAYTO_TEST, FACILITATOR_URL: mock.url, ...fakeCdpCredentials() },
+  });
+  api = client(worker);
+});
+
+after(async () => {
+  await worker?.stop();
+  await mock?.stop();
+});
+
+beforeEach(() => mock.reset());
+
+// ------------------------------------------------------------------ tests
+
+describe('an unpaid call never reaches the facilitator', () => {
+  test('no payment header means no verify, no settle, no ledger row', async () => {
+    // With nothing presented there is nothing to verify, so the facilitator
+    // must not be called AT ALL. Zero hits is the assertion — not a header.
+    const res = await api.lintEnvelope({ status: 402 }, { ip: ips.pinned(1) });
+    assert.equal(res.status, 402);
+    assert.equal(mock.hits.length, 0);
+  });
+});
+
+describe('x402 v1: a verified payment', () => {
+  test('is verified, served, and settled after the response', async () => {
+    const ip = ips.next();
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ip);
+
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.headers.get('x-payment-verified'), 'true');
+    assert.ok(res.body.grade, 'the report is the product and it must still be there');
+    assert.equal(mock.problems(), '', 'the facilitator was sent a malformed body');
+
+    const verify = mock.hitsOn('verify');
+    assert.equal(verify.length, 1);
+    assert.equal(verify[0].version, 1);
+    assert.equal(verify[0].body.paymentRequirements.maxAmountRequired, '5000');
+    assert.equal(verify[0].body.paymentRequirements.network, 'base');
+
+    const row = await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settled v1 payment');
+    assert.equal(row.endpoint, 'lint-envelope');
+    assert.equal(row.amount, '5000');
+    assert.equal(Number(row.verify_ok), 1);
+    assert.equal(row.tx_hash, TX_HASH);
+    // The payer recorded is the FACILITATOR's, not the one the caller claimed.
+    assert.equal(row.payer.toLowerCase(), VERIFIED_PAYER.toLowerCase());
+    assert.ok(isSqlNull(row.error));
+  });
+
+  test('the settle body carries our own resource, which a v1 client need not echo', async () => {
+    // A discovery index attaches a settlement to a listing by reading
+    // `resource` off the settle body, and x402-fetch does not send one — so a
+    // settlement from an ordinary client would index against nothing.
+    await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settlement');
+
+    const settle = mock.hitsOn('settle');
+    assert.equal(settle.length, 1);
+    assert.equal(settle[0].body.paymentPayload.resource, 'https://10x402.com/lint/envelope');
+    // And NOT on verify: verify is the signature check, and the payload it sees
+    // stays byte-for-byte what arrived.
+    assert.equal(mock.hitsOn('verify')[0].body.paymentPayload.resource, undefined);
+  });
+
+  test('the CDP JWT is real, and bound to the call it authorises', async () => {
+    await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settlement');
+
+    for (const hit of mock.hits) {
+      assert.ok(hit.authorization, `${hit.endpoint} carried no Authorization`);
+      const [scheme, token] = hit.authorization.split(' ');
+      assert.equal(scheme, 'Bearer');
+      const [header, claims] = token.split('.').slice(0, 2).map((seg) => JSON.parse(Buffer.from(seg, 'base64url').toString('utf8')));
+      assert.equal(header.alg, 'EdDSA');
+      assert.ok(header.nonce, 'no nonce — a replayable token');
+      assert.equal(claims.iss, 'cdp');
+      // The `uris` claim names the exact endpoint, so a token minted for
+      // /verify cannot be replayed at /settle.
+      assert.equal(claims.uris.length, 1);
+      assert.match(claims.uris[0], new RegExp(`POST 127\\.0\\.0\\.1:\\d+/platform/v2/x402/${hit.endpoint}$`));
+      assert.ok(claims.exp > claims.iat, 'the token does not expire');
+    }
+  });
+});
+
+describe('x402 v2: a verified payment', () => {
+  test('is verified against the v2 SHAPES, served, and settled', async () => {
+    const ip = ips.next();
+    const header = await paymentHeaderV2('/lint/envelope', { ip });
+    mock.reset();
+
+    const res = await paid('/lint/envelope', { status: 402 }, { 'payment-signature': header }, ip);
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.headers.get('x-payment-verified'), 'true');
+    assert.equal(mock.problems(), '', 'the v2 call was not v2-shaped');
+
+    const verify = mock.hitsOn('verify')[0];
+    assert.equal(verify.version, 2);
+    assert.equal(verify.body.paymentRequirements.network, 'eip155:8453');
+    assert.equal(verify.body.paymentRequirements.amount, '5000');
+    assert.equal(verify.body.paymentRequirements.maxAmountRequired, undefined);
+    assert.equal(verify.body.paymentRequirements.resource, undefined);
+
+    const row = await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settled v2 payment');
+    assert.equal(row.tx_hash, TX_HASH);
+  });
+
+  test('the settle body completes `resource` with the v2 OBJECT, not the v1 string', async () => {
+    const ip = ips.next();
+    const header = await paymentHeaderV2('/lint', { ip });
+    mock.reset();
+
+    // A v2 client built by @x402/core echoes the resource back already, so
+    // strip it to exercise the backstop for one that does not.
+    const decoded = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+    delete decoded.resource;
+    const stripped = Buffer.from(JSON.stringify(decoded)).toString('base64');
+
+    await paid('/lint', { url: 'https://example.com/x' }, { 'payment-signature': stripped }, ip);
+    await awaitSettlement((r) => r.endpoint === 'lint', 'a lint settlement');
+
+    const sent = mock.hitsOn('settle')[0].body.paymentPayload.resource;
+    assert.equal(typeof sent, 'object', 'a v2 settle got the v1 string form');
+    assert.equal(sent.url, 'https://10x402.com/lint');
+    assert.equal(sent.method, 'POST');
+  });
+
+  test('the version is read from the PAYLOAD, not from the header it arrived in', async () => {
+    // A client that puts a v2 payload in the old X-PAYMENT header must still be
+    // verified with v2 shapes. The mock's strictness is what turns this into a
+    // testable claim rather than a hope.
+    const ip = ips.next();
+    const header = await paymentHeaderV2('/lint/envelope', { ip });
+    mock.reset();
+
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': header }, ip);
+    assert.equal(res.status, 200, res.text);
+    assert.equal(mock.hitsOn('verify')[0].version, 2);
+    assert.equal(mock.problems(), '');
+  });
+});
+
+describe('the mock’s strictness has teeth', () => {
+  test('turning enforcement off changes the outcome, which proves it was on', async () => {
+    // A strictness nothing ever trips is indistinguishable from no strictness.
+    // This deliberately sends a v1 payload declaring itself v2 and checks that
+    // the mock notices, then that it does not when told not to.
+    const bad = Buffer.from(
+      JSON.stringify({ x402Version: 2, scheme: 'exact', network: 'base', payload: {} })
+    ).toString('base64');
+
+    const strict = await paid('/lint/envelope', { status: 402 }, { 'payment-signature': bad }, ips.next());
+    assert.notEqual(mock.problems(), '', 'the mock accepted a malformed v2 payload');
+    // A 400 from the facilitator reads as an outage, so the call is served
+    // unverified — availability-first — and recorded.
+    assert.equal(strict.status, 200);
+    assert.equal(strict.headers.get('x-payment-verified'), 'false');
+    assert.match(strict.headers.get('x-payment-error'), /unreachable/);
+
+    mock.reset();
+    mock.state.strict = false;
+    const lax = await paid('/lint/envelope', { status: 402 }, { 'payment-signature': bad }, ips.next());
+    assert.equal(lax.headers.get('x-payment-verified'), 'true', 'the same payload was not waved through');
+  });
+});
+
+describe('a rejected payment', () => {
+  test('answers 402 with the reason, serves nothing, and settles nothing', async () => {
+    mock.state.verify = {
+      status: 200,
+      body: { isValid: false, invalidReason: 'insufficient_funds', invalidMessage: 'the wallet is empty' },
+    };
+
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 402);
+    assert.equal(res.body.invalidReason, 'insufficient_funds');
+    assert.equal(res.body.invalidMessage, 'the wallet is empty');
+    assert.equal(res.body.grade, undefined, 'a rejected payment was served a report');
+    assert.equal(mock.hitsOn('settle').length, 0);
+
+    const rows = await settlements();
+    const row = rows.at(-1);
+    assert.equal(row.error, 'insufficient_funds');
+    assert.equal(Number(row.verify_ok), 0);
+    assert.equal(Number(row.settle_ok), 0);
+  });
+
+  test('the 402 it answers with is still a complete, payable envelope', async () => {
+    // A rejection is not a dead end: the caller needs the terms to sign against
+    // on the retry.
+    mock.state.verify = { status: 200, body: { isValid: false, invalidReason: 'invalid_exact_evm_payload_signature' } };
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.ok(res.body.accepts[0].payTo);
+    assert.ok(res.headers.get('payment-required'));
+  });
+});
+
+describe('the facilitator being down', () => {
+  test('serves the report anyway, says nothing was checked, and records it', async () => {
+    // Availability-first, on purpose: at a cent a call the price is a signal,
+    // and turning paying callers away for OUR dependency's outage is the worse
+    // failure. What must never happen is claiming a payment was verified.
+    mock.state.verify = { status: 503, body: { error: 'down' } };
+
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 200);
+    assert.ok(res.body.grade);
+    assert.equal(res.headers.get('x-payment-verified'), 'false');
+    assert.equal(res.headers.get('x-payment-error'), 'facilitator-unreachable');
+    assert.equal(res.headers.get('x-pricing'), 'pending');
+
+    const row = (await settlements()).at(-1);
+    assert.equal(row.error, 'facilitator-http-503');
+    assert.equal(Number(row.verify_ok), 0);
+    assert.equal(mock.hitsOn('settle').length, 0);
+  });
+
+  test('a verify timeout is bounded and recorded distinctly from an outage', async () => {
+    mock.state.delayMs.verify = 4000; // VERIFY_TIMEOUT_MS is 2s
+    const started = Date.now();
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    const elapsed = Date.now() - started;
+
+    assert.equal(res.status, 200);
+    assert.ok(elapsed < 3500, `verify took ${elapsed}ms — the 2s cap did not hold`);
+    const row = (await settlements()).at(-1);
+    assert.equal(row.error, 'facilitator-timeout');
+  });
+});
+
+describe('settlement failing after a verified payment', () => {
+  test('the caller keeps the report; the ledger records the loss', async () => {
+    // The accepted exposure: one report served for a cent that never arrived.
+    // It is recorded rather than hidden, because a run of these is the alarm.
+    mock.state.settle = { status: 200, body: { success: false, errorReason: 'nonce_already_used' } };
+
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-payment-verified'), 'true', 'verify DID say yes, and saying otherwise would be a lie');
+
+    const row = await awaitSettlement((r) => r.error === 'nonce_already_used', 'a failed settlement');
+    assert.equal(Number(row.verify_ok), 1);
+    assert.equal(Number(row.settle_ok), 0);
+    assert.ok(isSqlNull(row.tx_hash));
+  });
+});
+
+describe('payment fairness: nobody is charged for work that was not served', () => {
+  test('a verified payment on a request that then 400s settles nothing', async () => {
+    // The rule the service would be most unforgivable for breaking. A verified
+    // authorization moves nothing until someone submits it, and here nobody
+    // does — so the buyer whose input we could not lint is simply not charged.
+    // The ledger is CUMULATIVE across this suite — earlier tests settled real
+    // (mock) payments on purpose — so the assertion is a delta. Comparing the
+    // absolute count is what a first draft of this test did, and it failed
+    // against seven perfectly correct rows.
+    const settledBefore = (await settlements()).filter((r) => Number(r.settle_ok) === 1).length;
+
+    const res = await paid('/lint/envelope', { notAStatus: true }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 400, res.text);
+
+    // Give the deferred work every chance to have happened.
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(mock.hitsOn('settle').length, 0, 'a settlement was submitted for work that was never served');
+    const settledAfter = (await settlements()).filter((r) => Number(r.settle_ok) === 1).length;
+    assert.equal(settledAfter, settledBefore, 'the ledger gained a settlement for a request that 400d');
+  });
+
+  test('an unreachable lint target also settles nothing', async () => {
+    const res = await paid(
+      '/lint',
+      { url: 'https://x402-settlement-probe.invalid/x' },
+      { 'x-payment': paymentHeaderV1({ value: '10000' }) },
+      ips.next()
+    );
+    assert.equal(res.status, 400, res.text);
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(mock.hitsOn('settle').length, 0);
+  });
+
+  test('but a SERVED report does settle, which is what makes the above a rule and not a bug', async () => {
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 200);
+    await awaitSettlement((r) => Number(r.settle_ok) === 1, 'the control settlement');
+  });
+});
+
+describe('the response never carries a receipt it does not have', () => {
+  test('there is no PAYMENT-RESPONSE header, and its absence is honest', async () => {
+    // In v2 that header is a settlement RECEIPT, and settlement is deliberately
+    // queued behind the response. Emitting one with success: true and an empty
+    // transaction would be a receipt for a payment that has not happened — the
+    // first fake thing this service would say.
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ips.next());
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('payment-response'), null);
+    assert.equal(res.headers.get('x-payment-verified'), 'true');
+  });
+});
