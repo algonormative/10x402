@@ -320,6 +320,74 @@ describe('an alert can never damage a paid response', () => {
   });
 });
 
+describe('the channel has a daily budget, so a bad day cannot mute it forever', () => {
+  // The four rules at the top of alerts.js bound everything about an alert
+  // except HOW MANY. Alerts fire per payment, and one of the paths that fires
+  // them is the unverified serve — which is the path a facilitator outage puts
+  // EVERY call down. An alert per call for an hour is how a notification
+  // channel actually dies: not by failing, by being muted by its owner.
+  let capped;
+  let cappedApi;
+
+  before(async () => {
+    capped = await bootWorker({
+      vars: {
+        PAYTO: PAYTO_TEST,
+        FACILITATOR_URL: facilitator.url,
+        TELEGRAM_API_BASE: telegram.base,
+        TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+        TELEGRAM_CHAT_ID: CHAT_ID,
+        ALERT_DAILY: '2',
+        ...fakeCdpCredentials(),
+      },
+    });
+    cappedApi = client(capped);
+  });
+  after(async () => {
+    await capped?.stop();
+  });
+
+  const cappedBuy = () =>
+    cappedApi.lintEnvelope({ status: 402 }, { ip: ips.next(), headers: { 'x-payment': paymentHeader() } });
+
+  test('two get through, the third says the cap is reached, the fourth is silent', async () => {
+    telegram.reset();
+
+    for (let i = 0; i < 2; i++) assert.equal((await cappedBuy()).status, 200);
+    await awaitAlert(() => telegram.sends.length >= 2, 'the first two alerts');
+    for (const send of telegram.sends) assert.match(send.body.text, /THIRD PARTY PAID/);
+
+    // The one that trips it SAYS SO. Going quiet without a word would leave an
+    // empty channel reading as "nothing happened", which is the same failure as
+    // the flood and harder to notice.
+    assert.equal((await cappedBuy()).status, 200);
+    const notice = await awaitAlert((s) => /alerts capped|daily cap/.test(s.body.text), 'the cap notice');
+    assert.match(notice.body.text, /settlements/, 'the notice does not say where the events are');
+    assert.equal(telegram.sends.length, 3);
+
+    // And then nothing at all.
+    assert.equal((await cappedBuy()).status, 200);
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(telegram.sends.length, 3, 'the cap did not hold after the notice');
+  });
+
+  test('the buyer is never affected by the cap', async () => {
+    // The first rule still holds. A capped channel is a notification decision
+    // and must not be visible to anyone who paid.
+    const res = await cappedBuy();
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-payment-verified'), 'true');
+    assert.ok(res.body.grade);
+  });
+
+  test('the ledger is unaffected — the cap is on the ping, not on the record', async () => {
+    // `settlements` is the source of truth and a notification budget must never
+    // be able to lose a row from it.
+    const rows = await capped.d1('SELECT COUNT(*) AS n FROM settlements WHERE verify_ok = 1;');
+    assert.ok(Number(rows[0].n) >= 5, `only ${rows[0].n} settlement rows for 5+ buys`);
+  });
+});
+
 describe('an unconfigured channel is a working state, not a broken one', () => {
   test('no Telegram config means no network call at all', async () => {
     // This service ran without alerts for its whole life until they existed; a
@@ -349,6 +417,24 @@ describe('the message, as a pure function', () => {
     assert.equal(formatUsdc('5000'), '$0.005');
     assert.equal(formatUsdc('1000000'), '$1');
     assert.equal(formatUsdc('0'), '$0');
+  });
+
+  test('an absurd payer is clipped before it reaches a subject line', () => {
+    // BEFORE VERIFY THE PAYER IS A CLAIM THE CALLER TYPED — it is read out of
+    // payload.authorization.from — and the unverified-serve path alerts with
+    // exactly that value. An address field holding 50 KB became 50 KB of
+    // Telegram body and 50 KB of Subject header, from one unauthenticated
+    // request. An EVM address is 42 characters.
+    const alert = { kind: 'settled', tool: 'lint', payer: '0x'.padEnd(50_000, 'f'), amount: '10000', settleOk: 1 };
+    const { subject, text } = alertMessage({}, alert);
+    assert.ok(subject.length < 300, `the subject is ${subject.length} characters`);
+    assert.ok(text.length < 1200, `the body is ${text.length} characters`);
+    assert.match(subject, /\(\+49920 characters\)/);
+  });
+
+  test('an ordinary address is not clipped', () => {
+    const alert = { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '10000', settleOk: 1 };
+    assert.match(alertHeadline({}, alert), new RegExp(VERIFIED_PAYER, 'i'));
   });
 
   test('a non-numeric amount is labelled rather than coerced', () => {

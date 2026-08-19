@@ -80,6 +80,7 @@ import {
   resourceInfoV2,
 } from './envelope.js';
 import { fetchTarget, unsafeTargetsAllowed } from './fetch-target.js';
+import { claimQuota } from './quota.js';
 import {
   oneLineMessage,
   paymentPresented,
@@ -804,27 +805,6 @@ async function settleAndRecord(env, db, { requirements, facRequirements, version
 async function globalExceeded(db, day) {
   const counter = await db.prepare('SELECT total FROM counters WHERE day = ?1').bind(day).first();
   return (counter?.total ?? 0) >= 200_000;
-}
-
-/**
- * Claim one call, atomically.
- *
- * The guarded upsert IS the mechanism: the row is created at 1 and incremented
- * only WHILE it is under the ceiling, so the "may I" read and the "spend one"
- * write cannot race apart across isolates. No row comes back when the guard
- * fails, and that is the over-quota signal.
- */
-async function claimQuota(db, day, ipHash, ceiling) {
-  const row = await db
-    .prepare(
-      'INSERT INTO call_quota (day, ip_hash, used) VALUES (?1, ?2, 1) ' +
-        'ON CONFLICT(day, ip_hash) DO UPDATE SET used = call_quota.used + 1 ' +
-        'WHERE call_quota.used < ?3 ' +
-        'RETURNING used'
-    )
-    .bind(day, ipHash, ceiling)
-    .first();
-  return typeof row?.used === 'number' ? row.used : null;
 }
 
 /**

@@ -109,8 +109,70 @@ describe('IPv6, including the notations that are the same address written differ
     rejects('https://[::ffff:169.254.169.254]/x', /IPv4-mapped/);
   });
 
+  test('refuses the IPv4-compatible forms, which are IPv4 addresses in disguise', () => {
+    // ::7f00:1 and ::127.0.0.1 are both 127.0.0.1. The range is deprecated by
+    // RFC 4291 and nothing public lives in it, so the whole /96 goes rather
+    // than only the private addresses inside it.
+    rejects('https://[::7f00:1]/x', /IPv4-compatible/);
+    rejects('https://[::127.0.0.1]/x', /IPv4-compatible/);
+    rejects('https://[::c0a8:101]/x', /IPv4-compatible/);
+  });
+
+  test('refuses NAT64, which embeds an IPv4 address for a gateway to unwrap', () => {
+    // 64:ff9b::7f00:1 is a way of writing 127.0.0.1 that reaches it through a
+    // NAT64 gateway. Whether the surrounding network has one is not knowable
+    // from inside a Worker, which is why the range is refused rather than decoded.
+    rejects('https://[64:ff9b::7f00:1]/x', /NAT64/);
+    rejects('https://[64:ff9b::1]/x', /NAT64/);
+  });
+
   test('accepts a public IPv6 address', () => {
     accepts('https://[2606:4700:4700::1111]/x');
+  });
+});
+
+describe('ports, because a linter that dials anything is a port scanner', () => {
+  test('accepts the default port and the explicit https ones', () => {
+    assert.equal(accepts('https://example.com/api').port, '');
+    assert.equal(accepts('https://example.com:443/api').port, '');
+    assert.equal(accepts('https://staging.example.com:8443/api').port, '8443');
+  });
+
+  const scanned = ['22', '25', '3306', '5432', '6379', '8080', '9200', '11211'];
+  for (const port of scanned) {
+    test(`refuses port ${port}`, () => rejects(`https://example.com:${port}/x`, /only 443 and 8443/));
+  }
+
+  test('an address refused for WHAT it is says so, not which port it was on', () => {
+    // Ordering, and it is a real choice: both refuse before any connection, so
+    // the oracle is closed either way, and "that is loopback" is the more
+    // useful sentence for the person who typed it by accident.
+    rejects('https://127.0.0.1:8787/lint', /127\.0\.0\.0\/8/);
+    rejects('https://localhost:9999/lint', /private-network name/);
+  });
+});
+
+describe('a trailing dot is the same name', () => {
+  // `localhost.` is the fully qualified form of `localhost` and resolves
+  // identically. It matched no blocked name and no suffix, and `127.0.0.1.`
+  // split into five parts so it was not read as a dotted quad either — one
+  // character walked past every name rule there was.
+  test('refuses the fully qualified forms of the blocked names', () => {
+    rejects('https://localhost./x', /private-network name/);
+    rejects('https://metadata.internal./x', /private-network name/);
+    rejects('https://printer.local./x', /private-network name/);
+  });
+
+  test('refuses a fully qualified loopback address', () => {
+    rejects('https://127.0.0.1./x', /127\.0\.0\.0\/8/);
+  });
+
+  test('refuses a fully qualified bare hostname', () => {
+    rejects('https://redis./x', /bare hostname/);
+  });
+
+  test('does not break an ordinary fully qualified public name', () => {
+    accepts('https://example.com./api');
   });
 });
 

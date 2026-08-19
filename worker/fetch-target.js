@@ -45,6 +45,23 @@ const MIN_TIMEOUT_MS = 200;
 const BLOCKED_SUFFIXES = ['.internal', '.local', '.localhost', '.home.arpa'];
 const BLOCKED_NAMES = ['localhost'];
 
+/**
+ * The ports a public x402 endpoint may be on.
+ *
+ * WITHOUT THIS THE SERVICE IS A PORT SCANNER. A caller who can name
+ * `https://<any-host>:<any-port>/` and read the answer learns, one cent at a
+ * time, which ports are open on a host they do not control — the response text
+ * distinguishes a refused connection from a timeout, and that difference IS the
+ * scan result. Restricting to the two ports HTTPS is actually served on removes
+ * the oracle rather than trying to make its output uninformative; not quoting
+ * the transport error (see `unreachable`) is the belt to this braces.
+ *
+ * The cost to a real caller is nil: an x402 endpoint people are meant to pay is
+ * on 443. 8443 is here because it is the one alternate that appears on real
+ * staging deployments, and refusing it would be refusing a customer.
+ */
+const ALLOWED_PORTS = ['', '443', '8443'];
+
 /** URLs longer than this are refused unread; no legitimate endpoint needs it. */
 const MAX_URL_LENGTH = 2048;
 
@@ -123,6 +140,21 @@ function privateIpv6(host) {
 
   if (addr === '::1') return '::1 (loopback)';
   if (addr === '::') return ':: (unspecified)';
+
+  // 64:ff9b::/96 and 64:ff9b:1::/48 — NAT64. These EMBED an IPv4 address and a
+  // NAT64 gateway translates them back to it, so `64:ff9b::7f00:1` is a way of
+  // writing 127.0.0.1 that none of the rules above would have caught. Whether
+  // the surrounding network has such a gateway is not knowable from here, which
+  // is exactly why the whole range is refused rather than decoded.
+  if (/^64:ff9b(:|$)/.test(addr)) return '64:ff9b::/96 (NAT64 — it embeds an IPv4 address)';
+
+  // ::/96 — IPv4-COMPATIBLE, e.g. ::7f00:1 and ::127.0.0.1, both of which are
+  // 127.0.0.1. Deprecated by RFC 4291 and nothing public lives there, so the
+  // range goes rather than only the private addresses inside it. `::ffff:…`
+  // (IPv4-MAPPED, a different range) is handled above and has already returned.
+  if (/^::(?:[0-9a-f]{1,4}:)?[0-9a-f.]+$/.test(addr)) {
+    return '::/96 (IPv4-compatible — a deprecated way of writing an IPv4 address)';
+  }
   // fc00::/7 — unique local. The first byte is 0xfc or 0xfd.
   if (/^f[cd][0-9a-f]{0,2}:/.test(addr)) return 'fc00::/7 (unique local)';
   // fe80::/10 — link-local. The first 10 bits are 1111111010, i.e. fe8/fe9/fea/feb.
@@ -176,7 +208,12 @@ export function checkTargetUrl(raw, { unsafe = false } = {}) {
     };
   }
 
-  const host = url.hostname.toLowerCase();
+  // A TRAILING DOT IS THE SAME NAME. `localhost.` is the fully qualified form
+  // of `localhost` and resolves identically, but it matched neither
+  // BLOCKED_NAMES nor any suffix, and `127.0.0.1.` split into five parts so it
+  // was not read as a dotted quad either. One character walked straight past
+  // every name rule below. Normalised here, before any of them.
+  const host = url.hostname.toLowerCase().replace(/\.+$/, '');
 
   if (!unsafe) {
     const octets = ipv4Octets(host);
@@ -213,6 +250,23 @@ export function checkTargetUrl(raw, { unsafe = false } = {}) {
           '/lint/envelope and paste the response instead.',
       };
     }
+
+    // LAST, so an address that is refused for WHAT it is says so rather than
+    // reporting the port it happened to be on — `https://127.0.0.1:8787/` is
+    // better answered "that is loopback" than "that is not port 443". The
+    // ordering costs nothing: every branch here refuses before any connection
+    // is attempted, so the oracle is closed by all of them equally.
+    if (!ALLOWED_PORTS.includes(url.port)) {
+      return {
+        error: `\`url\` names port ${url.port}, and only 443 and 8443 are allowed`,
+        fix:
+          'Lint the endpoint on its https port. This service refuses other ports because a ' +
+          'linter that will connect anywhere and report what happened is a port scanner rented ' +
+          'by the cent — the difference between "refused" and "timed out" IS the scan result. ' +
+          'To lint an endpoint on another port, use POST /lint/envelope and paste the status, ' +
+          'headers and body: the same checks with no outbound request.',
+      };
+    }
   }
 
   return { url };
@@ -247,6 +301,17 @@ export async function fetchTarget(rawUrl, method, env) {
     };
   }
 
+  // ONE DEADLINE FOR THE WHOLE OPERATION, headers AND body.
+  //
+  // The timer used to be cleared the moment `fetch` resolved, which is when the
+  // response HEADERS arrive — so the body read that follows ran with no bound
+  // at all. A target that answered instantly and then dribbled one byte every
+  // few seconds held a Worker open far past the ten-second timeout: measured at
+  // 17x it before this changed. That is slow loris, and the guard was pointed
+  // at the wrong half of the request.
+  //
+  // The same controller is passed through the read, so the abort cancels the
+  // reader, and the timer is cleared only once readCapped has returned.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs(env));
   let res;
@@ -266,29 +331,32 @@ export async function fetchTarget(rawUrl, method, env) {
       signal: controller.signal,
     });
   } catch (err) {
-    const aborted = err?.name === 'AbortError';
+    clearTimeout(timer);
     return {
       ok: false,
-      error: aborted
-        ? `the target did not answer within ${timeoutMs(env) / 1000}s`
-        : `could not reach ${url.host}: ${String(err?.message || err).slice(0, 160)}`,
-      fix: aborted
-        ? 'A paid endpoint must answer its 402 fast — the envelope is built from static data ' +
-          'and needs no work at all. If yours is slow, the 402 path is probably doing the work ' +
-          'BEFORE checking for payment, which also means you are doing unpaid work for every prober.'
-        : 'Check the hostname, the TLS certificate and that the route exists. If the endpoint ' +
-          'is not deployed yet, use POST /lint/envelope and paste the response instead.',
+      ...(err?.name === 'AbortError' ? timedOut(env) : unreachable(url)),
     };
-  } finally {
-    clearTimeout(timer);
   }
 
-  // --- read, capped -----------------------------------------------------
+  // --- read, capped and on the SAME clock -------------------------------
   //
   // Streamed and counted rather than buffered whole: `res.arrayBuffer()` on a
   // hostile target would read as much as it cared to send before the cap could
-  // be applied. This stops pulling at the cap and closes the stream.
-  const { text, truncated } = await readCapped(res, MAX_BODY_BYTES);
+  // be applied. This stops pulling at the cap and closes the stream — and now
+  // also stops when the deadline set before the fetch expires.
+  let read;
+  try {
+    read = await readCapped(res, MAX_BODY_BYTES, controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+  // A read the DEADLINE ended is a timeout, reported as one. It is distinct
+  // from a stream that merely died: there we keep the partial body, because a
+  // partial body lints as a JSON parse failure, which is an honest report of
+  // what a client would also have seen. Here we never saw the whole response
+  // and must not pretend a truncated read is a finding about the envelope.
+  if (read.aborted) return { ok: false, ...timedOut(env, 'finish sending its response') };
+  const { text, truncated } = read;
 
   const headers = {};
   for (const [key, value] of res.headers) headers[key.toLowerCase()] = value;
@@ -307,15 +375,56 @@ export async function fetchTarget(rawUrl, method, env) {
   };
 }
 
-/** Read at most `max` bytes of a response body, then stop. */
-async function readCapped(res, max) {
+/** The two transport refusals, written once so they cannot drift apart. */
+const timedOut = (env, what = 'answer') => ({
+  error: `the target did not ${what} within ${timeoutMs(env) / 1000}s`,
+  fix:
+    'A paid endpoint must answer its 402 fast — the envelope is built from static data ' +
+    'and needs no work at all. If yours is slow, the 402 path is probably doing the work ' +
+    'BEFORE checking for payment, which also means you are doing unpaid work for every prober.',
+});
+
+/**
+ * Could not connect.
+ *
+ * THE UNDERLYING ERROR IS DELIBERATELY NOT QUOTED. It distinguishes a refused
+ * connection from a DNS failure from a TLS error, and a caller who can name a
+ * URL and read that distinction has a port scanner: the response text is the
+ * oracle. The port allowlist above is what mostly closes this, and not echoing
+ * the transport error is the rest of it.
+ */
+const unreachable = (url) => ({
+  error: `could not reach ${url.host}`,
+  fix:
+    'Check the hostname, the TLS certificate and that the route exists on the port you named. ' +
+    'If the endpoint is not deployed yet, use POST /lint/envelope and paste the response ' +
+    'instead — the same checks, with no outbound request.',
+});
+
+/**
+ * Read at most `max` bytes of a response body, then stop.
+ *
+ * `signal` is the SAME deadline the fetch ran under, so a target that answers
+ * its headers instantly and then dribbles cannot outlive the timeout. Returns
+ * `aborted: true` when the deadline is what ended the read, which the caller
+ * reports as a timeout rather than as a truncated body.
+ */
+async function readCapped(res, max, signal) {
   const body = res.body;
-  if (!body) return { text: '', truncated: false };
+  if (!body) return { text: '', truncated: false, aborted: false };
 
   const reader = body.getReader();
   const chunks = [];
   let size = 0;
   let truncated = false;
+  // The reader is cancelled from the abort rather than only polled, so a read
+  // that is parked waiting for a byte that never comes is woken rather than
+  // waiting for a chunk to check a flag against.
+  const onAbort = () => {
+    reader.cancel().catch(() => {});
+  };
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -334,6 +443,7 @@ async function readCapped(res, max) {
     // lints as a JSON parse failure, which is an honest report of what a client
     // would also have seen.
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     try {
       await reader.cancel();
     } catch {
@@ -347,5 +457,9 @@ async function readCapped(res, max) {
     joined.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return { text: new TextDecoder('utf-8').decode(joined), truncated };
+  return {
+    text: new TextDecoder('utf-8').decode(joined),
+    truncated,
+    aborted: signal?.aborted === true && !truncated,
+  };
 }

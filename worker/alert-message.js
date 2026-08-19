@@ -76,13 +76,29 @@ export function isHousePayer(env, payer) {
 }
 
 /**
+ * The payer, as it may appear in a message.
+ *
+ * BEFORE VERIFY, THE PAYER IS A CLAIM THE CALLER TYPED. It is read out of
+ * `payload.authorization.from`, and the unverified-serve path alerts with
+ * exactly that value — so an address field holding fifty kilobytes became fifty
+ * kilobytes of Telegram body and fifty kilobytes of email Subject header, from
+ * one unauthenticated request. An EVM address is 42 characters; anything past
+ * 80 is not an address that got long, it is something else.
+ */
+const payerLabel = (payer) => {
+  const raw = String(payer ?? '').trim();
+  if (!raw) return 'unknown';
+  return raw.length > 80 ? `${raw.slice(0, 80)}… (+${raw.length - 80} characters)` : raw;
+};
+
+/**
  * The alert's first line — the Telegram opener and the email subject, the same
  * string on purpose so a lock screen and an inbox preview say the same thing.
  */
 export function alertHeadline(env, alert) {
   const amount = formatUsdc(alert.amount);
   const house = isHousePayer(env, alert.payer);
-  const payer = alert.payer || 'unknown';
+  const payer = payerLabel(alert.payer);
 
   if (alert.kind === 'unverified') {
     // The house marker still goes on: the owner's own probe hitting a down
@@ -104,7 +120,7 @@ export function alertMessage(env, alert) {
   const subject = alertHeadline(env, alert);
   const lines = [subject, '', `endpoint ${alert.tool}`];
   lines.push(`amount   ${formatUsdc(alert.amount)}  (${alert.amount} atomic USDC on Base)`);
-  lines.push(`payer    ${alert.payer || 'unknown'}`);
+  lines.push(`payer    ${payerLabel(alert.payer)}`);
 
   if (alert.kind === 'unverified') {
     lines.push(`checked  NO — ${alert.error}`);

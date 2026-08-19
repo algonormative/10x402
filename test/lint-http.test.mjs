@@ -30,7 +30,8 @@ let target;
  * possible — "no payment header was sent" is a recorded fact, not an inference.
  */
 async function startTarget() {
-  const state = { hits: [], next: null, hang: false };
+  const state = { hits: [], next: null, hang: false, dribble: false };
+  const dribblers = new Set();
 
   const server = http.createServer((req, res) => {
     const chunks = [];
@@ -46,6 +47,19 @@ async function startTarget() {
       // A socket that is accepted and then never answered — the only honest way
       // to exercise the timeout path.
       if (state.hang) return;
+
+      // SLOW LORIS. Headers immediately, then one byte at a time, forever. It
+      // is the shape that got past the old timeout entirely: the timer was
+      // cleared the moment the headers arrived, so everything after this point
+      // ran unbounded.
+      if (state.dribble) {
+        res.writeHead(402, { 'content-type': 'application/json' });
+        res.write('{');
+        const timer = setInterval(() => res.write(' '), 100);
+        dribblers.add({ res, timer });
+        res.on('close', () => clearInterval(timer));
+        return;
+      }
 
       const canned = state.next || { status: 404, headers: {}, body: '{}' };
       res.writeHead(canned.status, canned.headers || {});
@@ -71,6 +85,16 @@ async function startTarget() {
       state.hits.length = 0;
       state.next = null;
       state.hang = false;
+      state.dribble = false;
+      for (const { res, timer } of dribblers) {
+        clearInterval(timer);
+        try {
+          res.end();
+        } catch {
+          /* already gone */
+        }
+      }
+      dribblers.clear();
     },
     get hits() {
       return state.hits;
@@ -243,6 +267,32 @@ describe('bounds', () => {
     // A truncated body is not valid JSON, and reporting that honestly is
     // better than pretending to have read the whole thing.
     assert.ok(res.body.findings.some((f) => f.code === 'V1_BODY_JSON'));
+  });
+
+  test('a target that dribbles its BODY forever is bounded by the same deadline', async () => {
+    // THE HALF THE TIMEOUT DID NOT COVER. clearTimeout ran the moment `fetch`
+    // resolved — which is when the response HEADERS arrive — so the body read
+    // that follows had no bound at all. A target that answered instantly and
+    // then sent one byte every so often held a Worker open far past the
+    // timeout; measured at 17x it. The guard was on the wrong half of the
+    // request.
+    //
+    // LINT_TIMEOUT_MS is 700 in this phase, so the deadline is the only thing
+    // that can end this: the target never stops writing.
+    target.reset();
+    target.state.dribble = true;
+    const started = Date.now();
+    const res = await lintTarget();
+    const elapsed = Date.now() - started;
+
+    assert.equal(res.status, 400, res.text);
+    assert.match(res.body.error, /did not finish sending its response within/);
+    assert.ok(elapsed < 5000, `took ${elapsed}ms — the read ran past the deadline`);
+    // And it is reported as a timeout rather than as a lint of the two bytes
+    // that did arrive: we never saw the response, so we have nothing to say
+    // about the envelope.
+    assert.equal(res.body.grade, undefined);
+    target.reset();
   });
 
   test('a target that never answers times out instead of hanging the request', async () => {
