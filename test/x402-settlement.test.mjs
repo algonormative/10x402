@@ -6,8 +6,10 @@
 // file runs — so every assertion is about what the Worker actually sent and
 // what it did with the answer.
 //
-// NOTHING HERE IS BILLED. There is no live facilitator, no chain, no wallet and
-// no money; the mock is in-process and the credentials are generated per run.
+// NOTHING HERE IS BILLED, AND NOTHING HERE LEAVES 127.0.0.1. There is no live
+// facilitator, no chain, no wallet and no money; the mock is in-process, the
+// credentials are generated per run, and the one test that needs POST /lint to
+// serve a real report points it at a local 402 this file also runs.
 //
 // Four things are worth knowing before reading further.
 //
@@ -51,6 +53,7 @@ const TX_HASH = '0xfeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedf
 let worker;
 let api;
 let mock;
+let lintTarget;
 
 // ------------------------------------------------------------------ the mock
 
@@ -302,12 +305,50 @@ async function awaitSettlement(predicate, what, timeoutMs = 15_000) {
 const paid = (path, payload, header, ip) =>
   api.post(path, payload, { ip, headers: header });
 
+/**
+ * A local 402, for the one test that needs POST /lint to actually SERVE a report.
+ *
+ * That test used to name `https://example.com/x`, which the production guard
+ * accepts — so the Worker really did fetch example.com, and the test passed
+ * only because the internet was up. A live call inside a suite whose whole
+ * claim is that it makes none: it would have failed on a plane, and it made the
+ * README's "no live network calls, ever" untrue while reading as proof of it.
+ */
+async function startLintTarget() {
+  const body = JSON.stringify({
+    x402Version: 1,
+    accepts: [{ scheme: 'exact', network: 'base', maxAmountRequired: '1000', resource: 'https://example.com/x' }],
+  });
+  const server = http.createServer((_req, res) => {
+    res.writeHead(402, { 'content-type': 'application/json' });
+    res.end(body);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  return {
+    url: `http://127.0.0.1:${server.address().port}/x`,
+    stop: () =>
+      new Promise((r) => {
+        server.closeAllConnections?.();
+        server.close(r);
+      }),
+  };
+}
+
 // ------------------------------------------------------------------ lifecycle
 
 before(async () => {
   mock = await startMockFacilitator();
+  lintTarget = await startLintTarget();
   worker = await bootWorker({
-    vars: { PAYTO: PAYTO_TEST, FACILITATOR_URL: mock.url, ...fakeCdpCredentials() },
+    // LINT_UNSAFE_TARGETS so POST /lint can reach the local target above. This
+    // suite asserts nothing about the SSRF guard — test/ssrf-worker.test.mjs
+    // does that, in a phase where the guard is deliberately left as shipped.
+    vars: {
+      PAYTO: PAYTO_TEST,
+      FACILITATOR_URL: mock.url,
+      LINT_UNSAFE_TARGETS: '1',
+      ...fakeCdpCredentials(),
+    },
   });
   api = client(worker);
 });
@@ -315,6 +356,7 @@ before(async () => {
 after(async () => {
   await worker?.stop();
   await mock?.stop();
+  await lintTarget?.stop();
 });
 
 beforeEach(() => mock.reset());
@@ -426,7 +468,7 @@ describe('x402 v2: a verified payment', () => {
     delete decoded.resource;
     const stripped = Buffer.from(JSON.stringify(decoded)).toString('base64');
 
-    await paid('/lint', { url: 'https://example.com/x' }, { 'payment-signature': stripped }, ip);
+    await paid('/lint', { url: lintTarget.url }, { 'payment-signature': stripped }, ip);
     await awaitSettlement((r) => r.endpoint === 'lint', 'a lint settlement');
 
     const sent = mock.hitsOn('settle')[0].body.paymentPayload.resource;
