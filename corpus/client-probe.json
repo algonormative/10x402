@@ -1,0 +1,3377 @@
+{
+  "probe": "corpus/probe-clients.mjs",
+  "what": "the pinned x402 client packages, installed from the registry and run over every fixture in corpus/fixtures.json. Every outcome in this file was observed, not inferred",
+  "corpus_version": 2,
+  "ran": "2026-08-20",
+  "ran_is": "carried forward unless --stamp is passed, so regenerating without changing an answer changes no bytes",
+  "install": {
+    "sandbox": "${TMPDIR}/x402-client-probe-3168221406d8",
+    "lockfile": "corpus/client-probe.lock.json",
+    "method": "first run resolves with `npm install` and records the lockfile; every later run installs it with `npm ci`",
+    "packages": {
+      "@x402/core": {
+        "requested": "2.23.0",
+        "version": "2.23.0",
+        "integrity": "sha512-EFeV0nXbTPPe5FXaD6y9vMgqc+k/ujLXCrUPrQXkmHjHyjC3Ir5tTL1e2FPSkx2+GUGzfpt1wVZb36639ygkWw==",
+        "resolved": "https://registry.npmjs.org/@x402/core/-/core-2.23.0.tgz"
+      },
+      "@x402/evm": {
+        "requested": "2.23.0",
+        "version": "2.23.0",
+        "integrity": "sha512-Ikaya5c0/qV/pdFRGfGSdlUX3ELZaUgrddsmmXZHPANtIAQ5uFH15+O+9Bt4PqdAXqCuS43WskJ7HgiLn/uW2g==",
+        "resolved": "https://registry.npmjs.org/@x402/evm/-/evm-2.23.0.tgz"
+      },
+      "@x402/fetch": {
+        "requested": "2.23.0",
+        "version": "2.23.0",
+        "integrity": "sha512-iyUfmnX6eAQa+GxyhC2M/vDP49EuoB/KHCXeOAFJgfL9lhtsyomLfYAMZlF+0xYHgpk/G96QZSp8iyhVlems/A==",
+        "resolved": "https://registry.npmjs.org/@x402/fetch/-/fetch-2.23.0.tgz"
+      },
+      "x402": {
+        "requested": "1.2.0",
+        "version": "1.2.0",
+        "integrity": "sha512-cqcB9LNw1e1Kv6wkKyyKvn7wcYBnJ9vd8336M9jZRgLKDcIDt2n3liiSXyzx4HJTv07f9M2OAk5uKhh/LcbKQQ==",
+        "resolved": "https://registry.npmjs.org/x402/-/x402-1.2.0.tgz"
+      },
+      "x402-fetch": {
+        "requested": "1.2.0",
+        "version": "1.2.0",
+        "integrity": "sha512-CxCgPO4H4/ADZC31gSUCS/CipkUyppzMJRU3jGrEuhO+2k0optszH+kwO0XJ6pVyDprIT6PvGbmNJ4TGKSCAcQ==",
+        "resolved": "https://registry.npmjs.org/x402-fetch/-/x402-fetch-1.2.0.tgz"
+      }
+    },
+    "transitive_note": "zod resolves transitively and its issue text is recorded verbatim, which is why the lockfile is committed rather than regenerated"
+  },
+  "exports": {
+    "what": "every subpath each package’s own exports map declares, imported, with its export names as they actually are",
+    "packages": {
+      "@x402/core": {
+        "@x402/core": [
+          "x402Version"
+        ],
+        "@x402/core/client": [
+          "DEFAULT_MAX_AMOUNT_PER_PAYMENT",
+          "x402Client",
+          "x402HTTPClient"
+        ],
+        "@x402/core/facilitator": [
+          "x402Facilitator"
+        ],
+        "@x402/core/http": [
+          "FacilitatorResponseError",
+          "FacilitatorTimeoutError",
+          "HTTPFacilitatorClient",
+          "PAYMENT_REQUIRED_CACHE_CONTROL",
+          "RouteConfigurationError",
+          "SETTLEMENT_OVERRIDES_HEADER",
+          "decodePaymentRequiredHeader",
+          "decodePaymentResponseHeader",
+          "decodePaymentSignatureHeader",
+          "encodePaymentRequiredHeader",
+          "encodePaymentResponseHeader",
+          "encodePaymentSignatureHeader",
+          "getFacilitatorResponseError",
+          "withPrivateCacheControl",
+          "x402HTTPClient",
+          "x402HTTPResourceServer"
+        ],
+        "@x402/core/schemas": [
+          "Any",
+          "NetworkSchema",
+          "NetworkSchemaV1",
+          "NetworkSchemaV2",
+          "NonEmptyString",
+          "OptionalAny",
+          "PaymentPayloadSchema",
+          "PaymentPayloadV1Schema",
+          "PaymentPayloadV2Schema",
+          "PaymentRequiredSchema",
+          "PaymentRequiredV1Schema",
+          "PaymentRequiredV2Schema",
+          "PaymentRequirementsSchema",
+          "PaymentRequirementsV1Schema",
+          "PaymentRequirementsV2Schema",
+          "ResourceInfoSchema",
+          "isPaymentPayload",
+          "isPaymentPayloadV1",
+          "isPaymentPayloadV2",
+          "isPaymentRequired",
+          "isPaymentRequiredV1",
+          "isPaymentRequiredV2",
+          "isPaymentRequirements",
+          "isPaymentRequirementsV1",
+          "isPaymentRequirementsV2",
+          "parsePaymentPayload",
+          "parsePaymentRequired",
+          "parsePaymentRequirements",
+          "validatePaymentPayload",
+          "validatePaymentRequired",
+          "validatePaymentRequirements",
+          "z"
+        ],
+        "@x402/core/server": [
+          "FacilitatorResponseError",
+          "FacilitatorTimeoutError",
+          "HTTPFacilitatorClient",
+          "PAYMENT_FLOWS",
+          "PAYMENT_REQUIRED_CACHE_CONTROL",
+          "RouteConfigurationError",
+          "SDK_DEFAULT_ASSET_TRANSFER_METHOD",
+          "SETTLEMENT_OVERRIDES_HEADER",
+          "applyPaymentFlowWireExtra",
+          "assertAcceptsAdditiveExtraAfterSchemeEnrich",
+          "assertAcceptsAllowlistedAfterExtensionEnrich",
+          "assertAdditivePayloadEnrichment",
+          "assertAdditiveSettlementExtra",
+          "assertSettleResponseCoreUnchanged",
+          "checkIfBazaarNeeded",
+          "getFacilitatorResponseError",
+          "isVacantStringField",
+          "resolveFailurePathSettlement",
+          "resolvePaymentFlow",
+          "resolvePaymentFlowPhases",
+          "snapshotPaymentRequirementsList",
+          "snapshotSettleResponseCore",
+          "withPrivateCacheControl",
+          "x402HTTPResourceServer",
+          "x402ResourceServer"
+        ],
+        "@x402/core/types": [
+          "FacilitatorResponseError",
+          "FacilitatorTimeoutError",
+          "SettleError",
+          "VerifyError",
+          "getFacilitatorResponseError"
+        ],
+        "@x402/core/types/v1": [],
+        "@x402/core/utils": [
+          "ADDITIVE_ARRAY_INFO_FIELDS",
+          "ADDITIVE_ARRAY_MAX_LENGTHS",
+          "Base64EncodedRegex",
+          "convertToTokenAmount",
+          "deepEqual",
+          "findByNetworkAndScheme",
+          "findFacilitatorBySchemeAndNetwork",
+          "findSchemesByNetwork",
+          "networkMatchesPattern",
+          "numberToDecimalString",
+          "parseMoney",
+          "parseMoneyString",
+          "safeBase64Decode",
+          "safeBase64Encode",
+          "toComparableArray"
+        ]
+      },
+      "@x402/evm": {
+        "@x402/evm": [
+          "AUTH_CAPTURE_ESCROW_ADDRESS",
+          "AUTH_CAPTURE_SCHEME",
+          "AuthCaptureEvmScheme",
+          "BATCH_SETTLEMENT_ADDRESS",
+          "BATCH_SETTLEMENT_DOMAIN",
+          "BATCH_SETTLEMENT_SCHEME",
+          "BUILDER_CODE_KEY",
+          "BatchSettlementEvmScheme",
+          "DEFAULT_ASSETS",
+          "EIP3009_TOKEN_COLLECTOR_ADDRESS",
+          "ERC3009_DEPOSIT_COLLECTOR_ADDRESS",
+          "ExactEvmScheme",
+          "PERMIT2_ADDRESS",
+          "PERMIT2_TOKEN_COLLECTOR_ADDRESS",
+          "UptoEvmScheme",
+          "appendDataSuffix",
+          "authorizationTypes",
+          "claimBatchTypes",
+          "classifyErc6492Payer",
+          "createPermit2ApprovalTx",
+          "eip3009ABI",
+          "erc20AllowanceAbi",
+          "findDefaultAsset",
+          "getDefaultAsset",
+          "getERC7702DelegateAddress",
+          "getPermit2AllowanceReadParams",
+          "isAuthCaptureExtra",
+          "isAuthCapturePayload",
+          "isBatchSettlementClaimPayload",
+          "isBatchSettlementDepositPayload",
+          "isBatchSettlementEnrichedRefundPayload",
+          "isBatchSettlementRefundPayload",
+          "isBatchSettlementSettlePayload",
+          "isBatchSettlementVoucherPayload",
+          "isEIP3009Payload",
+          "isERC7702Delegation",
+          "isPermit2Payload",
+          "isUptoPermit2Payload",
+          "permit2WitnessTypes",
+          "refundTypes",
+          "resolveDataSuffix",
+          "toClientEvmSigner",
+          "toFacilitatorEvmSigner",
+          "uptoPermit2WitnessTypes",
+          "verifyHashSignature",
+          "verifyHashSignatureWithCode",
+          "verifyTypedDataSignature",
+          "voucherTypes",
+          "x402ExactPermit2ProxyABI",
+          "x402ExactPermit2ProxyAddress",
+          "x402UptoPermit2ProxyABI",
+          "x402UptoPermit2ProxyAddress"
+        ],
+        "@x402/evm/auth-capture/client": [
+          "AuthCaptureEvmScheme"
+        ],
+        "@x402/evm/batch-settlement/client": [
+          "BatchSettlementEvmScheme",
+          "InMemoryClientChannelStorage",
+          "buildChannelConfig",
+          "computeChannelId",
+          "createBatchSettlementClientHooks",
+          "createBatchSettlementEIP3009DepositPayload",
+          "depositAmountForRequest",
+          "getChannel",
+          "handleBatchSettlementPaymentResponse",
+          "hasChannel",
+          "isBatchSettlementEvmSchemeOptions",
+          "processCorrectivePaymentRequired",
+          "processPaymentResponse",
+          "processSettleResponse",
+          "readChannelBalanceAndTotalClaimed",
+          "recoverChannel",
+          "recoverFromOnChainState",
+          "recoverFromSignature",
+          "refundChannel",
+          "resolveClientOptions",
+          "signVoucher",
+          "updateChannelAfterRefund",
+          "validateDepositPolicy"
+        ],
+        "@x402/evm/batch-settlement/client/file-storage": [
+          "FileClientChannelStorage"
+        ],
+        "@x402/evm/batch-settlement/facilitator": [
+          "BatchSettlementEvmScheme"
+        ],
+        "@x402/evm/batch-settlement/server": [
+          "BatchSettlementChannelManager",
+          "BatchSettlementEvmScheme",
+          "InMemoryChannelStorage"
+        ],
+        "@x402/evm/batch-settlement/server/file-storage": [
+          "FileChannelStorage"
+        ],
+        "@x402/evm/batch-settlement/server/redis-storage": [
+          "RedisChannelStorage"
+        ],
+        "@x402/evm/exact/client": [
+          "ExactEvmScheme",
+          "createPermit2ApprovalTx",
+          "erc20AllowanceAbi",
+          "getPermit2AllowanceReadParams",
+          "registerExactEvmScheme"
+        ],
+        "@x402/evm/exact/facilitator": [
+          "ExactEvmScheme",
+          "registerExactEvmScheme"
+        ],
+        "@x402/evm/exact/server": [
+          "ExactEvmScheme",
+          "registerExactEvmScheme"
+        ],
+        "@x402/evm/exact/v1/client": [
+          "ExactEvmSchemeV1"
+        ],
+        "@x402/evm/exact/v1/facilitator": [
+          "ExactEvmSchemeV1"
+        ],
+        "@x402/evm/upto/client": [
+          "UptoEvmScheme",
+          "createPermit2ApprovalTx",
+          "erc20AllowanceAbi",
+          "getPermit2AllowanceReadParams"
+        ],
+        "@x402/evm/upto/facilitator": [
+          "UptoEvmScheme"
+        ],
+        "@x402/evm/upto/server": [
+          "UptoEvmScheme"
+        ],
+        "@x402/evm/v1": [
+          "EVM_NETWORK_CHAIN_ID_MAP",
+          "ExactEvmSchemeV1",
+          "NETWORKS",
+          "getEvmChainIdV1"
+        ]
+      },
+      "@x402/fetch": {
+        "@x402/fetch": [
+          "decodePaymentResponseHeader",
+          "wrapFetchWithPayment",
+          "wrapFetchWithPaymentFromConfig",
+          "x402Client",
+          "x402HTTPClient"
+        ]
+      },
+      "x402": {
+        "x402/client": [
+          "createPaymentHeader",
+          "preparePaymentHeader",
+          "selectPaymentRequirements",
+          "signPaymentHeader"
+        ],
+        "x402/facilitator": [
+          "settle",
+          "verify"
+        ],
+        "x402/paywall": [
+          "getPaywallHtml"
+        ],
+        "x402/schemes": [
+          "decodePayment",
+          "encodePayment",
+          "exact"
+        ],
+        "x402/shared": [
+          "Base64EncodedRegex",
+          "computeRoutePatterns",
+          "decodeXPaymentResponse",
+          "findMatchingPaymentRequirements",
+          "findMatchingRoute",
+          "getDefaultAsset",
+          "getNetworkId",
+          "processPriceToAtomicAmount",
+          "safeBase64Decode",
+          "safeBase64Encode",
+          "svm",
+          "toJsonSafe"
+        ],
+        "x402/shared/evm": [
+          "getERC20Balance",
+          "getUSDCBalance",
+          "getUsdcAddress",
+          "getUsdcAddressForChain",
+          "getUsdcChainConfigForChain",
+          "getVersion"
+        ],
+        "x402/types": [
+          "ChainIdToNetwork",
+          "DiscoveredResourceSchema",
+          "ErrorReasons",
+          "EvmNetworkToChainId",
+          "ExactEvmPayloadAuthorizationSchema",
+          "ExactEvmPayloadSchema",
+          "ExactSvmPayloadSchema",
+          "HTTPRequestStructureSchema",
+          "ListDiscoveryResourcesRequestSchema",
+          "ListDiscoveryResourcesResponseSchema",
+          "NetworkSchema",
+          "PaymentPayloadSchema",
+          "PaymentRequirementsSchema",
+          "RequestStructureSchema",
+          "SettleError",
+          "SettleRequestSchema",
+          "SettleResponseSchema",
+          "SupportedEVMNetworks",
+          "SupportedPaymentKindSchema",
+          "SupportedPaymentKindsResponseSchema",
+          "SupportedSVMNetworks",
+          "SvmNetworkToChainId",
+          "VerifyError",
+          "VerifyRequestSchema",
+          "VerifyResponseSchema",
+          "createConnectedClient",
+          "createSigner",
+          "evm",
+          "facilitatorRequestSchema",
+          "isEvmSignerWallet",
+          "isMultiNetworkSigner",
+          "isSvmSignerWallet",
+          "moneySchema",
+          "schemes",
+          "settleResponseFromHeader",
+          "settleResponseHeader",
+          "svm",
+          "x402ResponseSchema",
+          "x402Versions"
+        ],
+        "x402/verify": [
+          "list",
+          "settle",
+          "supported",
+          "useFacilitator",
+          "verify"
+        ]
+      },
+      "x402-fetch": {
+        "x402-fetch": [
+          "createSigner",
+          "decodeXPaymentResponse",
+          "wrapFetchWithPayment"
+        ]
+      }
+    }
+  },
+  "entry_points": [
+    {
+      "name": "core.utils.Base64EncodedRegex.test",
+      "generation": "v2",
+      "input": "raw PAYMENT-REQUIRED header",
+      "cites": "@x402/core@2.23.0 utils — Base64EncodedRegex",
+      "why": "the gate decodePaymentRequiredHeader applies before it will look at the bytes at all"
+    },
+    {
+      "name": "core.http.decodePaymentRequiredHeader",
+      "generation": "v2",
+      "input": "raw PAYMENT-REQUIRED header",
+      "cites": "@x402/core@2.23.0 http — decodePaymentRequiredHeader()",
+      "why": "THE REAL DECODE PATH. Base64EncodedRegex test, then JSON.parse. No schema runs here"
+    },
+    {
+      "name": "core.http.x402HTTPClient#getPaymentRequiredResponse",
+      "generation": "v2+v1",
+      "input": "the recorded headers and the parsed body",
+      "cites": "@x402/core@2.23.0 http — x402HTTPClient.getPaymentRequiredResponse()",
+      "why": "what a v2 client run actually executes: the PAYMENT-REQUIRED header if there is one, otherwise the body when it declares x402Version 1. This one method is where the two generations meet, so it is the entry point that answers \"which path parsed this fixture\""
+    },
+    {
+      "name": "core.schemas.PaymentRequiredV2Schema.safeParse",
+      "generation": "v2",
+      "input": "the decoded v2 envelope",
+      "cites": "@x402/core@2.23.0 schemas — PaymentRequiredV2Schema",
+      "why": "the exported schema. NOT called by the package on the payment path — a consumer has to reach for it. Where it disagrees with the decode path above, that disagreement is the finding"
+    },
+    {
+      "name": "core.schemas.PaymentRequiredSchema.safeParse",
+      "generation": "v2+v1",
+      "input": "the decoded v2 envelope",
+      "cites": "@x402/core@2.23.0 schemas — PaymentRequiredSchema (the version-dispatching union)",
+      "why": "the union a consumer reaches for when it does not already know which generation it holds"
+    },
+    {
+      "name": "core.schemas.PaymentRequirementsV2Schema.safeParse[]",
+      "generation": "v2",
+      "input": "each entry of the decoded envelope’s accepts array",
+      "cites": "@x402/core@2.23.0 schemas — PaymentRequirementsV2Schema",
+      "why": "per-offer, because an envelope with one good offer and one bad one is a different fact about interoperability than an envelope that fails whole"
+    },
+    {
+      "name": "core.schemas.PaymentRequiredV1Schema.safeParse",
+      "generation": "v1",
+      "input": "the parsed response body",
+      "cites": "@x402/core@2.23.0 schemas — PaymentRequiredV1Schema",
+      "why": "the v2 package’s own view of a v1 body, which is what a dual-stack server is asking clients to accept"
+    },
+    {
+      "name": "x402.types.x402ResponseSchema.safeParse",
+      "generation": "v1",
+      "input": "the parsed response body",
+      "cites": "x402@1.2.0 types — x402ResponseSchema",
+      "why": "the v1 generation’s own envelope schema"
+    },
+    {
+      "name": "x402.types.PaymentRequirementsSchema.safeParse[]",
+      "generation": "v1",
+      "input": "each entry of the body’s accepts array",
+      "cites": "x402@1.2.0 types — PaymentRequirementsSchema",
+      "why": "the schema x402-fetch calls with .parse() — the THROWING form — on every offer before it will select one. safeParse is used here only so every offer is reported instead of the first failure"
+    },
+    {
+      "name": "x402.client.selectPaymentRequirements",
+      "generation": "v1",
+      "input": "the body’s accepts array",
+      "cites": "x402@1.2.0 client — selectPaymentRequirements()",
+      "why": "v1 offer selection, which is pure and therefore reachable offline. Which offer a client would have picked is a PARSE-level fact; whether it could pay for it is not"
+    },
+    {
+      "name": "x402-fetch.wrapFetchWithPayment (response handling)",
+      "generation": "v1",
+      "input": "the whole recorded response, served by a stub transport",
+      "cites": "x402-fetch@1.2.0 — wrapFetchWithPayment()",
+      "why": "the v1 wrapper’s real 402 handling, run end to end up to the signing boundary. It calls PaymentRequirementsSchema.parse() — throwing, not safeParse — on every offer, so a single bad offer aborts the whole response. Selection is replaced by a recorder that THROWS a sentinel the moment it has chosen, which makes createPaymentHeader unreachable rather than merely unused"
+    }
+  ],
+  "outcomes": {
+    "accepted": "the entry point returned; for a safeParse, success",
+    "rejected": "the entry point judged the input invalid — a zod failure or a documented validation throw",
+    "threw": "an error that is not one of the package’s documented refusals — a crash, not a declining. Never counted as a rejection",
+    "n/a": "the entry point’s input is absent from this fixture. Silence, not approval",
+    "not-exercisable-offline": "the path needs a key or a chain, and is recorded as a boundary rather than a result"
+  },
+  "not_exercisable_offline": [
+    {
+      "entry_point": "x402.client.createPaymentHeader / preparePaymentHeader / signPaymentHeader",
+      "package": "x402@1.2.0",
+      "reason": "builds and signs an EIP-712 authorization; needs a private key. No key exists in this process"
+    },
+    {
+      "entry_point": "@x402/evm exact/client, exact/v1/client, upto/client — payload construction and signing",
+      "package": "@x402/evm@2.23.0",
+      "reason": "the signer. EVERY execute-level client_interop claim in this corpus cites this package, and none of them is observed here: signing needs a key, and settlement needs a chain"
+    },
+    {
+      "entry_point": "@x402/fetch wrapFetchWithPayment (past selection)",
+      "package": "@x402/fetch@2.23.0",
+      "reason": "reaches createPaymentPayload, which delegates to a scheme client that signs"
+    },
+    {
+      "entry_point": "x402.verify — verify(), settle(), supported()",
+      "package": "x402@1.2.0",
+      "reason": "calls a facilitator over the network. This probe makes no request to any x402 endpoint"
+    },
+    {
+      "entry_point": "@x402/core/facilitator, @x402/core/server settlement helpers",
+      "package": "@x402/core@2.23.0",
+      "reason": "server and facilitator side; needs a facilitator and a chain"
+    }
+  ],
+  "disagreements": [
+    {
+      "id": "calibration-cloudflare-batch-settlement",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.maxTimeoutSeconds",
+          "code": "invalid_type",
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "id": "v2-header-b64-urlsafe",
+      "kind": "decoder-rejects-schema-accepts",
+      "what": "the envelope is well-formed but no client can get to it, because the header will not decode",
+      "decoder_error": "Invalid payment required header"
+    },
+    {
+      "id": "v2-header-b64-whitespace",
+      "kind": "decoder-rejects-schema-accepts",
+      "what": "the envelope is well-formed but no client can get to it, because the header will not decode",
+      "decoder_error": "Invalid payment required header"
+    },
+    {
+      "id": "v2-network-bare-name",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.network",
+          "code": "custom",
+          "message": "Network must be in CAIP-2 format (e.g., 'eip155:84532')"
+        }
+      ]
+    },
+    {
+      "id": "v2-amount-uses-v1-field-name",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.amount",
+          "code": "invalid_type",
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "id": "v2-resource-flat-string",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "resource",
+          "code": "invalid_type",
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "id": "v2-timeout-string",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.maxTimeoutSeconds",
+          "code": "invalid_type",
+          "message": "Expected number, received string"
+        }
+      ]
+    },
+    {
+      "id": "v2-timeout-absent",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.maxTimeoutSeconds",
+          "code": "invalid_type",
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "id": "v2-payto-array",
+      "kind": "decoder-accepts-schema-rejects",
+      "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+      "schema_issues": [
+        {
+          "path": "accepts.0.payTo",
+          "code": "invalid_type",
+          "message": "Expected string, received array"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "id": "calibration-spec-canonical-402",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_literal",
+              "message": "Invalid literal value, expected 1"
+            },
+            {
+              "path": "accepts",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the body declares no accepts array"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "TypeError: Cannot read properties of undefined (reading 'map')"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "calibration-live-positive-control",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "error",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'insufficient_funds' | 'invalid_exact_evm_payload_authorization_valid_after' | 'invalid_exact_evm_payload_authorization_valid_before' | 'invalid_exact_evm_payload_authorization_value' | 'invalid_exact_evm_payload_signature' | 'invalid_exact_evm_payload_undeployed_smart_wallet' | 'invalid_exact_evm_payload_recipient_mismatch' | 'invalid_exact_svm_payload_transaction' | 'invalid_exact_svm_payload_transaction_amount_mismatch' | 'invalid_exact_svm_payload_transaction_create_ata_instruction' | 'invalid_exact_svm_payload_transaction_create_ata_instruction_incorrect_payee' | 'invalid_exact_svm_payload_transaction_create_ata_instruction_incorrect_asset' | 'invalid_exact_svm_payload_transaction_instructions' | 'invalid_exact_svm_payload_transaction_instructions_length' | 'invalid_exact_svm_payload_transaction_instructions_compute_limit_instruction' | 'invalid_exact_svm_payload_transaction_instructions_compute_price_instruction' | 'invalid_exact_svm_payload_transaction_instructions_compute_price_instruction_too_high' | 'invalid_exact_svm_payload_transaction_instruction_not_spl_token_transfer_checked' | 'invalid_exact_svm_payload_transaction_instruction_not_token_2022_transfer_checked' | 'invalid_exact_svm_payload_transaction_fee_payer_included_in_instruction_accounts' | 'invalid_exact_svm_payload_transaction_fee_payer_transferring_funds' | 'invalid_exact_svm_payload_transaction_not_a_transfer_instruction' | 'invalid_exact_svm_payload_transaction_receiver_ata_not_found' | 'invalid_exact_svm_payload_transaction_sender_ata_not_found' | 'invalid_exact_svm_payload_transaction_simulation_failed' | 'invalid_exact_svm_payload_transaction_transfer_to_incorrect_ata' | 'invalid_network' | 'invalid_payload' | 'invalid_payment_requirements' | 'invalid_scheme' | 'invalid_payment' | 'payment_expired' | 'unsupported_scheme' | 'invalid_x402_version' | 'invalid_transaction_state' | 'invalid_x402_version' | 'settle_exact_svm_block_height_exceeded' | 'settle_exact_svm_transaction_confirmation_timed_out' | 'unsupported_scheme' | 'unexpected_settle_error' | 'unexpected_verify_error' | 'duplicate_settlement', received 'X-PAYMENT header is required'"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "calibration-bazaar-spec-example",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_literal",
+              "message": "Invalid literal value, expected 1"
+            },
+            {
+              "path": "accepts",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the body declares no accepts array"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "TypeError: Cannot read properties of undefined (reading 'map')"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "calibration-cloudflare-batch-settlement",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "maxTimeoutSeconds",
+                  "code": "invalid_type",
+                  "message": "Required"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.maxTimeoutSeconds",
+            "code": "invalid_type",
+            "message": "Required"
+          }
+        ]
+      }
+    },
+    {
+      "id": "calibration-solana-spec-envelope",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_literal",
+              "message": "Invalid literal value, expected 1"
+            },
+            {
+              "path": "accepts",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the body declares no accepts array"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "TypeError: Cannot read properties of undefined (reading 'map')"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "perfect-dual-stack",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "perfect-v2-only",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "perfect-v1-only",
+      "inputs": {
+        "has_payment_required_header": false,
+        "envelope_source": "none",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 1
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "dual-offers-reordered",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            },
+            {
+              "index": 1,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            },
+            {
+              "index": 1,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "v2-header-b64-urlsafe",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "lenient-recovery (the real decode path REFUSED this header)",
+        "decode_path_error": "Invalid payment required header",
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "rejected",
+          "error": "the header does not match Base64EncodedRegex"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "rejected",
+          "error": "Invalid payment required header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "rejected",
+          "error": "Invalid payment required header"
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-rejects-schema-accepts",
+        "what": "the envelope is well-formed but no client can get to it, because the header will not decode",
+        "decoder_error": "Invalid payment required header"
+      }
+    },
+    {
+      "id": "v2-header-b64-whitespace",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "lenient-recovery (the real decode path REFUSED this header)",
+        "decode_path_error": "Invalid payment required header",
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "rejected",
+          "error": "the header does not match Base64EncodedRegex"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "rejected",
+          "error": "Invalid payment required header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "rejected",
+          "error": "Invalid payment required header"
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-rejects-schema-accepts",
+        "what": "the envelope is well-formed but no client can get to it, because the header will not decode",
+        "decoder_error": "Invalid payment required header"
+      }
+    },
+    {
+      "id": "no-envelope-html-body",
+      "inputs": {
+        "has_payment_required_header": false,
+        "envelope_source": "none",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": "Unexpected token '<', \"<h1>402 Pa\"... is not valid JSON",
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "rejected",
+          "error": "Invalid payment required response"
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected token '<', \"<h1>402 Pa\"... is not valid JSON"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "v2-network-bare-name",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.network",
+              "code": "custom",
+              "message": "Network must be in CAIP-2 format (e.g., 'eip155:84532')"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.network",
+              "code": "custom",
+              "message": "Network must be in CAIP-2 format (e.g., 'eip155:84532')"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "network",
+                  "code": "custom",
+                  "message": "Network must be in CAIP-2 format (e.g., 'eip155:84532')"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.network",
+            "code": "custom",
+            "message": "Network must be in CAIP-2 format (e.g., 'eip155:84532')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v1-network-caip2",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "network",
+                  "code": "invalid_enum_value",
+                  "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+                }
+              ]
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "threw",
+          "error": "Error: Unsupported network: eip155:8453"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+            }
+          ]
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "v2-amount-uses-v1-field-name",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.amount",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.amount",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "amount",
+                  "code": "invalid_type",
+                  "message": "Required"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.amount",
+            "code": "invalid_type",
+            "message": "Required"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-resource-flat-string",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "resource",
+              "code": "invalid_type",
+              "message": "Expected object, received string"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "resource",
+              "code": "invalid_type",
+              "message": "Expected object, received string"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "resource",
+            "code": "invalid_type",
+            "message": "Expected object, received string"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-envelope-echoed-into-body",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 2
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "invalid_literal",
+              "message": "Invalid literal value, expected 1"
+            },
+            {
+              "path": "accepts.0.maxAmountRequired",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "accepts.0.resource",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "accepts.0.description",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "x402Version",
+              "code": "custom",
+              "message": "Invalid input"
+            },
+            {
+              "path": "accepts.0.network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+            },
+            {
+              "path": "accepts.0.maxAmountRequired",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "accepts.0.resource",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "accepts.0.description",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "accepts.0.mimeType",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "network",
+                  "code": "invalid_enum_value",
+                  "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+                },
+                {
+                  "path": "maxAmountRequired",
+                  "code": "invalid_type",
+                  "message": "Required"
+                },
+                {
+                  "path": "resource",
+                  "code": "invalid_type",
+                  "message": "Required"
+                },
+                {
+                  "path": "description",
+                  "code": "invalid_type",
+                  "message": "Required"
+                },
+                {
+                  "path": "mimeType",
+                  "code": "invalid_type",
+                  "message": "Required"
+                }
+              ]
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "threw",
+          "error": "Error: Unsupported network: eip155:8453"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'eip155:8453'"
+            },
+            {
+              "path": "maxAmountRequired",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "resource",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "description",
+              "code": "invalid_type",
+              "message": "Required"
+            },
+            {
+              "path": "mimeType",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "v2-timeout-string",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Expected number, received string"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Expected number, received string"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "maxTimeoutSeconds",
+                  "code": "invalid_type",
+                  "message": "Expected number, received string"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.maxTimeoutSeconds",
+            "code": "invalid_type",
+            "message": "Expected number, received string"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-timeout-absent",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.maxTimeoutSeconds",
+              "code": "invalid_type",
+              "message": "Required"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "maxTimeoutSeconds",
+                  "code": "invalid_type",
+                  "message": "Required"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.maxTimeoutSeconds",
+            "code": "invalid_type",
+            "message": "Required"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-asset-ticker-not-address",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "extra-eip712-absent",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "v2-payto-array",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.payTo",
+              "code": "invalid_type",
+              "message": "Expected string, received array"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.payTo",
+              "code": "invalid_type",
+              "message": "Expected string, received array"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "payTo",
+                  "code": "invalid_type",
+                  "message": "Expected string, received array"
+                }
+              ]
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": {
+        "kind": "decoder-accepts-schema-rejects",
+        "what": "every real v2 client decodes this envelope without complaint, and the zod schema the same package exports rejects it. A client_interop claim here must say WHICH it means",
+        "schema_issues": [
+          {
+            "path": "accepts.0.payTo",
+            "code": "invalid_type",
+            "message": "Expected string, received array"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dual-payto-divergence",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "dual-network-unmapped-chain",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "accepts.0.network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'arbitrum'"
+            }
+          ]
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "rejected",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "rejected",
+              "issues": [
+                {
+                  "path": "network",
+                  "code": "invalid_enum_value",
+                  "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'arbitrum'"
+                }
+              ]
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "threw",
+          "error": "Error: Unsupported network: arbitrum"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "rejected",
+          "issues": [
+            {
+              "path": "network",
+              "code": "invalid_enum_value",
+              "message": "Invalid enum value. Expected 'abstract' | 'abstract-testnet' | 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex' | 'solana-devnet' | 'solana' | 'sei' | 'sei-testnet' | 'polygon' | 'polygon-amoy' | 'peaq' | 'story' | 'educhain' | 'skale-base-sepolia', received 'arbitrum'"
+            }
+          ]
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "free-tier-200",
+      "inputs": {
+        "has_payment_required_header": false,
+        "envelope_source": "none",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "rejected",
+          "error": "Invalid payment required response"
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "n/a",
+          "reason": "the wrapper passes through any status that is not 402; this fixture records 200"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "redirect-instead-of-402",
+      "inputs": {
+        "has_payment_required_header": false,
+        "envelope_source": "none",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "n/a",
+          "reason": "the fixture records no PAYMENT-REQUIRED header"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "rejected",
+          "error": "Invalid payment required response"
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "no v2 envelope could be recovered from this fixture"
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "n/a",
+          "reason": "the wrapper passes through any status that is not 402; this fixture records 307"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-extension-absent",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-info-schema-mismatch",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-schema-external-ref",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-input-no-type",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-input-method-mismatch",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": false,
+        "body_parse_error": null,
+        "body_x402_version": null
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "n/a",
+          "reason": "the fixture records no JSON body"
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "n/a",
+          "reason": "the body declares no offers to select from"
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "threw",
+          "error": "SyntaxError: Unexpected end of JSON input"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "bazaar-output-example-absent",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "amount-below-cdp-floor",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "base",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    },
+    {
+      "id": "solana-dual-stack",
+      "inputs": {
+        "has_payment_required_header": true,
+        "envelope_source": "decodePaymentRequiredHeader",
+        "decode_path_error": null,
+        "body_is_json": true,
+        "body_parse_error": null,
+        "body_x402_version": 1
+      },
+      "probes": {
+        "core.utils.Base64EncodedRegex.test": {
+          "outcome": "accepted"
+        },
+        "core.http.decodePaymentRequiredHeader": {
+          "outcome": "accepted"
+        },
+        "core.http.x402HTTPClient#getPaymentRequiredResponse": {
+          "outcome": "accepted",
+          "returned": {
+            "x402Version": 2
+          }
+        },
+        "core.schemas.PaymentRequiredV2Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequiredSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "core.schemas.PaymentRequirementsV2Schema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "core.schemas.PaymentRequiredV1Schema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.x402ResponseSchema.safeParse": {
+          "outcome": "accepted"
+        },
+        "x402.types.PaymentRequirementsSchema.safeParse[]": {
+          "outcome": "accepted",
+          "offers": [
+            {
+              "index": 0,
+              "outcome": "accepted"
+            }
+          ]
+        },
+        "x402.client.selectPaymentRequirements": {
+          "outcome": "accepted",
+          "returned": {
+            "scheme": "exact",
+            "network": "solana",
+            "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          }
+        },
+        "x402-fetch.wrapFetchWithPayment (response handling)": {
+          "outcome": "accepted",
+          "selected": {
+            "scheme": "exact",
+            "network": "solana",
+            "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          },
+          "beyond_this_point": "not-exercisable-offline",
+          "beyond_this_point_is": "createPaymentHeader() — signing needs a key and a chain and was made structurally unreachable"
+        }
+      },
+      "disagreement": null
+    }
+  ]
+}
