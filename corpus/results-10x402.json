@@ -1,0 +1,1620 @@
+{
+  "tool": {
+    "name": "10x402",
+    "repo": "https://github.com/chronick/10x402",
+    "commit": "853ed3f5a722c67b26e82c7b68c0a2b56de9abe9"
+  },
+  "corpus_version": 1,
+  "ran": "2026-08-20",
+  "adapter": "corpus/run-10x402.mjs",
+  "not_evaluated": [],
+  "results": [
+    {
+      "id": "calibration-spec-canonical-402",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_PRESENT"
+        ],
+        "checks_run": 37,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-extension-absent",
+            "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          },
+          {
+            "code": "V1_BODY_NOT_ENVELOPE",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body is {} — JSON, but not an x402 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "calibration-live-positive-control",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": []
+      }
+    },
+    {
+      "id": "calibration-bazaar-spec-example",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 48,
+        "findings": [
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          },
+          {
+            "code": "V1_BODY_NOT_ENVELOPE",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body is {} — JSON, but not an x402 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "calibration-cloudflare-batch-settlement",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "network-form",
+            "network-unknown",
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "timeout-form",
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ],
+          "observed_tags": [
+            "discovery-metadata",
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_PRESENT"
+        ],
+        "checks_run": 34,
+        "findings": [
+          {
+            "code": "V2_NETWORK_CAIP2_STYLE",
+            "severity": "info",
+            "core": false,
+            "regime": "hygiene",
+            "tag": "network-form",
+            "message": "the v2 accept network \"cloudflare:402\" parses, but is not CAIP-2 shaped — CAIP-2 bounds the namespace at 3–8 lowercase characters."
+          },
+          {
+            "code": "V2_NAMESPACE_KNOWN",
+            "severity": "info",
+            "core": false,
+            "regime": "hygiene",
+            "tag": "network-unknown",
+            "message": "the v2 accept is on \"cloudflare:402\"; this linter validates the inside of an accepts entry deeply for eip155:* and solana:* only, so payTo, asset and the EIP-712 domain were checked structurally rather than against a known address format."
+          },
+          {
+            "code": "V2_MAX_TIMEOUT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "timeout-form",
+            "message": "the v2 accept has no maxTimeoutSeconds."
+          },
+          {
+            "code": "V2_RESOURCE_DESCRIPTION",
+            "severity": "info",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "discovery-metadata",
+            "message": "resource.description is not set."
+          },
+          {
+            "code": "V2_BAZAAR_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-extension-absent",
+            "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "calibration-solana-spec-envelope",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_PRESENT"
+        ],
+        "checks_run": 34,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-extension-absent",
+            "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          },
+          {
+            "code": "V1_BODY_NOT_ENVELOPE",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body is {} — JSON, but not an x402 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "perfect-dual-stack",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": []
+      }
+    },
+    {
+      "id": "perfect-v2-only",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 49,
+        "findings": [
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "perfect-v1-only",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": "n/a",
+        "blockers": [
+          "V2_HEADER_PRESENT"
+        ],
+        "checks_run": 28,
+        "findings": [
+          {
+            "code": "V2_HEADER_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "envelope-absent",
+            "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dual-offers-reordered",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": []
+      }
+    },
+    {
+      "id": "v2-header-b64-urlsafe",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": "n/a",
+        "blockers": [],
+        "checks_run": 29,
+        "findings": [
+          {
+            "code": "V2_B64_URLSAFE",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "b64-urlsafe",
+            "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=], including the base64url characters \"-\" and/or \"_\"."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-header-b64-whitespace",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": "n/a",
+        "blockers": [],
+        "checks_run": 29,
+        "findings": [
+          {
+            "code": "V2_B64_URLSAFE",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "b64-urlsafe",
+            "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=]."
+          }
+        ]
+      }
+    },
+    {
+      "id": "no-envelope-html-body",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-not-json",
+            "envelope-absent"
+          ],
+          "observed_tags": [
+            "envelope-not-json",
+            "envelope-absent"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-not-json",
+            "envelope-absent"
+          ],
+          "observed_tags": [
+            "envelope-not-json",
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": "n/a",
+        "blockers": [
+          "V2_HEADER_PRESENT"
+        ],
+        "checks_run": 9,
+        "findings": [
+          {
+            "code": "V2_HEADER_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "envelope-absent",
+            "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
+          },
+          {
+            "code": "V1_BODY_JSON",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "envelope-not-json",
+            "message": "the 402 body is not valid JSON: Unexpected token '<', \"<h1>402 Pa\"... is not valid JSON"
+          },
+          {
+            "code": "ENVELOPE_PRESENT",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "no x402 envelope was found — neither a JSON body nor a PAYMENT-REQUIRED header."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-network-bare-name",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 68,
+        "findings": [
+          {
+            "code": "V2_NETWORK_CAIP2",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "network-form",
+            "message": "the v2 accept uses the v1 network name \"base\" in a v2 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v1-network-caip2",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 70,
+        "findings": [
+          {
+            "code": "V1_NETWORK_NAME",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "network-form",
+            "message": "the v1 accept uses the CAIP-2 network \"eip155:8453\" in a v1 envelope."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-amount-uses-v1-field-name",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-required-field"
+          ],
+          "observed_tags": [
+            "missing-required-field",
+            "version-crosstalk"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-required-field"
+          ],
+          "observed_tags": [
+            "missing-required-field",
+            "version-crosstalk"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 70,
+        "findings": [
+          {
+            "code": "V2_AMOUNT",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "missing-required-field",
+            "message": "the v2 accept carries the v1 field \"maxAmountRequired\" instead of v2's \"amount\"."
+          },
+          {
+            "code": "V2_ACCEPTS_V1_FIELDS",
+            "severity": "warn",
+            "core": false,
+            "regime": "payment",
+            "tag": "version-crosstalk",
+            "message": "the v2 accept carries v1-only field(s): maxAmountRequired."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-resource-flat-string",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "resource-shape"
+          ],
+          "observed_tags": [
+            "resource-shape"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "resource-shape"
+          ],
+          "observed_tags": [
+            "resource-shape"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": "n/a",
+        "blockers": [],
+        "checks_run": 64,
+        "findings": [
+          {
+            "code": "V2_RESOURCE_OBJECT",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "resource-shape",
+            "message": "the v2 envelope's top-level `resource` is a flat string — that is the v1 form."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-envelope-echoed-into-body",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "version-crosstalk"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "version-crosstalk",
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "B",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 49,
+        "findings": [
+          {
+            "code": "VERSION_BODY_SAYS_V2",
+            "severity": "warn",
+            "core": false,
+            "regime": "payment",
+            "tag": "version-crosstalk",
+            "message": "the 402 BODY carries a payload declaring x402Version 2, mirroring the header envelope."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-timeout-string",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_MAX_TIMEOUT",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "timeout-form",
+            "message": "the v2 accept maxTimeoutSeconds is \"60\", not a positive JSON number."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-timeout-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_MAX_TIMEOUT",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "timeout-form",
+            "message": "the v2 accept has no maxTimeoutSeconds."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-asset-ticker-not-address",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ],
+          "observed_tags": [
+            "asset-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ],
+          "observed_tags": [
+            "asset-form",
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 49,
+        "findings": [
+          {
+            "code": "V2_ASSET",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "asset-form",
+            "message": "the v2 accept asset \"USDC\" is not a 0x-prefixed, 40-hex-character EVM address."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "extra-eip712-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-eip712-extra"
+          ],
+          "observed_tags": [
+            "missing-eip712-extra"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-eip712-extra"
+          ],
+          "observed_tags": [
+            "missing-eip712-extra"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "D",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_EXTRA_EIP712",
+            "severity": "error",
+            "core": false,
+            "regime": "payment",
+            "tag": "missing-eip712-extra",
+            "message": "the v2 accept has no extra.{name,version} — the EIP-712 domain is missing."
+          },
+          {
+            "code": "V1_EXTRA_EIP712",
+            "severity": "error",
+            "core": false,
+            "regime": "payment",
+            "tag": "missing-eip712-extra",
+            "message": "the v1 accept has no extra.{name,version} — the EIP-712 domain is missing."
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-payto-array",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "payee-form",
+            "dual-divergence"
+          ],
+          "observed_tags": [
+            "payee-form",
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "payee-form"
+          ],
+          "observed_tags": [
+            "payee-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_PAYTO",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "payee-form",
+            "message": "the v2 accept payTo is [\"0x0000000000000000000000000000000000000001\"], not a string."
+          },
+          {
+            "code": "DUAL_PAYTO",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "dual-divergence",
+            "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays [\"0x0000000000000000000000000000000000000001\"]."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dual-payto-divergence",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "dual-divergence"
+          ],
+          "observed_tags": [
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "F",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "DUAL_PAYTO",
+            "severity": "error",
+            "core": true,
+            "regime": "payment",
+            "tag": "dual-divergence",
+            "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays 0x00000000000000000000000000000000000000ff."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dual-network-unmapped-chain",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-unknown"
+          ],
+          "observed_tags": [
+            "network-unknown"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "D",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 68,
+        "findings": [
+          {
+            "code": "V1_NETWORK_KNOWN",
+            "severity": "error",
+            "core": false,
+            "regime": "payment",
+            "tag": "network-unknown",
+            "message": "the v1 accept network \"arbitrum\" is not one of the names the v1 client's enum admits."
+          },
+          {
+            "code": "DUAL_NETWORK",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "dual-divergence",
+            "message": "the v1 envelope is on arbitrum and the v2 envelope on eip155:42161 — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
+          }
+        ]
+      }
+    },
+    {
+      "id": "free-tier-200",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "free-tier-200"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "B",
+        "bazaar_ready": "n/a",
+        "blockers": [],
+        "checks_run": 5,
+        "findings": [
+          {
+            "code": "HTTP_FREE_TIER_200",
+            "severity": "warn",
+            "core": false,
+            "regime": "payment",
+            "tag": "free-tier-200",
+            "message": "an unauthenticated request was served a 200 — this endpoint has a free tier."
+          }
+        ]
+      }
+    },
+    {
+      "id": "redirect-instead-of-402",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "redirect"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "redirect"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "B",
+        "bazaar_ready": "n/a",
+        "blockers": [],
+        "checks_run": 4,
+        "findings": [
+          {
+            "code": "HTTP_REDIRECT",
+            "severity": "warn",
+            "core": false,
+            "regime": "payment",
+            "tag": "redirect",
+            "message": "the endpoint answered 307 instead of a 402."
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-extension-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_PRESENT"
+        ],
+        "checks_run": 62,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_PRESENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-extension-absent",
+            "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-info-schema-mismatch",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_INFO_VALIDATES"
+        ],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_INFO_VALIDATES",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-info-schema-mismatch",
+            "message": "bazaar.info does not validate against bazaar.schema: $.input.bodyType should be exactly \"text\" but is \"json\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-schema-external-ref",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-schema-unresolvable",
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-schema-unresolvable",
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_SCHEMA_CONTENT",
+          "V2_BAZAAR_INFO_VALIDATES"
+        ],
+        "checks_run": 49,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_SCHEMA_CONTENT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-schema-unresolvable",
+            "message": "bazaar.schema does not meet the extension's own requirements: it carries 1 external reference (https://internal.example.com/bazaar-input.json)."
+          },
+          {
+            "code": "V2_BAZAAR_INFO_VALIDATES",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-info-schema-mismatch",
+            "message": "bazaar.info does not validate against bazaar.schema: $.input: unable to validate — the schema's $ref \"https://internal.example.com/bazaar-input.json\" points outside this document. Same-document \"#/...\" fragments only; a facilitator must not resolve external references"
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-input-no-type",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape",
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-input-shape",
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_INPUT_TYPE",
+          "V2_BAZAAR_INFO_VALIDATES"
+        ],
+        "checks_run": 48,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_INPUT_TYPE",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-input-shape",
+            "message": "bazaar.info.input has no `type` discriminator."
+          },
+          {
+            "code": "V2_BAZAAR_INFO_VALIDATES",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-info-schema-mismatch",
+            "message": "bazaar.info does not validate against bazaar.schema: $.input.type is required by the schema but missing"
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-input-method-mismatch",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "envelope-absent"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-method"
+          ],
+          "observed_tags": [
+            "bazaar-input-method"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_BAZAAR_INPUT_METHOD"
+        ],
+        "checks_run": 49,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_INPUT_METHOD",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-input-method",
+            "message": "bazaar.info.input.method declares \"PUT\" but this 402 was fetched with POST."
+          },
+          {
+            "code": "V1_ABSENT",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "envelope-absent",
+            "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
+          }
+        ]
+      }
+    },
+    {
+      "id": "bazaar-output-example-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "bazaar-output-example"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_BAZAAR_OUTPUT_EXAMPLE",
+            "severity": "info",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "bazaar-output-example",
+            "message": "bazaar.info.output.example is not published."
+          }
+        ]
+      }
+    },
+    {
+      "id": "amount-below-cdp-floor",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "amount-below-provider-floor"
+          ],
+          "observed_tags": [
+            "amount-below-provider-floor"
+          ]
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_AMOUNT_MINIMUM"
+        ],
+        "checks_run": 72,
+        "findings": [
+          {
+            "code": "V2_AMOUNT_MINIMUM",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "amount-below-provider-floor",
+            "message": "the v2 accept asks 100 atomic units, below CDP's 1000 minimum."
+          }
+        ]
+      }
+    },
+    {
+      "id": "solana-dual-stack",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": [
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        }
+      },
+      "tool_detail": {
+        "grade": "A",
+        "bazaar_ready": true,
+        "blockers": [],
+        "checks_run": 65,
+        "findings": [
+          {
+            "code": "DUAL_NETWORK",
+            "severity": "info",
+            "core": false,
+            "regime": "payment",
+            "tag": "dual-divergence",
+            "message": "the v1 envelope is on solana and the v2 envelope on solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
+          }
+        ]
+      }
+    }
+  ]
+}

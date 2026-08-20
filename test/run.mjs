@@ -51,6 +51,13 @@ const PHASES = [
       // argument, and both are documents this repo did not write.
       'test/calibration.test.mjs',
       'test/positive-control.test.mjs',
+      // The portable corpus published for x402-foundation/x402#3104, asserted
+      // against the engine that publishes it: every expectation in
+      // corpus/fixtures.json has to be reproducible by corpus/run-10x402.mjs.
+      // Pure — it reads a JSON file and runs the lint engine. The SECOND
+      // implementation in that comparison needs a git clone and an npm install,
+      // so it stays a script (corpus/run-x402-doctor.mjs) and never a test.
+      'test/corpus.test.mjs',
       'test/ssrf-rules.test.mjs',
     ],
   },
