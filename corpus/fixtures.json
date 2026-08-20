@@ -1,21 +1,59 @@
 {
-  "corpus_version": 1,
+  "corpus_version": 2,
   "name": "x402 portable conformance corpus",
   "description": "Recorded 402 responses with tool-neutral, three-dimensional expectations. See corpus/FORMAT.md. Assembled for x402-foundation/x402#3104.",
   "generated": "2026-08-20",
+  "schema": {
+    "fixtures": "corpus/schema/fixtures.schema.json",
+    "results": "corpus/schema/results.schema.json",
+    "conformance": "corpus/validate-results.mjs — run it against your own results file"
+  },
   "pins": {
     "10x402": {
       "repo": "https://github.com/chronick/10x402",
-      "commit": "853ed3f5a722c67b26e82c7b68c0a2b56de9abe9",
+      "commit": "4b61cda3e88c6fb4f2d4ac4cd368a74f5a176a7a",
+      "commit_is": "informational — where the tree was when this corpus was stamped. The AUTHORITY is `blobs` below, which is content-addressed and checked before the adapter runs.",
+      "blobs": {
+        "worker/lint.js": "ddf15145a8d1a706c731bb685663c41bd1319fd5",
+        "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
+        "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
+        "test/fixtures/envelopes.mjs": "2987f2e6182c3e7a8879db472d407b85f00fd4fe",
+        "corpus/vocabulary.mjs": "61e856c59f04db224ac99d32d5e90e49fc5500e7",
+        "corpus/run-10x402.mjs": "00d4f2eefb7b5ff2334d387e1518d91954962d5a"
+      },
       "note": "the engine under test — worker/lint.js, 75 checks"
     },
-    "@x402/core": {
-      "version": "2.23.0",
-      "note": "the v2 client schemas every client-code citation in this corpus resolves against"
-    },
-    "x402": {
-      "version": "1.2.0",
-      "note": "the v1 client package (x402 / x402-fetch), cited for v1 parse behaviour"
+    "packages": {
+      "@x402/core": {
+        "version": "2.23.0",
+        "integrity": "sha512-EFeV0nXbTPPe5FXaD6y9vMgqc+k/ujLXCrUPrQXkmHjHyjC3Ir5tTL1e2FPSkx2+GUGzfpt1wVZb36639ygkWw==",
+        "note": "the v2 client schemas and the HTTP decode path every v2 client-code citation resolves against"
+      },
+      "@x402/evm": {
+        "version": "2.23.0",
+        "integrity": "sha512-Ikaya5c0/qV/pdFRGfGSdlUX3ELZaUgrddsmmXZHPANtIAQ5uFH15+O+9Bt4PqdAXqCuS43WskJ7HgiLn/uW2g==",
+        "note": "the EVM signer. Every EXECUTE-level client_interop claim in this corpus cites this package, because it is where selection and signing happen"
+      },
+      "@x402/fetch": {
+        "version": "2.23.0",
+        "integrity": "sha512-iyUfmnX6eAQa+GxyhC2M/vDP49EuoB/KHCXeOAFJgfL9lhtsyomLfYAMZlF+0xYHgpk/G96QZSp8iyhVlems/A==",
+        "note": "the v2 fetch wrapper, cited for redirect-following behaviour"
+      },
+      "@x402/extensions": {
+        "version": "2.23.0",
+        "integrity": "sha512-K0hDWGNrQ5iU8CdDzM8RpYrMusfqs2rgZJbCfUnFXG61TjgFIYYyLExaP8jJ4y2ac0SGXYZC1MI+uJA6YP3TTw==",
+        "note": "NOT cited by any fixture — installed by corpus/run-x402-doctor.mjs as the prototype’s one third-party dependency, and therefore able to change that tool’s results"
+      },
+      "x402": {
+        "version": "1.2.0",
+        "integrity": "sha512-cqcB9LNw1e1Kv6wkKyyKvn7wcYBnJ9vd8336M9jZRgLKDcIDt2n3liiSXyzx4HJTv07f9M2OAk5uKhh/LcbKQQ==",
+        "note": "the v1 client package, cited for the v1 PaymentRequirements schema and its closed network enum"
+      },
+      "x402-fetch": {
+        "version": "1.2.0",
+        "integrity": "sha512-CxCgPO4H4/ADZC31gSUCS/CipkUyppzMJRU3jGrEuhO+2k0optszH+kwO0XJ6pVyDprIT6PvGbmNJ4TGKSCAcQ==",
+        "note": "a SEPARATE package from `x402`, cited for v1 response handling. Pinned in its own right because the `x402` pin does not cover it"
+      }
     },
     "x402-foundation/x402": {
       "repo": "https://github.com/x402-foundation/x402",
@@ -32,22 +70,47 @@
         "test/x402-doctor.test.ts"
       ],
       "license": "NONE — the repository publishes no licence file and package.json declares none",
+      "dependency": "@x402/extensions@2.23.0 — see `packages`",
       "note": "run from a temporary clone only. No file from this repository is vendored into 10x402, and no code from it is copied into the adapter: corpus/run-x402-doctor.mjs imports diagnoseX402Endpoint() from the clone at this commit and maps its output."
+    },
+    "@x402/core": {
+      "version": "2.23.0",
+      "integrity": "sha512-EFeV0nXbTPPe5FXaD6y9vMgqc+k/ujLXCrUPrQXkmHjHyjC3Ir5tTL1e2FPSkx2+GUGzfpt1wVZb36639ygkWw==",
+      "note": "the v2 client schemas and the HTTP decode path every v2 client-code citation resolves against"
+    },
+    "x402": {
+      "version": "1.2.0",
+      "integrity": "sha512-cqcB9LNw1e1Kv6wkKyyKvn7wcYBnJ9vd8336M9jZRgLKDcIDt2n3liiSXyzx4HJTv07f9M2OAk5uKhh/LcbKQQ==",
+      "note": "the v1 client package, cited for the v1 PaymentRequirements schema and its closed network enum"
     }
   },
   "dimensions": {
-    "payment": "can the declared payment be interpreted and settled under the stated x402 version, per the normative specification?",
-    "client_interop": "will the cited client implementations parse and execute it correctly?",
-    "discovery": "will registry-specific metadata be accepted and indexed by the cited provider? (provider observation)"
+    "payment": "can the declared payment be interpreted and settled under the stated x402 version, per the normative specification? Only a NORMATIVE citation may fail it.",
+    "client_interop": "will the cited client implementations, at the pinned versions, parse and execute it correctly? Each fixture states whether its claim is `parse` or `execute`; an `execute` claim cites a signer or a payment path.",
+    "discovery": "STATIC DECLARATION ELIGIBILITY: is the registry-facing declaration present, schema-valid, and does it meet the named provider’s DOCUMENTED requirements as documented? Never a claim that anything was indexed, listed or crawled — those outcomes need a live adapter and are outside this corpus’s scope. Provider observation by construction."
+  },
+  "verdicts": {
+    "pass": "the dimension’s question is answered yes",
+    "fail": "answered no; carries at least one reason_tag",
+    "n/a": "the question cannot be answered from this fixture. `na_kind` says which of the two reasons applies",
+    "not-evaluated": "RESULTS ONLY — this tool did not run the rules that would answer this. Never a pass, never in an expectation"
+  },
+  "na_kinds": {
+    "question-does-not-arise": "the recording is complete and the question does not apply to it — a v1-only seller against a v2-shaped registry requirement, an envelope that did not decode",
+    "scope": "the recording cannot support any answer — no challenge was recorded at all. EXCLUDED from the agreement statistics rather than counted as an agreement"
+  },
+  "client_interop_levels": {
+    "parse": "the cited client’s decoder accepts or rejects the declaration",
+    "execute": "the cited client also selects the offer, signs it and issues the payment. Requires a citation into a signer or a payment path"
   },
   "evidence_kinds": {
-    "spec": "normative — a section of the x402 specification at the pinned commit",
-    "client-code": "binding for that client at the pinned version, and for nothing else",
+    "spec": "normative — a section of the x402 specification at the pinned commit. THE ONLY KIND THAT MAY FAIL `payment`",
+    "client-code": "binding for that client at the pinned version, and for nothing else. THE ONLY KIND THAT MAY FAIL `client_interop`",
     "cdp-validator": "observed behaviour of the CDP Bazaar validator — provider observation, not protocol",
     "cdp-docs": "CDP’s published seller documentation — provider observation, not protocol",
     "field-report": "a reproduced report from the x402 issue tracker",
     "provider-observation": "observed behaviour of a named provider or a live capture",
-    "house-opinion": "this corpus’s own reasoning, cited as such. NOT normative and never to be read as one."
+    "house-opinion": "this corpus’s own reasoning, cited as such. NOT normative, and it may not fail any dimension"
   },
   "reason_tags": {
     "status-not-402": "the unauthenticated request was not answered with 402",
@@ -104,6 +167,11 @@
         "method": "GET",
         "url": "https://api.example.com/premium-data"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -111,7 +179,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -123,19 +192,42 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling — the whole response, verbatim"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — the whole response, verbatim",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — every field of this envelope is accepted by the v2 zod schemas. PARSE-LEVEL: no execution of this offer is evidenced here",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — bazaar extension required for indexing"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required) — the documented requirement this envelope does not meet",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
       "calibration": "must-pass",
-      "notes": "THE CALIBRATION TARGET. Payment and client_interop must pass: a checker that flags the specification’s own example is wrong. Discovery legitimately fails — the example publishes no extensions.bazaar and is therefore not indexable. One fixture, two different correct answers, which is the argument for keeping the dimensions apart.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "has_bazaar_extension is a REQUIRED preflight and this envelope publishes no extensions.bazaar"
+      },
+      "notes": "THE CALIBRATION TARGET. Payment and client_interop must pass: a checker that flags the specification’s own example is wrong. Discovery legitimately fails — the example publishes no extensions.bazaar and is therefore not ELIGIBLE for the named provider’s index. One fixture, two different correct answers, which is the argument for keeping the dimensions apart.",
       "origin": {
         "kind": "calibration",
         "ref": "specs/transports-v2/http.md § Payment Required Signaling — the whole response, verbatim"
@@ -157,6 +249,11 @@
         "method": "POST",
         "url": "https://toolshed.lemon-agent.dev/convert/md-html"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -164,7 +261,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -174,22 +272,63 @@
       "evidence": [
         {
           "kind": "provider-observation",
-          "ref": "captured 2026-08-19T17:43:35Z from https://toolshed.lemon-agent.dev/convert/md-html with one unauthenticated POST"
+          "ref": "captured 2026-08-19T17:43:35Z from https://toolshed.lemon-agent.dev/convert/md-html with one unauthenticated POST",
+          "dimensions": [
+            "payment",
+            "client_interop"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — \"valid\": true with every severity:required preflight passed (returns_402, payment_required_header, accepts[0].amount >= 1000, bazaar.info.input.method.matches_request, bazaar.schema, parse) and \"simulation\": {\"outcome\": \"accepted\"}",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "provider-observation",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — \"index\": {\"active\": true, \"lastCrawledAt\": \"2026-08-19T16:27:35.129Z\"}. RECORDED FOR COMPLETENESS AND NOT THE BASIS OF THE VERDICT: this corpus’s discovery dimension asserts static declaration eligibility, never that a record is live",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md"
+          "ref": "specs/extensions/bazaar.md",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the captured envelope parses. PARSE-LEVEL: the accepted settlement simulation in the validator capture is a FACILITATOR accepting a payment, which is evidence for `payment`, not for a client executing one",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
       "calibration": "must-pass",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "every REQUIRED preflight check passed in the captured validator run"
+      },
       "notes": "The other half of the calibration argument: constructed fixtures prove the checks fire, a captured reality proves they stay quiet. All three dimensions pass. Frozen — refreshing it would make the corpus depend on a third party staying healthy.",
       "origin": {
         "kind": "calibration",
@@ -211,6 +350,11 @@
         "method": "GET",
         "url": "https://api.example.com/weather"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -218,7 +362,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -228,14 +373,48 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md — the GET-endpoint example, info and schema verbatim"
+          "ref": "specs/extensions/bazaar.md — the GET-endpoint example, info and schema verbatim",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md — output.example is typed `any`"
+          "ref": "specs/extensions/bazaar.md — output.example is typed `any`, so an OBJECT example is conformant",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the accepts entry and ResourceInfo parse. PARSE-LEVEL only",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — output and output.example are graded ADVISORY, so an object example cannot withhold eligibility",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
       "calibration": "must-pass",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "info validates against the schema published beside it, and every REQUIRED preflight field is declared"
+      },
       "notes": "Covers the “missing output example” case from the other side: the example is an OBJECT, which bazaar.md admits. A checker demanding a non-empty STRING reports the spec’s own example as missing — 10x402 did, before the audit.",
       "origin": {
         "kind": "calibration",
@@ -257,6 +436,11 @@
         "method": "GET",
         "url": "https://example.com/article"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -264,7 +448,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -276,23 +461,49 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim"
+          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "…:110 — maxTimeoutSeconds is optional on this network"
+          "ref": "…:110 — maxTimeoutSeconds is optional on this network",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "…:48 — the network omits `schema` to stay under 2 KB"
+          "ref": "…:48 — the network omits `schema` to stay under 2 KB",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is legal"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is accepted by the v2 decoder. PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements `batch-settlement`, so nothing here evidences that a client can EXECUTE this offer, and the corpus does not claim it can",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required)",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
       "calibration": "must-not-fail-payment",
-      "notes": "A spec-defined scheme with `asset: \"USD\"`, `payTo: \"merchant\"` and no bazaar extension. Deliberately terse and deliberately not discoverable — nothing about it is broken, and a payment-dimension failure here would be a checker asserting EVM shapes as protocol law.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "has_bazaar_extension is a REQUIRED preflight and this envelope publishes no extensions.bazaar"
+      },
+      "notes": "A spec-defined scheme with `asset: \"USD\"`, `payTo: \"merchant\"` and no bazaar extension. Deliberately terse and deliberately not discoverable — nothing about it is broken, and a payment-dimension failure here would be a checker asserting EVM shapes as protocol law. The client_interop pass is a PARSE-level claim: the declaration is readable, and no executable client for this scheme is cited.",
       "origin": {
         "kind": "calibration",
         "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim"
@@ -313,6 +524,11 @@
         "method": "GET",
         "url": "https://api.example.com/premium-data"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -320,7 +536,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -332,14 +549,41 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/schemes/exact/scheme_exact_svm.md — the exact scheme’s own SVM PaymentRequirements, verbatim"
+          "ref": "specs/schemes/exact/scheme_exact_svm.md — the exact scheme’s own SVM PaymentRequirements, verbatim",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "…:61-67 — Solana’s `extra` is {feePayer, memo, recentBlockhash, lastValidBlockHeight}; there is no EIP-712 domain"
+          "ref": "…:61-67 — Solana’s `extra` is {feePayer, memo, recentBlockhash, lastValidBlockHeight}; there is no EIP-712 domain",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the CAIP-2 solana network id and base58 fields parse. PARSE-LEVEL: the SVM signer is not among this corpus’s pinned packages, so no execution claim is made",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required)",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
       "calibration": "must-pass",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "has_bazaar_extension is a REQUIRED preflight and this envelope publishes no extensions.bazaar"
+      },
       "notes": "base58 payTo, an SPL mint as asset, and no typed-data domain. 10x402 graded this F before the audit because its address regex hardcoded a 20-byte EVM address for every network.",
       "origin": {
         "kind": "calibration",
@@ -361,6 +605,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -368,7 +617,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -378,17 +628,47 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md"
+          "ref": "specs/extensions/bazaar.md",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) and x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — both envelopes parse under their own generation’s schema. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set this envelope satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "every REQUIRED preflight field is declared and info validates against its schema"
+      },
       "notes": "From the 10x402 suite — the reference. Everything else is this with one thing broken.",
       "origin": {
         "kind": "10x402-suite",
@@ -409,6 +689,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -416,7 +701,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -426,13 +712,40 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client reads the body and finds none"
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client reads the body and finds none, so it does not attempt payment. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the v2 envelope parses",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set this envelope satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "every REQUIRED preflight field is declared and info validates against its schema"
+      },
       "notes": "From the 10x402 suite — valid and modern, but invisible to every v1 client that still exists.",
       "origin": {
         "kind": "10x402-suite",
@@ -453,6 +766,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -460,28 +778,39 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — @x402/core falls back to a v1 body when there is no header, so this is payable"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — @x402/core falls back to a v1 body when there is no header, so the declaration is readable. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the PAYMENT-REQUIRED header is a required preflight, so this is not indexable"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight payment_required_header (severity: required) — a v2-shaped requirement this v1-only seller has no declaration to answer",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "DISCOVERY IS n/a, NOT fail. CDP’s requirements are a v2 shape; answering `fail` would read as a list of things wrong with a v2 envelope this seller never published. From the 10x402 suite — the commonest real shape, and the one CDP tells sellers to upgrade.",
+      "notes": "DISCOVERY IS n/a, NOT fail. CDP’s requirements are a v2 shape; answering `fail` would read as a list of things wrong with a v2 envelope this seller never published. The n/a kind is `question-does-not-arise`, not `scope`: the corpus HAS the whole response, and the question is what does not apply. From the 10x402 suite — the commonest real shape, and the one CDP tells sellers to upgrade.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — perfect v1-only 402"
@@ -502,6 +831,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -509,7 +843,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -519,9 +854,41 @@
       "evidence": [
         {
           "kind": "house-opinion",
-          "ref": "neither specification orders accepts[]; offers are matched on (chain, asset) before anything is compared"
+          "ref": "neither specification orders accepts[]; offers are matched on (chain, asset) before anything is compared. NOT NORMATIVE — recorded so the reader knows the pairing rule is ours",
+          "dimensions": [
+            "payment",
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — both envelopes parse whatever the order. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set this envelope satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "every REQUIRED preflight field is declared; ordering is not a preflight subject"
+      },
       "notes": "From the 10x402 suite — THE FALSE F ON A CORRECT ENVELOPE. Comparing v1 accepts[0] with v2 accepts[0] graded this seller F on payTo, price, chain and asset at once — four core errors for an ordering neither specification says anything about. Offers are matched on (chain, asset) before anything is compared.",
       "origin": {
         "kind": "10x402-suite",
@@ -543,39 +910,60 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "b64-urlsafe"
-          ]
+          "verdict": "pass",
+          "reason_tags": []
         },
         "client_interop": {
           "verdict": "fail",
           "reason_tags": [
             "b64-urlsafe"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — Base64EncodedRegex is tested against the RAW header value BEFORE atob()"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/`",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling — the header carries base64-encoded JSON"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — \"Base64-encoded\", and SILENT on the alphabet. CONTEXT, NOT AUTHORITY: this citation is why the corpus does NOT fail the payment dimension here",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "field-report",
-          "ref": "x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover"
+          "ref": "x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
-      "notes": "From the 10x402 suite — the most expensive one-character bug in x402: the client validates the header against the standard-base64 charset BEFORE decoding, so a url-safe envelope is discarded unread and the seller looks like they published nothing.",
+      "notes": "PAYMENT PASSES AND CLIENT INTEROPERABILITY FAILS, and the split is the point. The transport specification says the header carries Base64-encoded JSON and does not say which alphabet; the corpus’s own 2026-08-19 provenance audit records that in as many words. So base64url is not a violation of the normative specification — it is a declaration the pinned client refuses to decode, which is exactly what `client_interop` is for. An earlier version of this corpus failed both dimensions on the strength of a spec citation that does not say what it was being made to say. From the 10x402 suite — the most expensive one-character bug in x402: the client validates the header against the standard-base64 charset BEFORE decoding, so a url-safe envelope is discarded unread and the seller looks like they published nothing.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — v2 header in url-safe base64"
@@ -596,31 +984,68 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "b64-urlsafe"
-          ]
+          "verdict": "pass",
+          "reason_tags": []
         },
         "client_interop": {
           "verdict": "fail",
           "reason_tags": [
             "b64-urlsafe"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the regex runs on the raw value, so a leading space fails it before decoding"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/` — a leading or trailing space fails the regex before any decode",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "house-opinion",
+          "ref": "`response.headers` in this corpus are PARSED FIELD VALUES, so a padded value is one that reached the client by a path with no HTTP parser in it — a stored declaration replayed by a facilitator, an SDK reading a cache, a pasted capture. The fixture is scoped to that population and makes no claim about an HTTP-delivered one",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — \"Base64-encoded\", and SILENT on padding as on the alphabet. The declared terms are conformant and settleable, which is why the payment dimension PASSES and the fault is confined to the client that refuses to decode it",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table) — and the v1 body in this dual-stack response is intact and independently payable",
+          "dimensions": [
+            "payment"
+          ]
         }
       ],
-      "notes": "Discovery is n/a on both base64 fixtures for the same reason: the envelope did not decode, so its registry metadata could not be judged at all — not a clean listing and not a refused one, an unanswerable question. THE FIXTURE THAT CANNOT SURVIVE A LIVE TRANSPORT. HTTP strips optional whitespace around a header value, so any tool that probes a live URL sees the trimmed header and cannot reproduce this at all. It is reachable only by linting a captured or pasted response — which is why the corpus carries the response rather than a URL. From the 10x402 suite — the client tests its base64 regex against the RAW header value and throws before decoding, so a header with a leading space is discarded unread. This linter used to trim first, which meant it validated a string the client never sees.",
+      "population": "raw-input",
+      "notes": "A RAW-INPUT/PASTED-POPULATION FIXTURE, and labelled `population: \"raw-input\"` so it cannot be read as anything else. Because the corpus defines `response.headers` as PARSED field values (FORMAT.md § response.headers), an HTTP parser would already have removed this padding: any live probe sees a clean header. The fault survives only where a value reaches a client without a transport in between. It therefore makes NO payment claim at all — an earlier version of this corpus failed the payment dimension on it, which was a client-specific raw-input opinion sitting in a normative dimension. Discovery is n/a for the same reason as the other base64 fixture: the cited client cannot decode the envelope, so there is no read declaration whose registry metadata could be judged. From the 10x402 suite — the client tests its base64 regex against the RAW header value and throws before decoding, so a header with a leading space is discarded unread. This linter used to trim first, which meant it validated a string the client never sees.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — a v2 header padded with whitespace"
@@ -640,6 +1065,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -653,28 +1083,39 @@
           "reason_tags": [
             "envelope-absent",
             "envelope-not-json"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — a 402 declares its terms; this one declares none",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23"
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — the v1 client parses the body and gets a SyntaxError; there is no header for the v2 path. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
-      "notes": "From the 10x402 suite — an HTML error page where the envelope should be — a seller who thinks 402 alone is enough.",
+      "notes": "THE CHALLENGE IS RECORDED AND IT IS EMPTY, which is why this is a failure rather than an `n/a`. Compare free-tier-200 and redirect-instead-of-402, where there is no challenge in the recording at all. From the 10x402 suite — an HTML error page where the envelope should be — a seller who thinks 402 alone is enough.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — a 402 with an unparseable body and no header"
@@ -695,6 +1136,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -706,7 +1152,8 @@
           "verdict": "fail",
           "reason_tags": [
             "network-form"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -716,13 +1163,33 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — NetworkSchemaV2 requires a colon"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — NetworkSchemaV2 requires a colon, so the entry is rejected at decode. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the bazaar half of this envelope satisfies the required set",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the bazaar declaration itself is complete and schema-valid; the network spelling is not a preflight subject"
+      },
       "notes": "From the 10x402 suite — the v1 spelling in a v2 envelope. The v2 schema requires the colon, so this is invalid, not lenient.",
       "origin": {
         "kind": "10x402-suite",
@@ -744,6 +1211,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -755,7 +1227,8 @@
           "verdict": "fail",
           "reason_tags": [
             "network-form"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -765,13 +1238,33 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table)"
+          "ref": "specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — the v1 network field is a closed enum of bare names"
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — the v1 network field is a closed enum of bare names, so the entry throws invalid_enum_value at parse. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the v2 half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the v2 half carries a complete, schema-valid bazaar declaration; the v1 body is not a preflight subject"
+      },
       "notes": "From the 10x402 suite — the v2 spelling in a v1 body.",
       "origin": {
         "kind": "10x402-suite",
@@ -793,6 +1286,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -804,7 +1302,8 @@
           "verdict": "fail",
           "reason_tags": [
             "missing-required-field"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -814,13 +1313,33 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — v2 renamed maxAmountRequired to amount"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — v2 renamed maxAmountRequired to amount, and amount is required",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — `amount` is absent, so the entry fails the schema. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the bazaar half satisfies the required set",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the bazaar declaration is complete and schema-valid; the amount FIELD NAME is not a preflight subject, though the amount VALUE is"
+      },
       "notes": "The corpus tags the FATAL reason (`amount` is absent). The v1 field left behind is reported by 10x402 as a non-fatal crosstalk warning. From the 10x402 suite — v2 renamed the price field; a v2 client reads `amount`, finds nothing, and has no price to sign.",
       "origin": {
         "kind": "10x402-suite",
@@ -842,6 +1361,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -853,25 +1377,36 @@
           "verdict": "fail",
           "reason_tags": [
             "resource-shape"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (ResourceInfo table)"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (ResourceInfo table)",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — ResourceInfoSchema is an object"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — ResourceInfoSchema is an object; a string fails it at decode. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — every preflight in the required set reads the ResourceInfo OBJECT, so with a string in its place not one of them can run",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
       "notes": "DISCOVERY IS n/a, AND THAT ANSWER IS THE ONE 10x402 GOT WRONG. The registry checks all read the ResourceInfo object; with the v1 flat string in its place not one of them can run, so there is no blocker — and the engine reported the absence of a blocker as \"indexable: true\" to a seller whose envelope no indexer can read. Fixed while building this corpus; see DISAGREEMENTS.md § Where 10x402 was wrong. From the 10x402 suite — the v1 resource form at the v2 top level. An indexer gets no name, no method and no description.",
@@ -894,6 +1429,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -901,7 +1441,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -911,13 +1452,33 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/transports-v2/http.md § Response Body — \"Response bodies are a server implementation concern\""
+          "ref": "specs/transports-v2/http.md § Response Body — \"Response bodies are a server implementation concern\"",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client parses the body with v1 rules"
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client parses the body with v1 rules and finds a v2 payload it does not recognise as a v1 envelope. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the header satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the header declaration is complete and schema-valid; what the body echoes is not a preflight subject"
+      },
       "notes": "NOT A FAILURE ON ANY DIMENSION. A body that declares itself v2 is not a broken v1 envelope. 10x402 used to run the whole v1 core cascade over it and report five core errors about an object that never claimed to be v1. From the 10x402 suite — THE FIVE-ERROR CASCADE. A v2-only seller who mirrors their v2 envelope into the 402 body is doing something a v2 client never even reads — it takes the PAYMENT-REQUIRED header and consults the body only when there is none — but isV1Attempt() saw an object carrying x402Version and accepts[], ran the whole v1 cascade over it, and reported five core errors saying \"this v1 envelope is missing a v1 field\" about an object that had never claimed to be one. A body that declares itself v2 is not a broken v1 envelope. It is now one finding, at warn, that says exactly what it is.",
       "origin": {
         "kind": "10x402-suite",
@@ -939,6 +1500,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -950,7 +1516,8 @@
           "verdict": "fail",
           "reason_tags": [
             "timeout-form"
-          ]
+          ],
+          "claim_level": "execute"
         },
         "discovery": {
           "verdict": "pass",
@@ -960,17 +1527,40 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — z.number().positive(), no coercion, so \"60\" fails the schema"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — `maxTimeoutSeconds: z.number().positive()`, no coercion, so \"60\" fails the schema",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/evm — where a quoted timeout slips through it is ADDED to a timestamp, concatenating rather than adding"
+          "ref": "@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs:34 — EXECUTE-LEVEL: `validBefore: (now + paymentRequirements.maxTimeoutSeconds).toString()` concatenates rather than adds when the value is a string, and the signer produces a nonsense deadline",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].maxTimeoutSeconds (severity: required) — satisfied, the field IS set",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "accepts[0].maxTimeoutSeconds is SET, which is what the preflight requires; its JSON type is not a preflight subject"
+      },
       "notes": "From the 10x402 suite — THE COERCION THAT BLESSED A BROKEN ENVELOPE. The old predicate was Number.isFinite(Number(x)), which accepts \"60\", \"  60  \", [\"60\"] and true. @x402/core types the field z.number().positive() and applies no coercion, so a quoted timeout fails the schema outright — and where it slips through, @x402/evm ADDS it to a timestamp, which concatenates instead of adding and produces a validBefore in the year 60000.",
       "origin": {
         "kind": "10x402-suite",
@@ -992,6 +1582,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -1003,7 +1598,8 @@
           "verdict": "fail",
           "reason_tags": [
             "timeout-form"
-          ]
+          ],
+          "claim_level": "execute"
         },
         "discovery": {
           "verdict": "pass",
@@ -1013,18 +1609,48 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — maxTimeoutSeconds is required for the exact scheme on EVM"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — maxTimeoutSeconds is required for the exact scheme on EVM",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the field is required by the zod schema",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs:34 — EXECUTE-LEVEL: `now + undefined` yields \"NaN\", and BigInt(\"NaN\") throws inside signEIP3009Authorization, so no payment is created",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — and is OPTIONAL on cloudflare:402, which is why this fixture is on eip155"
+          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — and is OPTIONAL on cloudflare:402, which is why this fixture is on eip155",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the bazaar half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "Constructed for this corpus. The pair to calibration-cloudflare-batch-settlement: the same absent field is a defect on one network and legal on another, so a checker that hardcodes \"maxTimeoutSeconds is required\" fails a spec-defined profile. Constructed for this corpus.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the v2 half carries a complete, schema-valid bazaar declaration"
+      },
+      "notes": "The pair to calibration-cloudflare-batch-settlement: the same absent field is a defect on one network and legal on another, so a checker that hardcodes \"maxTimeoutSeconds is required\" fails a spec-defined profile. Constructed for this corpus.",
       "origin": {
         "kind": "constructed",
         "ref": "corpus/build-fixtures.mjs"
@@ -1044,6 +1670,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -1055,7 +1686,8 @@
           "verdict": "fail",
           "reason_tags": [
             "asset-form"
-          ]
+          ],
+          "claim_level": "execute"
         },
         "discovery": {
           "verdict": "pass",
@@ -1065,14 +1697,41 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — asset is the on-chain identifier"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — asset is the on-chain identifier: \"Token contract address or ISO 4217 currency code\"",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the eip155 asset is an address"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — `asset: NonEmptyString`. THE GENERIC SCHEMA DOES NOT REQUIRE AN ADDRESS, and an earlier version of this fixture said it did; ISO 4217 codes are spec-legal, which is why it cannot",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs — EXECUTE-LEVEL AND THE ACTUAL AUTHORITY: on an eip155 network the signer computes `verifyingContract: getAddress(requirements.asset)`, and getAddress throws on \"USDC\", so the payment is never signed",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the bazaar half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "Constructed for this corpus, v2-only so it carries exactly one fault. Constructed for this corpus.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the bazaar declaration is complete and schema-valid; asset FORM is not a preflight subject (the CDP preflight checks the asset is USDC by address, which this fixture’s v2-only shape does not reach)"
+      },
+      "notes": "v2-only so it carries exactly one fault. Constructed for this corpus.",
       "origin": {
         "kind": "constructed",
         "ref": "corpus/build-fixtures.mjs"
@@ -1093,6 +1752,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
@@ -1104,7 +1768,8 @@
           "verdict": "fail",
           "reason_tags": [
             "missing-eip712-extra"
-          ]
+          ],
+          "claim_level": "execute"
         },
         "discovery": {
           "verdict": "pass",
@@ -1114,13 +1779,33 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/schemes/exact/scheme_exact_evm.md — the EIP-3009 domain is signed from extra.name/extra.version"
+          "ref": "specs/schemes/exact/scheme_exact_evm.md — extra.name and extra.version are required for the default eip3009 assetTransferMethod",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/evm — throws at payment CREATION when extra.name or extra.version is absent"
+          "ref": "@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs:49-53 — EXECUTE-LEVEL: `if (!requirements.extra?.name || !requirements.extra?.version) throw` at payment CREATION, with no fallback",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the bazaar half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the bazaar declaration is complete and schema-valid; accepts[].extra is not a preflight subject"
+      },
       "notes": "From the 10x402 suite — the silent killer. The client signs over an undefined domain name while the facilitator recomputes it from its own table, so every real payment fails as invalid_exact_evm_payload_signature and nothing in the logs says so.",
       "origin": {
         "kind": "10x402-suite",
@@ -1142,19 +1827,24 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "fail",
           "reason_tags": [
-            "payee-form",
-            "dual-divergence"
+            "payee-form"
           ]
         },
         "client_interop": {
           "verdict": "fail",
           "reason_tags": [
             "payee-form"
-          ]
+          ],
+          "claim_level": "execute"
         },
         "discovery": {
           "verdict": "pass",
@@ -1164,18 +1854,41 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the zod schema and viem both reject a non-string payTo"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the zod schema rejects a non-string payTo at decode",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
-          "kind": "house-opinion",
-          "ref": "the dual-stack comparison is a house rule; neither specification requires the two envelopes to agree"
+          "kind": "client-code",
+          "ref": "@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs — EXECUTE-LEVEL: viem’s getAddress rejects a non-string outright, so the transfer authorisation cannot be built",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].payTo (severity: required) — \"payTo address present\", which is satisfied",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "From the 10x402 suite — the type hole. String(entry.payTo || \"\") coerced [\"0x…\"] to \"0x…\" and the regex passed, so an envelope no client can parse — both the zod schema and viem reject a non-string — graded A. The shape check now demands a string before it demands a shape.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the bazaar declaration is complete and schema-valid; the CDP preflight checks payTo is PRESENT, which it is"
+      },
+      "notes": "THE REASON SET IS `payee-form` AND NOTHING ELSE. An earlier version of this corpus added `dual-divergence` here as well, on the strength of a dual-stack consistency rule that no specification states — a house position sitting inside a normative dimension. The divergence is real and it is recorded, as an OBSERVATION in the results file, where an unsourced rule belongs. From the 10x402 suite — the type hole. String(entry.payTo || \"\") coerced [\"0x…\"] to \"0x…\" and the regex passed, so an envelope no client can parse — both the zod schema and viem reject a non-string — graded A. The shape check now demands a string before it demands a shape.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — payTo as an array holding a valid address"
@@ -1196,16 +1909,20 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "dual-divergence"
-          ]
+          "verdict": "pass",
+          "reason_tags": []
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -1215,14 +1932,41 @@
       "evidence": [
         {
           "kind": "house-opinion",
-          "ref": "NOT A PROTOCOL REQUIREMENT. Neither specification says a dual-stack seller’s two envelopes must name the same payee; both halves are individually valid and individually settleable. 10x402 treats the divergence as a payment-dimension defect because the money lands in two places, and records the evidence as house-opinion so nobody mistakes it for spec."
+          "ref": "NOT A PROTOCOL REQUIREMENT, AND THEREFORE NOT A VERDICT. Neither specification says a dual-stack seller’s two envelopes must name the same payee; both halves are individually valid and individually settleable, so the payment dimension PASSES. 10x402 does hold a house position that the divergence is a defect — the money lands in two places — and that position is recorded in the results file as an observed tag, which is where an unsourced rule belongs. An earlier version of this corpus made it `expected.payment: fail`, which is the exact failure mode the thread named.",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — each envelope is independently well-formed",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a v1 client reads the body; a v2 client reads the header; neither sees the other"
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a v1 client reads the body; a v2 client reads the header; each parses its own half and neither sees the other. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the v2 half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "From the 10x402 suite — your two generations of buyers are paying two different addresses, and only one is yours.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the v2 half carries a complete, schema-valid bazaar declaration"
+      },
+      "notes": "THE FIXTURE THE PRE-PUBLICATION REVIEW CALLED AN INCORRECT FAIL, and it was right. All three dimensions pass; the house objection survives as an observation in corpus/results-10x402.json and as a row in DISAGREEMENTS.md, and decides nothing. From the 10x402 suite — your two generations of buyers are paying two different addresses, and only one is yours.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — dual-stack payTo divergence"
@@ -1243,6 +1987,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1252,7 +2001,8 @@
           "verdict": "fail",
           "reason_tags": [
             "network-unknown"
-          ]
+          ],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -1262,13 +2012,41 @@
       "evidence": [
         {
           "kind": "client-code",
-          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — \"arbitrum\" is not a member of the v1 closed enum, so x402-fetch throws invalid_enum_value on this entry"
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — \"arbitrum\" is not a member of the v1 closed enum, so x402-fetch throws invalid_enum_value on this entry at parse. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table) — nothing in either specification closes that enum, which is why the payment dimension passes",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "house-opinion",
-          "ref": "the v1↔v2 chain equivalence table covers the nine chains x402 clients ship with; outside it the pair is unverified, not divergent"
+          "ref": "the v1↔v2 chain equivalence table covers the nine chains x402 clients ship with; outside it the pair is unverified, not divergent. NOT NORMATIVE",
+          "dimensions": [
+            "payment",
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the v2 half satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the v2 half carries a complete, schema-valid bazaar declaration"
+      },
       "notes": "A CLIENT-INTEROP FAILURE THAT IS NOT A PAYMENT FAILURE, and one of the clearest cases for the split: the v2 half is correct, the chain simply has no v1 spelling in the cited client’s enum. Nothing in either specification closes that enum. From the 10x402 suite — a correctly paired dual-stack envelope on Arbitrum. V1_NETWORK_CHAIN maps the nine chains x402 clients ship with, and treating \"not in the table\" as \"the two disagree\" graded every seller on every other chain F for a gap in this repo rather than a fault in theirs.",
       "origin": {
         "kind": "10x402-suite",
@@ -1289,35 +2067,61 @@
         "method": null,
         "url": null
       },
+      "judgeable": {
+        "payment": false,
+        "client_interop": false,
+        "discovery": true
+      },
       "expected": {
         "payment": {
-          "verdict": "pass",
-          "reason_tags": []
+          "verdict": "n/a",
+          "reason_tags": [],
+          "na_kind": "scope"
         },
         "client_interop": {
-          "verdict": "pass",
-          "reason_tags": []
+          "verdict": "n/a",
+          "reason_tags": [],
+          "na_kind": "scope",
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
+          "kind": "house-opinion",
+          "ref": "NO CHALLENGE WAS RECORDED, so neither `pass` nor `fail` is available. A 200 to an anonymous caller declares no payment: there is nothing to interpret, nothing to settle, and nothing for a client to parse or execute. A recorded corpus cannot demonstrate payability it never recorded, and it must not manufacture a failure out of an absence either. See FORMAT.md § The recorded-challenge precondition",
+          "dimensions": [
+            "payment",
+            "client_interop"
+          ]
+        },
+        {
           "kind": "client-code",
-          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — `if (response.status !== 402) return response`; the client never enters the payment flow"
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — `if (response.status !== 402) return response`; the client never enters the payment flow, which is why there is no client verdict to reach",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (required)"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (severity: required) — a documented provider requirement this response does not meet",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "cdp-docs",
-          "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval"
+          "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval and a non-402 is grounds for delisting",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "THE MOST ARGUABLE EXPECTATION IN THE CORPUS, and it is written down rather than hidden. A 200 to an anonymous caller is a seller CHOICE, not a malformed challenge: there is no envelope to misinterpret, so 10x402 does not fail the payment dimension on it. A tool that reads “Bazaar requires 402” as a protocol requirement fails it. See DISAGREEMENTS.md. From the 10x402 suite — Bazaar's prober calls with no payment on an interval and expects a 402. A free tier fails that probe and delists an endpoint that was already indexed.",
+      "notes": "PAYMENT AND CLIENT INTEROPERABILITY ARE `n/a`, KIND `scope`, AND EXCLUDED FROM THE AGREEMENT STATISTICS. An earlier version of this corpus passed both, which reproduced 10x402’s warning severity as fixture truth. Discovery is `n/a` too, and for a different reason: under the corpus’s static-declaration reading there is no v2 declaration in this response to judge for eligibility at all. What the two tools WOULD have said is preserved in the results files as scope-suppressed observations and reported in DISAGREEMENTS.md — it is the sharpest difference in the corpus and it is not thrown away, it is just not allowed to become a verdict the recording cannot support. From the 10x402 suite — Bazaar's prober calls with no payment on an interval and expects a 402. A free tier fails that probe and delists an endpoint that was already indexed.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — free tier: 200 to an unauthenticated caller"
@@ -1337,31 +2141,54 @@
         "method": null,
         "url": null
       },
+      "judgeable": {
+        "payment": false,
+        "client_interop": false,
+        "discovery": true
+      },
       "expected": {
         "payment": {
-          "verdict": "pass",
-          "reason_tags": []
+          "verdict": "n/a",
+          "reason_tags": [],
+          "na_kind": "scope"
         },
         "client_interop": {
-          "verdict": "pass",
-          "reason_tags": []
+          "verdict": "n/a",
+          "reason_tags": [],
+          "na_kind": "scope",
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "n/a",
-          "reason_tags": []
+          "reason_tags": [],
+          "na_kind": "question-does-not-arise"
         }
       },
       "evidence": [
         {
-          "kind": "client-code",
-          "ref": "@x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, the default redirect mode, so redirects ARE followed"
+          "kind": "house-opinion",
+          "ref": "THE TARGET RESPONSE IS NOT IN THE RECORDING. The fixture is a 307 and a Location header; whatever the target answers was never captured, so \"the envelope is reachable\" is an assumption and not an observation. Payment and client interoperability are therefore `n/a`. See FORMAT.md § The recorded-challenge precondition",
+          "dimensions": [
+            "payment",
+            "client_interop"
+          ]
         },
         {
-          "kind": "house-opinion",
-          "ref": "the envelope is at the other end of the redirect, unread; the fixture is about the redirect, not about an absent envelope"
+          "kind": "client-code",
+          "ref": "@x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, the default redirect mode, so a live client WOULD follow the redirect. That is why the corpus does not fail this fixture; it is not why it could pass one",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (severity: required) — the provider probes the ADVERTISED url, and this one does not answer 402",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "From the 10x402 suite — x402 clients do not follow redirects before reading the envelope, and the paid retry is a POST carrying a payment header that a redirect drops.",
+      "notes": "An earlier version of this corpus passed payment and client interoperability here, citing default-follow behaviour. Default-follow says a client would go and look; it does not say what it would find, and the corpus does not hold the answer. Adding the target response as a second recorded exchange would make this fixture judgeable, and that is the right way to fix it — not a verdict inferred from a Location header. From the 10x402 suite — x402 clients do not follow redirects before reading the envelope, and the paid retry is a POST carrying a payment header that a redirect drops.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — a redirect instead of a 402"
@@ -1382,6 +2209,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1389,7 +2221,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1401,17 +2234,47 @@
       "evidence": [
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the bazaar extension is required for indexing"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required) — the documented requirement this envelope does not meet",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md"
+          "ref": "specs/extensions/bazaar.md",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "field-report",
-          "ref": "x402-foundation/x402#2207, #2284"
+          "ref": "x402-foundation/x402#2207, #2284",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "has_bazaar_extension is a REQUIRED preflight and this envelope publishes no extensions.bazaar"
+      },
       "notes": "Payable and undiscoverable. Every payment on this endpoint works; the listing never appears and nothing says why. From the 10x402 suite — payable but not discoverable. The listing never appears and nothing says why.",
       "origin": {
         "kind": "10x402-suite",
@@ -1433,6 +2296,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1440,7 +2308,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1452,17 +2321,47 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md — info must validate against the schema published beside it"
+          "ref": "specs/extensions/bazaar.md § Schema Validation — \"Facilitators must validate info against schema before cataloging\"",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight parse (severity: required)",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "field-report",
-          "ref": "x402-foundation/x402#3045"
+          "ref": "x402-foundation/x402#3045",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "bazaar.schema and the parse preflight are REQUIRED, and info does not validate against the schema published beside it"
+      },
       "notes": "From the 10x402 suite — the silent delisting. The facilitator validates one against the other before cataloguing and declines without telling anyone; the endpoint keeps taking payments.",
       "origin": {
         "kind": "10x402-suite",
@@ -1483,6 +2382,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1490,7 +2394,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1503,13 +2408,47 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md — $ref and $id must be same-document fragments; a facilitator MUST NOT resolve an external one"
+          "ref": "specs/extensions/bazaar.md — $ref and $id must be same-document fragments; a facilitator MUST NOT resolve an external one",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight parse (severity: required)",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "field-report",
-          "ref": "x402-foundation/x402#3045, fifth production bug"
+          "ref": "x402-foundation/x402#3045, fifth production bug",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the schema cannot be resolved without an external fetch the specification forbids, so info cannot be validated and the REQUIRED parse preflight cannot pass"
+      },
       "notes": "From the 10x402 suite — x402#3045’s FIFTH production bug, and the one that was invisible here. bazaar.md says $ref and $id must be same-document fragments and that a facilitator MUST NOT resolve an external one — so a schema depending on a fetched document is a schema nothing that catalogues can validate. The old json-schema subset SKIPPED an unresolvable $ref, which meant `info` was declared valid against a schema half of which had never been read.",
       "origin": {
         "kind": "10x402-suite",
@@ -1530,6 +2469,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1537,7 +2481,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1550,13 +2495,47 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md — `type` is the discriminator that selects which input shape applies"
+          "ref": "specs/extensions/bazaar.md — `type` is the discriminator that selects which input shape applies",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight bazaar.info.input.type (severity: required)",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "field-report",
-          "ref": "x402-foundation/x402#3045, fourth production bug"
+          "ref": "x402-foundation/x402#3045, fourth production bug",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "bazaar.info.input.type is a REQUIRED preflight and the declared input carries no discriminator"
+      },
       "notes": "From the 10x402 suite — x402#3045’s fourth production bug. `type` is what a facilitator reads FIRST, to decide which of the three input shapes applies; without it the block is uninterpretable. The old catalogue checked that info.input was an object and nothing else, so this passed.",
       "origin": {
         "kind": "10x402-suite",
@@ -1577,6 +2556,11 @@
         "method": "POST",
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1584,7 +2568,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1596,14 +2581,41 @@
       "evidence": [
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the probed method is compared against the declared one, and the comparison is required"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight bazaar.info.input.method.matches_request (severity: required) — \"Declared method POST matches the probed method\"",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md"
+          "ref": "specs/extensions/bazaar.md",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
-      "notes": "The closest fixture to the doctor prototype’s founding check (replay the declared crawler request and require 402 rather than an accidental 400) — reached statically here, because a corpus fixture is a recorded response rather than a live endpoint. From the 10x402 suite — CDP probes the URL and compares the method it used against the one you declared, and marks that comparison required. A resource that answers POST while advertising PUT is not catalogued, and every agent that finds the listing calls it wrong on the first try.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "bazaar.info.input.method.matches_request is a REQUIRED preflight, compared against the verb in `context.method`"
+      },
+      "notes": "The closest fixture to the doctor prototype’s founding check (replay the declared crawler request and require 402 rather than an accidental 400) — reached statically here, because a corpus fixture is a recorded response rather than a live endpoint. That difference is exactly the boundary of the static reading: the corpus can say the declared method does not match the verb the response was fetched with; it cannot say what the endpoint would answer. From the 10x402 suite — CDP probes the URL and compares the method it used against the one you declared, and marks that comparison required. A resource that answers POST while advertising PUT is not catalogued, and every agent that finds the listing calls it wrong on the first try.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — a bazaar input.method that is not the verb we probed"
@@ -1624,6 +2636,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1631,7 +2648,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -1641,13 +2659,40 @@
       "evidence": [
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — both output checks are graded ADVISORY, not required"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight bazaar.info.output / bazaar.info.output.example (severity: ADVISORY, not required)",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "spec",
-          "ref": "specs/extensions/bazaar.md"
+          "ref": "specs/extensions/bazaar.md",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the payment half parses and is unaffected. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "bazaar.info.output and bazaar.info.output.example are graded ADVISORY, so their absence cannot withhold eligibility"
+      },
       "notes": "DISCOVERY PASSES. The provider asks for an output example and does not withhold the listing over it — an advisory observation that must not become a requirement. From the 10x402 suite — CDP's validator asks for one, and a hand-written example drifts the first time the endpoint changes.",
       "origin": {
         "kind": "10x402-suite",
@@ -1669,6 +2714,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1676,7 +2726,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "fail",
@@ -1688,14 +2739,41 @@
       "evidence": [
         {
           "kind": "cdp-validator",
-          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the amount check is required with an expectation of >= 1000 atomic units"
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].amount (severity: required), expected \">= 1000\" — \"Amount 1000 meets $0.001 USDC minimum\"",
+          "dimensions": [
+            "discovery"
+          ]
         },
         {
           "kind": "house-opinion",
-          "ref": "nothing in either specification sets a price floor; this is a provider observation and is labelled as one"
+          "ref": "nothing in either specification sets a price floor; this is a provider observation, it is confined to the provider’s own dimension, and it is labelled as one",
+          "dimensions": [
+            "discovery"
+          ]
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — an atomic-unit integer string is all the specification requires, which this offer is",
+          "dimensions": [
+            "payment"
+          ]
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the amount parses and the offer is payable. PARSE-LEVEL",
+          "dimensions": [
+            "client_interop"
+          ]
         }
       ],
-      "notes": "THE CLEANEST PROVIDER-OBSERVATION FIXTURE. Perfectly legal x402, perfectly payable, and un-indexable by one named provider. Exactly the case the thread meant by \"provider observations should not silently become protocol requirements\". From the 10x402 suite — a tenth of CDP’s $0.001 minimum. Perfectly legal x402 and perfectly payable — nothing in the protocol sets a floor — and un-indexable, because the validator marks the amount check required with an expectation of >= 1000 atomic units. Exactly the shape the two verdicts exist for.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "accepts[0].amount is a REQUIRED preflight with a documented expectation of \">= 1000\" atomic units, and this offer is below it"
+      },
+      "notes": "THE CLEANEST PROVIDER-OBSERVATION FIXTURE. Perfectly legal x402, perfectly payable, and ineligible at one named provider. Exactly the case the thread meant by \"provider observations should not silently become protocol requirements\". From the 10x402 suite — a tenth of CDP’s $0.001 minimum. Perfectly legal x402 and perfectly payable — nothing in the protocol sets a floor — and un-indexable, because the validator marks the amount check required with an expectation of >= 1000 atomic units. Exactly the shape the two verdicts exist for.",
       "origin": {
         "kind": "10x402-suite",
         "ref": "test/fixtures/envelopes.mjs — a price below CDP’s indexing floor"
@@ -1716,6 +2794,11 @@
         "method": null,
         "url": "https://example.com/api/thing"
       },
+      "judgeable": {
+        "payment": true,
+        "client_interop": true,
+        "discovery": true
+      },
       "expected": {
         "payment": {
           "verdict": "pass",
@@ -1723,7 +2806,8 @@
         },
         "client_interop": {
           "verdict": "pass",
-          "reason_tags": []
+          "reason_tags": [],
+          "claim_level": "parse"
         },
         "discovery": {
           "verdict": "pass",
@@ -1733,18 +2817,41 @@
       "evidence": [
         {
           "kind": "spec",
-          "ref": "specs/schemes/exact/scheme_exact_svm.md"
+          "ref": "specs/schemes/exact/scheme_exact_svm.md",
+          "dimensions": [
+            "payment"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — `solana` is a member of the v1 network enum"
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — `solana` is a member of the v1 network enum, so the v1 half parses",
+          "dimensions": [
+            "client_interop"
+          ]
         },
         {
           "kind": "client-code",
-          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — solana:5eykt… is a CAIP-2 identifier"
+          "ref": "@x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — solana:5eykt… is a CAIP-2 identifier, so the v2 half parses. PARSE-LEVEL ON BOTH: no SVM signer is among this corpus’s pinned packages, so no execution claim is made",
+          "dimensions": [
+            "client_interop"
+          ]
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set this envelope satisfies",
+          "dimensions": [
+            "discovery"
+          ]
         }
       ],
-      "notes": "Constructed for this corpus. Nothing here is broken — it exists because a checker that hardcodes EVM address shapes or demands an EIP-712 domain fails all three dimensions on a conformant seller. Constructed for this corpus.",
+      "discovery_target": {
+        "provider": "CDP Bazaar",
+        "provider_evidence": "audit/2026-08-19/cdp-validator-toolshed.json",
+        "observed": "2026-08-19",
+        "claim": "static-declaration-eligibility",
+        "basis": "the v2 half carries a complete, schema-valid bazaar declaration and every REQUIRED preflight field"
+      },
+      "notes": "Nothing here is broken — it exists because a checker that hardcodes EVM address shapes or demands an EIP-712 domain fails all three dimensions on a conformant seller. Constructed for this corpus.",
       "origin": {
         "kind": "constructed",
         "ref": "corpus/build-fixtures.mjs"

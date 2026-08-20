@@ -8,9 +8,26 @@
     "entry": "lib/x402/doctor.ts → diagnoseX402Endpoint()",
     "dependency": "@x402/extensions@2.23.0"
   },
-  "corpus_version": 1,
+  "corpus_version": 2,
   "ran": "2026-08-20",
   "adapter": "corpus/run-x402-doctor.mjs",
+  "partial_evaluation": {
+    "rules_held_back": [
+      "x402.bazaar.lookup",
+      "x402.bazaar.not_found",
+      "x402.bazaar.stale_metadata",
+      "x402.bazaar.partial_comparison",
+      "x402.declaration_integrity.catalog_malformed",
+      "x402.declaration_integrity.catalog_resource",
+      "x402.payment.skipped",
+      "x402.payment.status",
+      "x402.payment.receipt",
+      "x402.payment.settled"
+    ],
+    "per_fixture": "every result carries the complete held-back list under tool_detail.not_evaluated, each marked `reported-by-tool` or `held-back`",
+    "unsupported_versions": "the prototype is v2-only by construction; it reports v1-only challenges as failures rather than declining them, and the corpus records that as a scope difference rather than harmonising it",
+    "note": "a dimension whose rules all ran is a verdict; a dimension whose deciding rule was held back is `not-evaluated`, never a pass"
+  },
   "harness": {
     "transport": "the recorded response is re-served from 127.0.0.1 and the fixture’s own origin is mapped onto it",
     "payments": "no paidProbe is passed; a settlement is structurally impossible",
@@ -98,7 +115,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -164,7 +236,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -230,7 +357,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -338,7 +520,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -418,7 +655,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -484,7 +776,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -550,7 +897,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -567,23 +969,19 @@
         "payment": {
           "verdict": "fail",
           "reason_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ],
           "observed_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ]
         },
         "client_interop": {
           "verdict": "fail",
           "reason_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ],
           "observed_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ]
         },
         "discovery": {
@@ -617,7 +1015,68 @@
             "detail": "The server asked for payment but sent no PAYMENT-REQUIRED header."
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -679,7 +1138,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -736,7 +1250,68 @@
             "detail": "The payment challenge could not be decoded."
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -798,7 +1373,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -815,23 +1445,19 @@
         "payment": {
           "verdict": "fail",
           "reason_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ],
           "observed_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ]
         },
         "client_interop": {
           "verdict": "fail",
           "reason_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ],
           "observed_tags": [
-            "envelope-absent",
-            "b64-undecodable"
+            "envelope-absent"
           ]
         },
         "discovery": {
@@ -865,7 +1491,68 @@
             "detail": "The server asked for payment but sent no PAYMENT-REQUIRED header."
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -941,7 +1628,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1007,7 +1749,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1087,7 +1884,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1144,7 +1996,68 @@
             "detail": "The payment challenge listed no terms that could be paid."
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -1206,7 +2119,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1286,7 +2254,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1366,7 +2389,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1446,7 +2524,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1512,7 +2645,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1578,7 +2766,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1644,7 +2887,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1710,7 +3008,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1725,15 +3078,28 @@
       "id": "free-tier-200",
       "dimensions": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "status-not-402"
-          ],
+          "verdict": "n/a",
+          "reason_tags": [],
           "observed_tags": [
             "status-not-402"
-          ]
+          ],
+          "scope_suppressed": [
+            "status-not-402"
+          ],
+          "na_kind": "scope"
         },
         "client_interop": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": [
+            "status-not-402"
+          ],
+          "scope_suppressed": [
+            "status-not-402"
+          ],
+          "na_kind": "scope"
+        },
+        "discovery": {
           "verdict": "fail",
           "reason_tags": [
             "status-not-402"
@@ -1741,12 +3107,6 @@
           "observed_tags": [
             "status-not-402"
           ]
-        },
-        "discovery": {
-          "verdict": "not-evaluated",
-          "reason_tags": [],
-          "observed_tags": [],
-          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
         }
       },
       "tool_detail": {
@@ -1767,7 +3127,68 @@
             "detail": null
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -1778,15 +3199,28 @@
       "id": "redirect-instead-of-402",
       "dimensions": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "status-not-402"
-          ],
+          "verdict": "n/a",
+          "reason_tags": [],
           "observed_tags": [
             "status-not-402"
-          ]
+          ],
+          "scope_suppressed": [
+            "status-not-402"
+          ],
+          "na_kind": "scope"
         },
         "client_interop": {
+          "verdict": "n/a",
+          "reason_tags": [],
+          "observed_tags": [
+            "status-not-402"
+          ],
+          "scope_suppressed": [
+            "status-not-402"
+          ],
+          "na_kind": "scope"
+        },
+        "discovery": {
           "verdict": "fail",
           "reason_tags": [
             "status-not-402"
@@ -1794,12 +3228,6 @@
           "observed_tags": [
             "status-not-402"
           ]
-        },
-        "discovery": {
-          "verdict": "not-evaluated",
-          "reason_tags": [],
-          "observed_tags": [],
-          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
         }
       },
       "tool_detail": {
@@ -1820,7 +3248,68 @@
             "detail": null
           }
         ],
-        "not_evaluated": [],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          }
+        ],
         "unmapped": [],
         "blocked_hosts": [],
         "crawler_replay": "not run",
@@ -1896,7 +3385,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -1970,7 +3514,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2044,7 +3643,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2124,7 +3778,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2190,7 +3899,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2256,7 +4020,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2322,7 +4141,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],
@@ -2388,7 +4262,62 @@
           {
             "rule": "x402.bazaar.lookup",
             "level": "warning",
-            "message": "Bazaar metadata could not be retrieved."
+            "message": "Bazaar metadata could not be retrieved.",
+            "status": "reported-by-tool"
+          },
+          {
+            "rule": "x402.bazaar.not_found",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.stale_metadata",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.bazaar.partial_comparison",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_malformed",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.declaration_integrity.catalog_resource",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.skipped",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.status",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.receipt",
+            "level": null,
+            "message": null,
+            "status": "held-back"
+          },
+          {
+            "rule": "x402.payment.settled",
+            "level": null,
+            "message": null,
+            "status": "held-back"
           }
         ],
         "unmapped": [],

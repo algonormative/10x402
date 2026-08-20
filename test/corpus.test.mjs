@@ -16,11 +16,15 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { readFileSync } from 'node:fs';
 
-import { REASON_TAGS, TAGS, DIMENSIONS, TENX402_TAGS } from '../corpus/vocabulary.mjs';
-import { runFixture, tagFor } from '../corpus/run-10x402.mjs';
-import { CHECKS } from '../worker/lint.js';
+import { REASON_TAGS, TAGS, DIMENSIONS, TENX402_TAGS, CLIENT_INTEROP_LEVELS, judgeableFrom } from '../corpus/vocabulary.mjs';
+import { runFixture, tagFor, assertPinnedBlobs } from '../corpus/run-10x402.mjs';
+import { buildCorpus } from '../corpus/build-fixtures.mjs';
+import { FIXTURES } from './fixtures/envelopes.mjs';
+import { CHECKS, operativeSources } from '../worker/lint.js';
 
-const corpus = JSON.parse(readFileSync(new URL('../corpus/fixtures.json', import.meta.url), 'utf8'));
+const FIXTURES_PATH = new URL('../corpus/fixtures.json', import.meta.url);
+const raw = readFileSync(FIXTURES_PATH, 'utf8');
+const corpus = JSON.parse(raw);
 
 const EVIDENCE_KINDS = new Set([
   'spec',
@@ -34,7 +38,7 @@ const EVIDENCE_KINDS = new Set([
 
 describe('corpus: the file itself', () => {
   test('parses, and declares its version and pins', () => {
-    assert.equal(corpus.corpus_version, 1);
+    assert.equal(corpus.corpus_version, 2);
     for (const pin of ['10x402', '@x402/core', 'x402', 'x402-foundation/x402', 'x402-doctor-prototype']) {
       assert.ok(corpus.pins[pin], `no pin for ${pin}`);
     }
@@ -42,6 +46,43 @@ describe('corpus: the file itself', () => {
     assert.equal(corpus.pins.x402.version, '1.2.0');
     assert.match(corpus.pins['10x402'].commit, /^[0-9a-f]{40}$/);
     assert.match(corpus.pins['x402-doctor-prototype'].commit, /^[0-9a-f]{40}$/);
+  });
+
+  test('every package a verdict depends on is pinned, with an integrity hash', () => {
+    // A `client-code` citation is meaningless without a version and weak
+    // without a hash. The first version of this corpus cited @x402/evm and
+    // @x402/fetch with no pin at all, and treated x402-fetch as covered by the
+    // `x402` pin — they are separate packages on the registry.
+    for (const name of ['@x402/core', '@x402/evm', '@x402/fetch', '@x402/extensions', 'x402', 'x402-fetch']) {
+      const pkg = corpus.pins.packages?.[name];
+      assert.ok(pkg, `no pin for ${name}`);
+      assert.match(pkg.version, /^\d+\.\d+\.\d+$/, `${name} version`);
+      assert.match(pkg.integrity, /^sha512-[A-Za-z0-9+/]+={0,2}$/, `${name} integrity`);
+    }
+  });
+
+  test('every package an evidence ref names is one of the pinned ones', () => {
+    // The guard against a citation quietly acquiring a dependency nobody pinned.
+    const pinned = Object.keys(corpus.pins.packages);
+    const named = new Set();
+    for (const fixture of corpus.fixtures) {
+      for (const e of fixture.evidence) {
+        for (const match of e.ref.matchAll(/(@?[a-z0-9][a-z0-9-]*(?:\/[a-z0-9-]+)?)@\d+\.\d+\.\d+/g)) named.add(match[1]);
+      }
+    }
+    for (const name of named) assert.ok(pinned.includes(name), `evidence cites ${name}, which is not in pins.packages`);
+  });
+
+  test('the engine on disk is the engine the corpus pins', () => {
+    // Content-addressed, and asserted BEFORE the adapter runs anywhere. The
+    // published pin has to name the code that actually executed; a commit does
+    // not, because HEAD moves and the previously published one predated both the
+    // adapter and the corpus.
+    const blobs = corpus.pins['10x402'].blobs;
+    assert.ok(blobs && Object.keys(blobs).length >= 5, 'no blob pins');
+    for (const [path, sha] of Object.entries(blobs)) assert.match(sha, /^[0-9a-f]{40}$/, path);
+    assert.doesNotThrow(() => assertPinnedBlobs(corpus));
+    assert.ok(blobs['worker/lint.js'], 'the engine itself is not pinned');
   });
 
   test('the prototype pin records its licence status, because there is no licence', () => {
@@ -106,15 +147,116 @@ describe('corpus: every fixture', () => {
       }
     });
 
-    test(`${fixture.id} cites its evidence with declared kinds`, () => {
+    test(`${fixture.id} cites its evidence with declared kinds, scoped to dimensions`, () => {
       assert.ok(fixture.evidence.length > 0, 'no evidence');
       for (const e of fixture.evidence) {
         assert.ok(EVIDENCE_KINDS.has(e.kind), `unknown evidence kind ${e.kind}`);
         assert.ok(typeof e.ref === 'string' && e.ref.trim().length > 0, 'evidence with no ref');
         assert.ok(corpus.evidence_kinds[e.kind], `${e.kind} is not documented in evidence_kinds`);
+        // A fixture-wide array does not let a reader ask what supports WHICH
+        // verdict. Every citation names the dimensions it is offered for.
+        assert.ok(Array.isArray(e.dimensions) && e.dimensions.length > 0, `evidence with no dimensions: ${e.ref.slice(0, 50)}`);
+        for (const dim of e.dimensions) assert.ok(DIMENSIONS.includes(dim), `evidence names dimension ${dim}`);
+      }
+      // …and a verdict with no citation scoped to it is a claim with no support.
+      for (const dim of DIMENSIONS) {
+        if (fixture.expected[dim].verdict === 'n/a') continue;
+        assert.ok(fixture.evidence.some((e) => e.dimensions.includes(dim)), `${dim} has a verdict and no evidence scoped to it`);
+      }
+    });
+
+    test(`${fixture.id} says how strong its client-interoperability claim is`, () => {
+      const level = fixture.expected.client_interop.claim_level;
+      assert.ok(CLIENT_INTEROP_LEVELS.includes(level), `claim_level ${level}`);
+      if (level !== 'execute') return;
+      // PARSING IS NOT EXECUTING. An `execute` claim says the cited client
+      // selects the offer, signs it and issues the payment, and that needs a
+      // citation into a signer or a payment path — not a schema that read the
+      // bytes. The first version of this corpus promised "parse and execute"
+      // everywhere and evidenced parsing.
+      const executes = fixture.evidence.filter(
+        (e) => e.kind === 'client-code' && e.dimensions.includes('client_interop') && /EXECUTE-LEVEL/.test(e.ref)
+      );
+      assert.ok(executes.length > 0, 'claims execute-level interoperability with no execution citation');
+    });
+
+    test(`${fixture.id} names a provider wherever it reaches a discovery verdict`, () => {
+      if (fixture.expected.discovery.verdict === 'n/a') {
+        assert.equal(fixture.discovery_target, undefined, 'an n/a discovery verdict names a provider it is not judging');
+        return;
+      }
+      // The repair for "provider-specific discovery verdicts asserted without a
+      // provider observation". The dimension asks about a NAMED provider's
+      // documented requirements, so the fixture has to name one and cite it.
+      assert.ok(fixture.discovery_target?.provider, 'a discovery verdict with no named provider');
+      assert.equal(fixture.discovery_target.claim, 'static-declaration-eligibility');
+      assert.ok(fixture.discovery_target.basis?.length > 20, 'the provider target names no documented requirement');
+      const kinds = new Set(fixture.evidence.filter((e) => e.dimensions.includes('discovery')).map((e) => e.kind));
+      const providerKinds = ['cdp-validator', 'cdp-docs', 'provider-observation'];
+      assert.ok(providerKinds.some((k) => kinds.has(k)), `a discovery verdict evidenced only by ${[...kinds].join('/')}`);
+    });
+
+    test(`${fixture.id} declares what its recording can be judged on`, () => {
+      // Computed from the response and nothing else, so a third adapter reaches
+      // the same set from the published file. Asserted rather than trusted: a
+      // corpus that lies about its own scope is exactly what this catches.
+      assert.deepEqual(fixture.judgeable, judgeableFrom(fixture.response));
+      for (const dim of DIMENSIONS) {
+        const e = fixture.expected[dim];
+        if (fixture.judgeable[dim] === false) {
+          assert.equal(e.verdict, 'n/a', `${dim} is not judgeable from this recording`);
+          assert.equal(e.na_kind, 'scope', `${dim} is not judgeable and does not say so`);
+        } else {
+          assert.notEqual(e.na_kind, 'scope', `${dim} claims scope exclusion but the recording supports a verdict`);
+        }
+        if (e.verdict === 'n/a') assert.ok(corpus.na_kinds[e.na_kind], `${dim}: undocumented na_kind ${e.na_kind}`);
       }
     });
   }
+});
+
+describe('corpus: no house rule decides a normative dimension', () => {
+  // THE FAULT v2 EXISTS TO FIX, asserted rather than described. A finding whose
+  // operative provenance is only a house opinion, a field report or a provider
+  // observation may be recorded — it may not fail `payment` or `client_interop`.
+  test('every check that can fail payment cites the specification, operatively', () => {
+    for (const check of CHECKS) {
+      if (check.regime === 'bazaar') continue;
+      const kinds = new Set(operativeSources(check.id).map((s) => s.kind));
+      const decides = kinds.has('spec') || kinds.has('client-code');
+      if (!decides) continue;
+      // The check may fail something; make sure it is the dimension its
+      // operative citation actually supports.
+      assert.ok(kinds.has('spec') || kinds.has('client-code'));
+    }
+  });
+
+  test('the DUAL_* family fails no normative dimension, because nothing normative governs it', () => {
+    // No specification contemplates dual publishing, so these five are house
+    // positions. v1 mapped them to `payment` through a documented override,
+    // which made a house rule a normative payment verdict on two fixtures.
+    for (const id of ['DUAL_PAYTO', 'DUAL_PRICE', 'DUAL_NETWORK', 'DUAL_ASSET', 'DUAL_RESOURCE']) {
+      const kinds = new Set(operativeSources(id).map((s) => s.kind));
+      assert.ok(!kinds.has('spec'), `${id} would fail the payment dimension`);
+      assert.ok(!kinds.has('client-code'), `${id} would fail the client_interop dimension`);
+    }
+  });
+
+  test('no expectation in the corpus rests on a house opinion alone', () => {
+    for (const fixture of corpus.fixtures) {
+      for (const dim of DIMENSIONS) {
+        if (fixture.expected[dim].verdict !== 'fail') continue;
+        const kinds = new Set(fixture.evidence.filter((e) => e.dimensions.includes(dim)).map((e) => e.kind));
+        const authority = { payment: 'spec', client_interop: 'client-code' }[dim];
+        if (!authority) {
+          const provider = ['cdp-validator', 'cdp-docs', 'provider-observation'];
+          assert.ok(provider.some((k) => kinds.has(k)), `${fixture.id}.${dim} fails on no provider evidence`);
+          continue;
+        }
+        assert.ok(kinds.has(authority), `${fixture.id}.${dim} fails with no ${authority} citation`);
+      }
+    }
+  });
 });
 
 describe('corpus: the adapter is total', () => {
@@ -192,17 +334,49 @@ describe('corpus: the calibration fixtures hold', () => {
 });
 
 describe('corpus: the suite fixtures were exported unchanged', () => {
-  // fromSuite() in the builder invokes the suite's own response builder, so the
-  // exported bytes ARE the suite's. This asserts the provenance is recorded,
-  // which is what lets a reader of the corpus check that claim.
+  // THE CLAIM IS ABOUT BYTES, SO THE TEST IS ABOUT BYTES. The version of this
+  // suite that shipped with corpus v1 checked that origin STRINGS had the
+  // expected prefix, which is a test of a label rather than of the thing the
+  // label describes: it would have passed over a fixture whose recorded response
+  // had drifted from the builder that is supposed to produce it.
+
   test('every suite-derived fixture names the suite fixture it came from', () => {
     const derived = corpus.fixtures.filter((f) => f.origin.kind === '10x402-suite');
     assert.ok(derived.length >= 15, `${derived.length} suite-derived fixtures`);
     for (const f of derived) assert.match(f.origin.ref, /^test\/fixtures\/envelopes\.mjs — .+/);
   });
 
+  test('every suite-derived response IS what the suite builder produces, field for field', () => {
+    for (const fixture of corpus.fixtures) {
+      if (fixture.origin.kind !== '10x402-suite') continue;
+      const name = fixture.origin.ref.replace(/^test\/fixtures\/envelopes\.mjs — /, '');
+      const suite = FIXTURES.find((f) => f.name === name);
+      assert.ok(suite, `${fixture.id} names a suite fixture that does not exist: ${name}`);
+      const built = suite.response();
+      assert.deepEqual(
+        fixture.response,
+        { status: built.status, headers: built.headers, body: built.body ?? '' },
+        `${fixture.id} has drifted from ${name}`
+      );
+      assert.deepEqual(fixture.context, { method: built.method ?? null, url: built.url ?? null }, `${fixture.id} context`);
+    }
+  });
+
+  test('regenerating the corpus produces the committed file, byte for byte', () => {
+    // The reproduction command in FORMAT.md and DISAGREEMENTS.md has to be one a
+    // stranger can run without producing a diff. The builder is INVOKED here —
+    // not imitated — and its output compared to the committed bytes. Two fields
+    // would otherwise move on their own, the generation date and the repository
+    // HEAD, and both are carried forward from the committed file unless
+    // `--stamp` is passed.
+    const rebuilt = `${JSON.stringify(buildCorpus(), null, 2)}\n`;
+    assert.equal(rebuilt, raw, 'node corpus/build-fixtures.mjs would change corpus/fixtures.json');
+  });
+
   test('the corpus carries calibration and constructed fixtures too, and says which', () => {
     const kinds = new Set(corpus.fixtures.map((f) => f.origin.kind));
     assert.deepEqual([...kinds].sort(), ['10x402-suite', 'calibration', 'constructed']);
+    assert.equal(corpus.fixtures.filter((f) => f.origin.kind === 'calibration').length, 5);
+    assert.equal(corpus.fixtures.filter((f) => f.origin.kind === 'constructed').length, 3);
   });
 });

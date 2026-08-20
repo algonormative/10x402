@@ -2,11 +2,23 @@
   "tool": {
     "name": "10x402",
     "repo": "https://github.com/chronick/10x402",
-    "commit": "853ed3f5a722c67b26e82c7b68c0a2b56de9abe9"
+    "commit": "4b61cda3e88c6fb4f2d4ac4cd368a74f5a176a7a",
+    "blobs": {
+      "worker/lint.js": "ddf15145a8d1a706c731bb685663c41bd1319fd5",
+      "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
+      "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
+      "test/fixtures/envelopes.mjs": "2987f2e6182c3e7a8879db472d407b85f00fd4fe",
+      "corpus/vocabulary.mjs": "61e856c59f04db224ac99d32d5e90e49fc5500e7",
+      "corpus/run-10x402.mjs": "00d4f2eefb7b5ff2334d387e1518d91954962d5a"
+    }
   },
-  "corpus_version": 1,
+  "corpus_version": 2,
   "ran": "2026-08-20",
   "adapter": "corpus/run-10x402.mjs",
+  "partial_evaluation": {
+    "rules_held_back": [],
+    "note": "the engine is a pure function over a recorded response; every check in the catalogue is applied to every fixture"
+  },
   "not_evaluated": [],
   "results": [
     {
@@ -50,6 +62,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-extension-absent",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[15] has_bazaar_extension (required)"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:512-517 § Client Behavior — omitting the extension means no cataloging"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — a CDP engineer: `extensions.bazaar.discoverable` is \"not a valid field\""
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -58,6 +87,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           },
           {
@@ -66,6 +112,28 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:172-174 § Response Body (\"Response bodies are a server implementation concern\")"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:19-25 — the spec’s own 402 example serves a body of `{}`"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 — an error blob makes accepts undefined and .map throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the 402 body is {} — JSON, but not an x402 envelope."
           }
         ]
@@ -133,6 +201,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           },
           {
@@ -141,6 +226,28 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:172-174 § Response Body (\"Response bodies are a server implementation concern\")"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:19-25 — the spec’s own 402 example serves a body of `{}`"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 — an error blob makes accepts undefined and .map throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the 402 body is {} — JSON, but not an x402 envelope."
           }
         ]
@@ -191,6 +298,19 @@
             "core": false,
             "regime": "hygiene",
             "tag": "network-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:616-621 § 11.1 — \"Networks in x402 v2 use CAIP-2 format\""
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "no shipping client bounds the namespace; @x402/core requires only min(3) and a colon, so this may only be an info"
+              }
+            ],
+            "decides": [
+              "payment"
+            ],
             "message": "the v2 accept network \"cloudflare:402\" parses, but is not CAIP-2 shaped — CAIP-2 bounds the namespace at 3–8 lowercase characters."
           },
           {
@@ -199,6 +319,23 @@
             "core": false,
             "regime": "hygiene",
             "tag": "network-unknown",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:616-621 § 11.1 — namespaces are open-ended; \"ach:us\" and \"sepa:eu\" are given as examples"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:7 — cloudflare:402 is a real network with its own scheme document"
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "worker/lint.js addressFamily() — eip155 and solana are the namespaces whose address formats this linter knows; everything else is checked structurally, and the report says which"
+              }
+            ],
+            "decides": [
+              "payment"
+            ],
             "message": "the v2 accept is on \"cloudflare:402\"; this linter validates the inside of an accepts entry deeply for eip155:* and solana:* only, so payTo, asset and the EIP-712 domain were checked structurally rather than against a known address format."
           },
           {
@@ -207,6 +344,28 @@
             "core": false,
             "regime": "payment",
             "tag": "timeout-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:129 § 5.1.2 — maxTimeoutSeconds, type number, Required"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:107 — maxTimeoutSeconds: z.number().positive(), required, no coercion"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:539 — validBefore is computed from it; undefined yields BigInt(\"NaN\"), which throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required)"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept has no maxTimeoutSeconds."
           },
           {
@@ -215,6 +374,19 @@
             "core": false,
             "regime": "bazaar",
             "tag": "discovery-metadata",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:132-141 § 5.1.2 (ResourceInfo table) — description Optional"
+              },
+              {
+                "kind": "cdp-docs",
+                "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — \"the CDP Facilitator rejects verify and settle requests whose description exceeds that limit\" (500 characters)"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "resource.description is not set."
           },
           {
@@ -223,6 +395,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-extension-absent",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[15] has_bazaar_extension (required)"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:512-517 § Client Behavior — omitting the extension means no cataloging"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — a CDP engineer: `extensions.bazaar.discoverable` is \"not a valid field\""
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -231,6 +420,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -277,6 +483,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-extension-absent",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[15] has_bazaar_extension (required)"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:512-517 § Client Behavior — omitting the extension means no cataloging"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — a CDP engineer: `extensions.bazaar.discoverable` is \"not a valid field\""
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -285,6 +508,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           },
           {
@@ -293,6 +533,28 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:172-174 § Response Body (\"Response bodies are a server implementation concern\")"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:19-25 — the spec’s own 402 example serves a body of `{}`"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 — an error blob makes accepts undefined and .map throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the 402 body is {} — JSON, but not an x402 envelope."
           }
         ]
@@ -358,6 +620,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -398,6 +677,27 @@
             "core": false,
             "regime": "bazaar",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:7-25 § Payment Required Signaling"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[6] payment_required_header (required)"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1620-1628 — the v2 client DOES fall back to a v1 body"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — x402-fetch@1.x is still a live buyer population"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
           }
         ]
@@ -434,13 +734,9 @@
       "id": "v2-header-b64-urlsafe",
       "dimensions": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "b64-urlsafe"
-          ],
-          "observed_tags": [
-            "b64-urlsafe"
-          ]
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
         },
         "client_interop": {
           "verdict": "fail",
@@ -469,6 +765,19 @@
             "core": true,
             "regime": "payment",
             "tag": "b64-urlsafe",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/utils/index.js:133 — Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1778-1781 — the regex is tested on the RAW header, then it throws, before any decode"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=], including the base64url characters \"-\" and/or \"_\"."
           }
         ]
@@ -478,13 +787,9 @@
       "id": "v2-header-b64-whitespace",
       "dimensions": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "b64-urlsafe"
-          ],
-          "observed_tags": [
-            "b64-urlsafe"
-          ]
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
         },
         "client_interop": {
           "verdict": "fail",
@@ -513,6 +818,19 @@
             "core": true,
             "regime": "payment",
             "tag": "b64-urlsafe",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/utils/index.js:133 — Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1778-1781 — the regex is tested on the RAW header, then it throws, before any decode"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=]."
           }
         ]
@@ -565,6 +883,27 @@
             "core": false,
             "regime": "bazaar",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:7-25 § Payment Required Signaling"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[6] payment_required_header (required)"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1620-1628 — the v2 client DOES fall back to a v1 body"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — x402-fetch@1.x is still a live buyer population"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
           },
           {
@@ -573,6 +912,20 @@
             "core": true,
             "regime": "payment",
             "tag": "envelope-not-json",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v1.md § 5.1.1 JSON Payload"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — response.json() with no try/catch"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the 402 body is not valid JSON: Unexpected token '<', \"<h1>402 Pa\"... is not valid JSON"
           },
           {
@@ -581,6 +934,24 @@
             "core": true,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:7-25 § Payment Required Signaling"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1620-1628 — no header and no v1 body throws \"Invalid payment required response\""
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "no x402 envelope was found — neither a JSON body nor a PAYMENT-REQUIRED header."
           }
         ]
@@ -625,6 +996,24 @@
             "core": true,
             "regime": "payment",
             "tag": "network-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:125 § 5.1.2 — network Required, CAIP-2 format"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:616-621 § 11.1 Network Identifiers"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:63-65 — NetworkSchemaV2 = z.string().min(3).refine(v => v.includes(\":\"))"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept uses the v1 network name \"base\" in a v2 envelope."
           }
         ]
@@ -669,6 +1058,20 @@
             "core": true,
             "regime": "payment",
             "tag": "network-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v1.md:110-124 § 5.1.2 (PaymentRequirements table)"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs:16-34 — NetworkSchema is a z.enum of plain names; no member contains a colon"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v1 accept uses the CAIP-2 network \"eip155:8453\" in a v1 envelope."
           }
         ]
@@ -715,6 +1118,20 @@
             "core": true,
             "regime": "payment",
             "tag": "missing-required-field",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:120-131 § 5.1.2 (PaymentRequirements table)"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:104 — amount: NonEmptyString; maxAmountRequired is not a v2 key"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept carries the v1 field \"maxAmountRequired\" instead of v2's \"amount\"."
           },
           {
@@ -723,6 +1140,24 @@
             "core": false,
             "regime": "payment",
             "tag": "version-crosstalk",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:120-131 § 5.1.2 (PaymentRequirements table)"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:101-109 — a plain z.object, so unknown keys are STRIPPED on any re-parse"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/esm/client/index.mjs:262 — the raw entry is echoed as `accepted`, unstripped"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept carries v1-only field(s): maxAmountRequired."
           }
         ]
@@ -767,6 +1202,24 @@
             "core": true,
             "regime": "payment",
             "tag": "resource-shape",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:116 § 5.1.2 — resource Required, ResourceInfo object"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:113 — resource: ResourceInfoSchema"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[14] has_resource (required)"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 envelope's top-level `resource` is a flat string — that is the v1 form."
           }
         ]
@@ -808,6 +1261,24 @@
             "core": false,
             "regime": "payment",
             "tag": "version-crosstalk",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/transports-v2/http.md:172-174 § Response Body (\"Response bodies are a server implementation concern\")"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/http/index.js:1620-1628 — the header wins whenever present; the body fallback accepts only x402Version === 1"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 — a v1 client reads the body with v1 rules whatever it declares"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the 402 BODY carries a payload declaring x402Version 2, mirroring the header envelope."
           },
           {
@@ -816,6 +1287,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -860,6 +1348,28 @@
             "core": true,
             "regime": "payment",
             "tag": "timeout-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:129 § 5.1.2 — maxTimeoutSeconds, type number, Required"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:107 — maxTimeoutSeconds: z.number().positive(), required, no coercion"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:539 — validBefore is computed from it; undefined yields BigInt(\"NaN\"), which throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required)"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept maxTimeoutSeconds is \"60\", not a positive JSON number."
           }
         ]
@@ -904,6 +1414,28 @@
             "core": true,
             "regime": "payment",
             "tag": "timeout-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:129 § 5.1.2 — maxTimeoutSeconds, type number, Required"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:107 — maxTimeoutSeconds: z.number().positive(), required, no coercion"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:539 — validBefore is computed from it; undefined yields BigInt(\"NaN\"), which throws"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required)"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept has no maxTimeoutSeconds."
           }
         ]
@@ -949,6 +1481,24 @@
             "core": true,
             "regime": "payment",
             "tag": "asset-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:127 § 5.1.2 — \"Token contract address or ISO 4217 currency code for fiat\""
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:565 — verifyingContract: getAddress(requirements.asset)"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/exact/scheme_exact_svm.md:71 — asset is the token mint public key"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept asset \"USDC\" is not a 0x-prefixed, 40-hex-character EVM address."
           },
           {
@@ -957,6 +1507,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -1001,6 +1568,28 @@
             "core": false,
             "regime": "payment",
             "tag": "missing-eip712-extra",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/exact/scheme_exact_evm.md:72-73 — extra.name and extra.version, both \"(required)\""
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/exact/scheme_exact_evm.md:171-172,285-286 — conditional under permit2, optional under erc7710"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:555-558 — signEIP3009Authorization throws when either is absent"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:1261 — assetTransferMethod defaults to \"eip3009\""
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept has no extra.{name,version} — the EIP-712 domain is missing."
           },
           {
@@ -1009,6 +1598,28 @@
             "core": false,
             "regime": "payment",
             "tag": "missing-eip712-extra",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/exact/scheme_exact_evm.md:72-73 — extra.name and extra.version required for eip3009"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402@1.2.0 dist/esm/chunk-EJI6X7BV.mjs:65-76 — signAuthorization reads extra?.name and extra?.version straight into the typed-data domain, with no fallback"
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "the reference facilitator recomputes the domain from its own table, so the mismatch surfaces only as invalid_exact_evm_payload_signature"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v1.md:261 — v1 Solana exact uses TransferChecked, which has no EIP-712 domain"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v1 accept has no extra.{name,version} — the EIP-712 domain is missing."
           }
         ]
@@ -1020,8 +1631,7 @@
         "payment": {
           "verdict": "fail",
           "reason_tags": [
-            "payee-form",
-            "dual-divergence"
+            "payee-form"
           ],
           "observed_tags": [
             "payee-form",
@@ -1034,7 +1644,8 @@
             "payee-form"
           ],
           "observed_tags": [
-            "payee-form"
+            "payee-form",
+            "dual-divergence"
           ]
         },
         "discovery": {
@@ -1055,6 +1666,28 @@
             "core": true,
             "regime": "payment",
             "tag": "payee-form",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:128 § 5.1.2 — \"Recipient wallet address or role constant (e.g., \\\"merchant\\\")\""
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/schemes/exact/scheme_exact_svm.md:53-68 — a base58 payTo on solana:*"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:537 — `to: getAddress(paymentRequirements.payTo)`; viem throws on a non-address"
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:106 — payTo: NonEmptyString, i.e. the shape rule is the scheme’s, not the envelope’s"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept payTo is [\"0x0000000000000000000000000000000000000001\"], not a string."
           },
           {
@@ -1063,6 +1696,13 @@
             "core": true,
             "regime": "payment",
             "tag": "dual-divergence",
+            "provenance": [
+              {
+                "kind": "house-opinion",
+                "ref": "worker/lint.js — two views of one offer; divergence means half the revenue lands elsewhere"
+              }
+            ],
+            "decides": [],
             "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays [\"0x0000000000000000000000000000000000000001\"]."
           }
         ]
@@ -1072,10 +1712,8 @@
       "id": "dual-payto-divergence",
       "dimensions": {
         "payment": {
-          "verdict": "fail",
-          "reason_tags": [
-            "dual-divergence"
-          ],
+          "verdict": "pass",
+          "reason_tags": [],
           "observed_tags": [
             "dual-divergence"
           ]
@@ -1083,7 +1721,9 @@
         "client_interop": {
           "verdict": "pass",
           "reason_tags": [],
-          "observed_tags": []
+          "observed_tags": [
+            "dual-divergence"
+          ]
         },
         "discovery": {
           "verdict": "pass",
@@ -1103,6 +1743,13 @@
             "core": true,
             "regime": "payment",
             "tag": "dual-divergence",
+            "provenance": [
+              {
+                "kind": "house-opinion",
+                "ref": "worker/lint.js — two views of one offer; divergence means half the revenue lands elsewhere"
+              }
+            ],
+            "decides": [],
             "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays 0x00000000000000000000000000000000000000ff."
           }
         ]
@@ -1124,7 +1771,8 @@
             "network-unknown"
           ],
           "observed_tags": [
-            "network-unknown"
+            "network-unknown",
+            "dual-divergence"
           ]
         },
         "discovery": {
@@ -1145,6 +1793,23 @@
             "core": false,
             "regime": "payment",
             "tag": "network-unknown",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs:16-34 — the closed z.enum: abstract, abstract-testnet, base-sepolia, base, avalanche-fuji, avalanche, iotex, solana-devnet, solana, sei, sei-testnet, polygon, polygon-amoy, peaq, story, educhain, skale-base-sepolia"
+              },
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 (response.json(), then PaymentRequirementsSchema.parse per entry)"
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "@x402/core@2.23.0's v1-compatibility schema is looser (@x402/core@2.23.0 dist/cjs/schemas/index.js:62, NonEmptyString), so this is a claim about the dominant v1 client rather than about every parser — hence error, not core"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the v1 accept network \"arbitrum\" is not one of the names the v1 client's enum admits."
           },
           {
@@ -1153,6 +1818,13 @@
             "core": false,
             "regime": "payment",
             "tag": "dual-divergence",
+            "provenance": [
+              {
+                "kind": "house-opinion",
+                "ref": "worker/lint.js — a payment signed on one chain is worthless on the other"
+              }
+            ],
+            "decides": [],
             "message": "the v1 envelope is on arbitrum and the v2 envelope on eip155:42161 — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
           }
         ]
@@ -1162,16 +1834,18 @@
       "id": "free-tier-200",
       "dimensions": {
         "payment": {
-          "verdict": "pass",
+          "verdict": "n/a",
           "reason_tags": [],
-          "observed_tags": []
+          "observed_tags": [],
+          "na_kind": "scope"
         },
         "client_interop": {
-          "verdict": "pass",
+          "verdict": "n/a",
           "reason_tags": [],
           "observed_tags": [
             "free-tier-200"
-          ]
+          ],
+          "na_kind": "scope"
         },
         "discovery": {
           "verdict": "n/a",
@@ -1191,6 +1865,23 @@
             "core": false,
             "regime": "payment",
             "tag": "free-tier-200",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19 — a non-402 is returned unpaid; the client never attempts payment"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[3] returns_402 (required)"
+              },
+              {
+                "kind": "cdp-docs",
+                "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "an unauthenticated request was served a 200 — this endpoint has a free tier."
           }
         ]
@@ -1200,18 +1891,20 @@
       "id": "redirect-instead-of-402",
       "dimensions": {
         "payment": {
-          "verdict": "pass",
+          "verdict": "n/a",
           "reason_tags": [],
           "observed_tags": [
             "redirect"
-          ]
+          ],
+          "na_kind": "scope"
         },
         "client_interop": {
-          "verdict": "pass",
+          "verdict": "n/a",
           "reason_tags": [],
           "observed_tags": [
             "redirect"
-          ]
+          ],
+          "na_kind": "scope"
         },
         "discovery": {
           "verdict": "n/a",
@@ -1231,6 +1924,24 @@
             "core": false,
             "regime": "payment",
             "tag": "redirect",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "@x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, i.e. the default redirect mode, so redirects ARE followed"
+              },
+              {
+                "kind": "spec",
+                "ref": "RFC 9110 § 15.4.3 — 301/302 rewrite POST to GET; 307/308 do not"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[0] url_valid — the ADVERTISED url is what is probed"
+              }
+            ],
+            "decides": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the endpoint answered 307 instead of a 402."
           }
         ]
@@ -1273,6 +1984,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-extension-absent",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[15] has_bazaar_extension (required)"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:512-517 § Client Behavior — omitting the extension means no cataloging"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — a CDP engineer: `extensions.bazaar.discoverable` is \"not a valid field\""
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           }
         ]
@@ -1315,6 +2043,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-info-schema-mismatch",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:322 — facilitators MUST validate info against schema before cataloging"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[24] parse (required)"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — an info/schema mismatch is declined silently; nothing reaches the seller’s logs"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input.bodyType should be exactly \"text\" but is \"json\""
           }
         ]
@@ -1362,6 +2107,19 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-schema-unresolvable",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:313-322 § Schema Validation — Draft 2020-12, \"Must define an input property (required)\", and \"$ref and $id values must be same-document JSON Pointer fragments (starting with #); external references … are not allowed\""
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 wire-format bug 5 — an external $ref broke CDP’s validator outright"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.schema does not meet the extension's own requirements: it carries 1 external reference (https://internal.example.com/bazaar-input.json)."
           },
           {
@@ -1370,6 +2128,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-info-schema-mismatch",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:322 — facilitators MUST validate info against schema before cataloging"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[24] parse (required)"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — an info/schema mismatch is declined silently; nothing reaches the seller’s logs"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input: unable to validate — the schema's $ref \"https://internal.example.com/bazaar-input.json\" points outside this document. Same-document \"#/...\" fragments only; a facilitator must not resolve external references"
           },
           {
@@ -1378,6 +2153,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -1425,6 +2217,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-input-shape",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:251-282 — type Required (\"http\"/\"mcp\"); bodyType and body Required for POST/PUT/PATCH; toolName and inputSchema Required for mcp"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[18] bazaar.info.input.type (required)"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 wire-format bug 4 — the missing `type` discriminator"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info.input has no `type` discriminator."
           },
           {
@@ -1433,6 +2242,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-info-schema-mismatch",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:322 — facilitators MUST validate info against schema before cataloging"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[24] parse (required)"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3045 — an info/schema mismatch is declined silently; nothing reaches the seller’s logs"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input.type is required by the schema but missing"
           },
           {
@@ -1441,6 +2267,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -1485,6 +2328,19 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-input-method",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:251-269 — method Required, one of GET/HEAD/DELETE or POST/PUT/PATCH"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[19] bazaar.info.input.method and preflight[20] bazaar.info.input.method.matches_request, both required"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info.input.method declares \"PUT\" but this 402 was fetched with POST."
           },
           {
@@ -1493,6 +2349,23 @@
             "core": false,
             "regime": "payment",
             "tag": "envelope-absent",
+            "provenance": [
+              {
+                "kind": "client-code",
+                "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED"
+              },
+              {
+                "kind": "field-report",
+                "ref": "x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
+              }
+            ],
+            "decides": [
+              "client_interop"
+            ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
           }
         ]
@@ -1531,6 +2404,23 @@
             "core": false,
             "regime": "bazaar",
             "tag": "bazaar-output-example",
+            "provenance": [
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:284-294 — the example row is `example | any | No`"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/extensions/bazaar.md:46-53 — the spec’s own GET example gives output.example as an OBJECT"
+              },
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[22] bazaar.info.output.example (advisory)"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "bazaar.info.output.example is not published."
           }
         ]
@@ -1573,6 +2463,19 @@
             "core": false,
             "regime": "bazaar",
             "tag": "amount-below-provider-floor",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[11] accepts[0].amount (required), expected \">= 1000\""
+              },
+              {
+                "kind": "client-code",
+                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:104 — the client itself applies no numeric bound, so the facilitator is the only enforcer"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
             "message": "the v2 accept asks 100 atomic units, below CDP's 1000 minimum."
           }
         ]
@@ -1591,7 +2494,9 @@
         "client_interop": {
           "verdict": "pass",
           "reason_tags": [],
-          "observed_tags": []
+          "observed_tags": [
+            "dual-divergence"
+          ]
         },
         "discovery": {
           "verdict": "pass",
@@ -1611,6 +2516,13 @@
             "core": false,
             "regime": "payment",
             "tag": "dual-divergence",
+            "provenance": [
+              {
+                "kind": "house-opinion",
+                "ref": "worker/lint.js — a payment signed on one chain is worthless on the other"
+              }
+            ],
+            "decides": [],
             "message": "the v1 envelope is on solana and the v2 envelope on solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
           }
         ]
