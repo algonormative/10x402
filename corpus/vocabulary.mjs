@@ -37,7 +37,7 @@ export const REASON_TAGS = {
   'missing-required-field': { fatal: true, meaning: 'a field the version requires is absent' },
   'network-form': { fatal: true, meaning: 'the network identifier is in the wrong form for the version (CAIP-2 vs bare name)' },
   'network-unknown': { fatal: true, meaning: 'the network is well-formed but outside the cited client implementation’s closed enum' },
-  'network-unsupported-by-provider': { fatal: false, meaning: 'the network is valid and outside a named provider’s settlement set' },
+  'network-unsupported-by-provider': { fatal: true, meaning: 'the network is outside a named provider’s settlement set — including because it is not written in the form that provider reads. FATAL IN v3, AND ONLY IN THE DISCOVERY DIMENSION: a provider’s required network preflight cannot pass on a network it does not settle, so the declaration is not eligible there. It remains no kind of protocol fault, and no rule mapping to it can fail payment or client interoperability' },
   'amount-form': { fatal: true, meaning: 'the amount is not a positive integer base-unit string' },
   'amount-below-provider-floor': { fatal: true, meaning: 'the amount is legal protocol-wise and below a named provider’s indexing minimum' },
   'payee-form': { fatal: true, meaning: 'payTo is absent, the wrong JSON type, or not an address of the network’s family' },
@@ -91,6 +91,15 @@ export const TENX402_TAGS = {
   V2_AMOUNT: 'missing-required-field',
   V2_AMOUNT_ATOMIC: 'amount-form',
   V2_AMOUNT_MINIMUM: 'amount-below-provider-floor',
+  // The four CDP-required payment-term preflights, as INDEXING questions. Their
+  // payment-dimension siblings (V2_AMOUNT_ATOMIC, V2_MAX_TIMEOUT, V2_ASSET,
+  // V2_PAYTO) map to the same tags, which is right: a seller reading either
+  // report is being sent to the same field, and which dimension it lands in is
+  // what tells them whether their money or their listing is at risk.
+  V2_INDEX_AMOUNT: 'missing-required-field',
+  V2_INDEX_TIMEOUT: 'timeout-form',
+  V2_INDEX_ASSET: 'asset-form',
+  V2_INDEX_PAYTO: 'payee-form',
   V2_PAYTO: 'payee-form',
   V2_ASSET: 'asset-form',
   V2_MAX_TIMEOUT: 'timeout-form',

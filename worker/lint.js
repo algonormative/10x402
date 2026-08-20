@@ -223,6 +223,13 @@ const CDP_FACILITATOR_CHAINS = new Set([
   'eip155:137', 'eip155:80002',      // Polygon, Amoy
   'eip155:42161', 'eip155:421614',   // Arbitrum One, Sepolia
   'eip155:480', 'eip155:4801',       // World Chain, Sepolia
+  // SOLANA WAS MISSING, and the capture this set is derived from names it:
+  // preflight[9] accepts[0].network expects "a facilitator-supported network
+  // (Base, Solana, Polygon, Arbitrum, World)". Reading that list and then
+  // encoding only the EVM half told a conformant Solana seller their chain was
+  // outside CDP's settlement set, which the cited document does not say.
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',   // Solana mainnet-beta
+  'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',   // Solana devnet
 ]);
 
 /**
@@ -523,7 +530,7 @@ export const CHECKS = [
       spec('specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:7 — cloudflare:402 is a real network with its own scheme document'),
       house('worker/lint.js addressFamily() — eip155 and solana are the namespaces whose address formats this linter knows; everything else is checked structurally, and the report says which'),
     ] },
-  { id: 'V2_NETWORK_SUPPORTED', area: 'v2', severity: 'warn', regime: 'bazaar',
+  { id: 'V2_NETWORK_SUPPORTED', area: 'v2', severity: 'error', regime: 'bazaar',
     summary: 'the eip155 chain is one CDP’s facilitator settles on',
     sources: [
       validator('cdp-validator-toolshed.json preflight[9] accepts[0].network, expected "a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)"'),
@@ -547,6 +554,43 @@ export const CHECKS = [
     sources: [
       validator('cdp-validator-toolshed.json preflight[11] accepts[0].amount (required), expected ">= 1000"'),
       client(`${CORE_SCHEMAS}:104 — the client itself applies no numeric bound, so the facilitator is the only enforcer`),
+    ] },
+  // ─── THE CDP-REQUIRED PAYMENT TERMS, AS AN INDEXING QUESTION ──────────
+  //
+  // These four are the other half of a distinction this catalogue already makes
+  // for the price: `V2_AMOUNT_MINIMUM` asks whether a legal amount clears CDP's
+  // indexing floor, which is a bazaar question and not a payment one. The same
+  // is true of four more fields. CDP's preflight marks `accepts[0].asset`,
+  // `accepts[0].payTo`, `accepts[0].amount` and `accepts[0].maxTimeoutSeconds`
+  // REQUIRED, so a declaration whose value for one of them cannot satisfy that
+  // check is not indexable — whatever the protocol thinks of it.
+  //
+  // WITHOUT THESE THE ENGINE ANSWERED "indexable: true" FOR AN ENVELOPE ITS OWN
+  // CITED CAPTURE WOULD HAVE REJECTED. That is the same defect twice fixed
+  // already under a different disguise: a verdict computed from the absence of
+  // blockers, in a regime that had no rule to raise one. They fire only where
+  // the network is one CDP settles, because outside that set the question does
+  // not arise — `V2_NETWORK_SUPPORTED` has already answered it.
+  { id: 'V2_INDEX_AMOUNT', area: 'v2', severity: 'error', regime: 'bazaar',
+    summary: 'the amount is a value CDP\u2019s required amount preflight can read at all',
+    sources: [
+      validator('cdp-validator-toolshed.json preflight[11] accepts[0].amount (required), expected ">= 1000" \u2014 the check compares a value, so an absent or non-integer amount cannot satisfy it'),
+    ] },
+  { id: 'V2_INDEX_TIMEOUT', area: 'v2', severity: 'error', regime: 'bazaar',
+    summary: 'maxTimeoutSeconds is SET, which is what CDP\u2019s required preflight asks',
+    sources: [
+      validator('cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required) \u2014 "maxTimeoutSeconds is set". Presence is the whole of the provider\u2019s stated rule; the JSON type is a payment question and V2_MAX_TIMEOUT asks it'),
+    ] },
+  { id: 'V2_INDEX_ASSET', area: 'v2', severity: 'error', regime: 'bazaar',
+    summary: 'asset identifies a token on a chain CDP settles, so its required asset preflight can pass',
+    sources: [
+      validator('cdp-validator-toolshed.json preflight[10] accepts[0].asset (required) \u2014 "Asset is USDC", captured with a token contract address as the actual value'),
+      spec('specs/x402-specification-v2.md:127 \u00a7 5.1.2 \u2014 on a chain, asset is the token contract address; a ticker cannot be the token CDP looks up'),
+    ] },
+  { id: 'V2_INDEX_PAYTO', area: 'v2', severity: 'error', regime: 'bazaar',
+    summary: 'payTo is an address, which is what CDP\u2019s required payee preflight asks for',
+    sources: [
+      validator('cdp-validator-toolshed.json preflight[12] accepts[0].payTo (required) \u2014 "payTo address present", captured with a string address as the actual value'),
     ] },
   { id: 'V2_PAYTO', area: 'v2', severity: 'error', core: true, regime: 'payment',
     summary: 'payTo has the address shape its network’s namespace requires',
@@ -1086,21 +1130,38 @@ class Report {
    * `core`, for the checks whose consequence depends on the circumstance rather
    * than on the rule. Both overrides are deliberate escape hatches with a
    * handful of users each; a check that needed a third would be two checks.
+   *
+   * `sources` is the THIRD such override and the most important one, because it
+   * is about truth rather than weight. A check id is one subject; a check's
+   * BRANCHES can rest on different documents. `V2_PAYTO` failing on an eip155
+   * entry rests on viem's `getAddress`; the same id failing on a `solana:*`
+   * entry rests on the SVM scheme's base58 rule and has nothing to do with viem,
+   * and publishing the EVM citation there is simply a false statement about a
+   * Solana envelope. `V2_MAX_TIMEOUT` on a network whose scheme makes the field
+   * optional is not resting on the core table that makes it required.
+   *
+   * So a branch that answers to different documents passes its own, and the
+   * finding carries the provenance of the branch that DECIDED it rather than
+   * everything the id has ever cited. Omitted, the catalogue entry's sources are
+   * used, which is right for every check with one branch. This is what the
+   * portable corpus adapter reduces dimensions from, and it is why a
+   * client-specific fault can no longer become a normative one by inheriting a
+   * sibling branch's citation.
    */
-  check(id, ok, message, fix, severity, core) {
+  check(id, ok, message, fix, severity, core, sources) {
     this.ran_(id, ok);
     if (ok) return true;
     const def = CHECKS_BY_ID.get(id);
-    this.emit({ severity: severity || def.severity, code: id, message, fix, core: core ?? def.core === true });
+    this.emit({ severity: severity || def.severity, code: id, message, fix, core: core ?? def.core === true, sources: sources ?? def.sources });
     return false;
   }
 
   /** A finding for a check that has already been counted (loops over accepts). */
-  add(id, message, fix, severity, core) {
+  add(id, message, fix, severity, core, sources) {
     const def = CHECKS_BY_ID.get(id);
     if (!def) throw new Error(`unknown check id ${id} — add it to CHECKS`);
     this.ran.add(id);
-    this.emit({ severity: severity || def.severity, code: id, message, fix, core: core ?? def.core === true });
+    this.emit({ severity: severity || def.severity, code: id, message, fix, core: core ?? def.core === true, sources: sources ?? def.sources });
     return false;
   }
 
@@ -1386,6 +1447,54 @@ const ADDRESS_SHAPE = {
 };
 
 /**
+ * WHICH DOCUMENT A payTo/asset FINDING ACTUALLY RESTS ON, per address family.
+ *
+ * `V2_PAYTO` and `V2_ASSET` are one subject each and three branches each, and
+ * the branches answer to different documents. On eip155 the operative authority
+ * is viem's `getAddress`, which throws before anything is signed. On `solana:*`
+ * it is the SVM scheme's base58 rule, and viem has nothing whatever to do with
+ * it — publishing the EVM citation on a Solana envelope is a false statement
+ * about that envelope, and it is how a Solana probe came to fail client
+ * interoperability in the portable corpus with no Solana client cited at all.
+ * On a namespace this linter does not know the address format of, the only
+ * operative authority is the specification's presence requirement.
+ *
+ * The v2 field table is cited in every branch because every branch rests on it:
+ * the field is required whatever the network is. What changes is what makes a
+ * given VALUE wrong, and that is exactly what the corpus reduces dimensions from.
+ */
+const ADDRESS_SOURCES = {
+  V2_PAYTO: {
+    evm: [
+      spec('specs/x402-specification-v2.md:128 § 5.1.2 — payTo, Required'),
+      client('@x402/evm@2.23.0 dist/cjs/index.js:537 — `to: getAddress(paymentRequirements.payTo)`; viem throws on anything that is not a 20-byte address'),
+    ],
+    svm: [
+      spec('specs/x402-specification-v2.md:128 § 5.1.2 — payTo, Required'),
+      spec('specs/schemes/exact/scheme_exact_svm.md:53-68 — payTo is a base58 Solana public key. NO EVM CLIENT IS INVOLVED, and none is cited'),
+    ],
+    unknown: [
+      spec('specs/x402-specification-v2.md:128 § 5.1.2 — "Recipient wallet address or role constant (e.g., \\"merchant\\")"; on a namespace whose address format is not known to this linter, presence is the whole of the rule'),
+      ctx(client(`${CORE_SCHEMAS}:106 — payTo: NonEmptyString, i.e. the client defers the shape rule to the scheme`)),
+    ],
+  },
+  V2_ASSET: {
+    evm: [
+      spec('specs/x402-specification-v2.md:127 § 5.1.2 — "Token contract address or ISO 4217 currency code for fiat"'),
+      client('@x402/evm@2.23.0 dist/cjs/index.js:565 — `verifyingContract: getAddress(requirements.asset)`; a ticker throws before signing'),
+    ],
+    svm: [
+      spec('specs/x402-specification-v2.md:127 § 5.1.2 — the on-chain identifier of the money'),
+      spec('specs/schemes/exact/scheme_exact_svm.md:71 — asset is the token mint public key, base58. No EVM signer is involved'),
+    ],
+    unknown: [
+      spec('specs/x402-specification-v2.md:127 § 5.1.2 — a contract address OR an ISO 4217 code, so on an unknown namespace this is a presence rule and nothing more'),
+      ctx(client(`${CORE_SCHEMAS} — asset: NonEmptyString; the generic client schema does NOT require an address`)),
+    ],
+  },
+};
+
+/**
  * Does this exact-scheme entry sign an EIP-712 domain out of `extra`?
  *
  * scheme_exact_evm.md:15 and :71 make `eip3009` the default assetTransferMethod
@@ -1646,18 +1755,70 @@ function lintV2Accept(report, accept, accepts) {
         'these fields should look like.'
     );
 
-    // The eip155 chains CDP settles. Legal x402 either way; a chain outside the
-    // set is payable through your own facilitator and not listed by theirs.
-    if (namespace === 'eip155') {
+    // THE CHAINS CDP SETTLES. Legal x402 either way; a chain outside the set is
+    // payable through your own facilitator and not listed by theirs.
+    //
+    // TWO THINGS CHANGED HERE, and both were the check understating what its own
+    // cited capture says. It ran only for `eip155:*`, so a v2 envelope naming
+    // the network "base" — no namespace at all, and not a string CDP's preflight
+    // can match — was never asked the question and was reported indexable. And
+    // it was a WARN, which read as "your listing may be affected" for a
+    // declaration the provider's own required preflight rejects outright. It is
+    // an error in the bazaar regime: it decides indexability and it does not
+    // touch the grade, because a chain CDP does not settle is not a protocol
+    // fault and never was.
+    const cdpSettles = CDP_FACILITATOR_CHAINS.has(entry.network);
+    report.check(
+      'V2_NETWORK_SUPPORTED',
+      cdpSettles,
+      `${where} is on "${clip(entry.network)}", which is not one of the networks CDP's ` +
+        'facilitator settles.',
+      "CDP's validator expects Base, Solana, Polygon, Arbitrum or World, spelled in CAIP-2. " +
+        'This is an INDEXING constraint, not a protocol one: the envelope can be perfectly valid ' +
+        'and a self-hosted or third-party facilitator can settle it. If you want the CDP listing, ' +
+        'publish an additional accepts entry on one of those networks.'
+    );
+
+    // The four payment terms CDP marks REQUIRED in its preflight. Asked only
+    // where the network is one it settles, because outside that set the listing
+    // is already refused above and these would be four more ways of saying so.
+    if (cdpSettles) {
+      const atomicAmount = typeof entry.amount === 'string' && /^\d+$/.test(entry.amount);
       report.check(
-        'V2_NETWORK_SUPPORTED',
-        CDP_FACILITATOR_CHAINS.has(entry.network),
-        `${where} is on "${clip(entry.network)}", which is not one of the chains CDP's ` +
-          'facilitator settles.',
-        "CDP's validator expects Base, Solana, Polygon, Arbitrum or World. This is an INDEXING " +
-          'constraint, not a protocol one: the envelope is valid and a self-hosted or third-party ' +
-          'facilitator can settle it. If you want the CDP listing, publish an additional accepts ' +
-          'entry on one of those chains.'
+        'V2_INDEX_AMOUNT',
+        atomicAmount,
+        `${where} has no amount CDP's preflight can read: ${clip(JSON.stringify(entry.amount), 60)}.`,
+        'CDP compares accepts[].amount against a minimum, so it has to be an integer string of ' +
+          'atomic units — "1000", not 1000, not "0.001" and not absent. A v2 entry still carrying ' +
+          'the v1 name maxAmountRequired reaches this check with nothing to read.'
+      );
+      report.check(
+        'V2_INDEX_TIMEOUT',
+        entry.maxTimeoutSeconds !== undefined,
+        `${where} has no maxTimeoutSeconds, and CDP's preflight requires the field to be set.`,
+        'Set "maxTimeoutSeconds". CDP checks only that it is THERE — the JSON type is a separate ' +
+          'question, and V2_MAX_TIMEOUT asks it — but a listing is withheld without it. Note this ' +
+          'is a provider requirement: some scheme specifications make the field optional, and on ' +
+          'those networks it is the listing rather than the payment that is at stake.'
+      );
+      report.check(
+        'V2_INDEX_ASSET',
+        addressOk(family, entry.asset),
+        `${where} asset ${clip(JSON.stringify(entry.asset), 60)} does not identify a token on a ` +
+          'network CDP settles, so its required asset preflight cannot pass.',
+        'Set "asset" to the token identifier on that chain — the contract address on an EVM ' +
+          'network, the mint public key on Solana. CDP resolves the token to decide what it is ' +
+          'listing; a ticker is not something it can resolve.'
+      );
+      report.check(
+        'V2_INDEX_PAYTO',
+        addressOk(family, entry.payTo),
+        `${where} payTo ${clip(JSON.stringify(entry.payTo), 60)} is not an address, and CDP's ` +
+          'preflight requires one.',
+        'Set "payTo" to the receiving address as a STRING. The v2 specification also allows a ' +
+          'role constant like "merchant", and CDP\'s own preflight does not — it captured ' +
+          '"payTo address present" against a literal address, so a role constant or a wrapped ' +
+          'value is a listing problem even where it is not a payment one.'
       );
     }
 
@@ -1735,7 +1896,10 @@ function lintV2Accept(report, accept, accepts) {
             'base58 alphabet (no 0, O, I or l).'
           : 'payTo must be a non-empty string. The v2 specification allows a wallet address OR a ' +
             'role constant (its own example is "merchant"), and this linter does not know this ' +
-            'namespace\'s address format — check the scheme specification for the exact shape.'
+            'namespace\'s address format — check the scheme specification for the exact shape.',
+      undefined,
+      undefined,
+      ADDRESS_SOURCES.V2_PAYTO[family]
     );
 
     report.check(
@@ -1756,7 +1920,10 @@ function lintV2Accept(report, accept, accepts) {
             '"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".'
           : 'Set "asset" to whatever this network identifies the money by. The v2 specification ' +
             'allows a token contract address OR an ISO 4217 currency code for fiat (the ' +
-            'cloudflare:402 scheme uses "USD"), so this is checked for presence only.'
+            'cloudflare:402 scheme uses "USD"), so this is checked for presence only.',
+      undefined,
+      undefined,
+      ADDRESS_SOURCES.V2_ASSET[family]
     );
 
     // maxTimeoutSeconds IS REQUIRED AND IT IS A NUMBER, and the old check was
@@ -1783,7 +1950,20 @@ function lintV2Accept(report, accept, accepts) {
             'computes validBefore from it: with nothing there the arithmetic yields NaN and ' +
             'BigInt("NaN") throws before the payment is ever signed.',
         timeoutOptional ? 'info' : undefined,
-        timeoutOptional ? false : undefined
+        timeoutOptional ? false : undefined,
+        // BRANCH PROVENANCE. This branch is a NOTE because a scheme
+        // specification made the field optional on this network, so the
+        // document it rests on is that exception — not the core table that makes
+        // the field required, not the EVM signer that computes validBefore from
+        // it, and not CDP's preflight. Publishing those three on a finding they
+        // did not decide was the defect: it read as though a required-field rule
+        // had fired and then been forgiven, when a different rule fired instead.
+        timeoutOptional
+          ? [
+              spec('specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — "maxTimeoutSeconds: ... (optional, see note below)" on this network, which is why this is a note rather than a break'),
+              ctx(client('@x402/core@2.23.0 — probed: the exported PaymentRequiredV2Schema DOES reject this envelope with `accepts.0.maxTimeoutSeconds: Required`, while decodePaymentRequiredHeader, which is what the client actually calls, accepts it. See corpus/client-probe.json')),
+            ]
+          : undefined
       );
     } else {
       report.check(
@@ -3224,6 +3404,10 @@ function runLint(response) {
       severity: 'info',
       code: 'FINDINGS_TRUNCATED',
       core: false,
+      // Pushed directly rather than through report.emit(), because the cap this
+      // announces is enforced there — so its provenance is attached by hand, and
+      // every finding in the report carries one without exception.
+      sources: CHECKS_BY_ID.get('FINDINGS_TRUNCATED').sources,
       message: `this report is not complete: ${clipped.join('; ')}.`,
       fix:
         'Fix what is listed and lint again. A report that hits these bounds almost always means ' +

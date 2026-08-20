@@ -281,8 +281,16 @@ describe('the copy cannot drift from the sheet', () => {
     // Six numbers, all computed: two multiples, two per-check advantages, two
     // crossover counts. A re-price or a new check rewrites the sentence instead
     // of falsifying it.
-    assert.equal(perCheckAdvantage(CHECKS.length, 'live'), CHECKS.length / BATCH_MULTIPLES.live);
-    assert.equal(perCheckAdvantage(CHECKS.length, 'pasted'), CHECKS.length / BATCH_MULTIPLES.pasted);
+    // ROUNDED TO ONE DECIMAL, because it is a number inside a sentence and
+    // "6.32x" is not how anybody says it. This assertion used to compare
+    // against the RAW quotient, which passed only because 75 checks happened to
+    // divide evenly by both rails — a coincidence that stopped holding the
+    // moment the catalogue grew, and which until then would have hidden any
+    // real rounding drift between the sheet and the copy. The rounding is
+    // stated here now instead of being assumed away.
+    const toOneDecimal = (n) => Math.round(n * 10) / 10;
+    assert.equal(perCheckAdvantage(CHECKS.length, 'live'), toOneDecimal(CHECKS.length / BATCH_MULTIPLES.live));
+    assert.equal(perCheckAdvantage(CHECKS.length, 'pasted'), toOneDecimal(CHECKS.length / BATCH_MULTIPLES.pasted));
 
     const line = batchAdvantageLine(CHECKS.length);
     assert.match(line, new RegExp(`A full ${CHECKS.length}-check report`));

@@ -94,7 +94,7 @@ form of either when there is exactly one check you want the answer to.
 
 | route | price | what it does |
 |---|---|---|
-| `POST /lint` | **$0.25** | Sends one unauthenticated request to a URL you name and lints the response against all 75 checks. |
+| `POST /lint` | **$0.25** | Sends one unauthenticated request to a URL you name and lints the response against all 79 checks. |
 | `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
 | `POST /lint/envelope` | **$0.10** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
@@ -292,7 +292,7 @@ node corpus/report-disagreements.mjs  # → DISAGREEMENTS.md
 node corpus/validate-results.mjs corpus/results-10x402.json   # third-adapter conformance test
 ```
 
-## The x402 conformance checklist: 75 published checks
+## The x402 conformance checklist: 79 published checks
 
 The catalogue is published in full at `GET /check` and on the page before anyone
 spends anything. Seventy-three checks inspect HTTP and x402 conformance; two
@@ -394,7 +394,7 @@ probably want. **info** — a nit, never affects the grade.
 ```
 worker/
   worker.js            routing, the 402 flow, quotas, D1, telemetry
-  lint.js              THE PRODUCT — 75 checks, pure, no Worker globals
+  lint.js              THE PRODUCT — 79 checks, pure, no Worker globals
   json-schema.js       a JSON Schema subset, for bazaar info-vs-schema
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes

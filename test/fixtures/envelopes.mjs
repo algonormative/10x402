@@ -324,7 +324,10 @@ export const FIXTURES = [
     },
     // The chain still matches on both sides (base === eip155:8453), so DUAL_NETWORK
     // stays quiet — the fault is the spelling, and only the v2 check should say so.
-    expect: { grade: 'F', codes: ['V2_NETWORK_CAIP2'] },
+    // V2_NETWORK_SUPPORTED joins it because "base" is not a string CDP's
+    // preflight can match either, so the listing is refused as well as the
+    // payment. Two regimes, one spelling mistake.
+    expect: { grade: 'F', codes: ['V2_NETWORK_CAIP2', 'V2_NETWORK_SUPPORTED'] },
   },
   {
     name: 'v2 envelope with a flat-string resource',
@@ -349,7 +352,10 @@ export const FIXTURES = [
     // meant one price and typed it in the wrong field, so the dual-stack check
     // reads through to the same number. The fault is the field name, and two
     // checks already say so — a third would be noise dressed as thoroughness.
-    expect: { grade: 'F', codes: ['V2_AMOUNT', 'V2_ACCEPTS_V1_FIELDS'] },
+    // V2_INDEX_AMOUNT is the bazaar half: CDP's required amount preflight
+    // compares a value, and a v2 entry still carrying the v1 field name
+    // presents it with nothing to read.
+    expect: { grade: 'F', codes: ['V2_AMOUNT', 'V2_ACCEPTS_V1_FIELDS', 'V2_INDEX_AMOUNT'] },
   },
   {
     name: 'v1 envelope carrying amount instead of maxAmountRequired',
@@ -570,7 +576,7 @@ export const FIXTURES = [
       v2.accepts[0].amount = '0.01';
       return response({ v1, v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'F', codes: ['V2_AMOUNT_ATOMIC', 'V1_AMOUNT_ATOMIC'] },
+    expect: { grade: 'F', codes: ['V2_AMOUNT_ATOMIC', 'V1_AMOUNT_ATOMIC', 'V2_INDEX_AMOUNT'] },
   },
   {
     name: 'payTo that is not an address',
@@ -582,7 +588,7 @@ export const FIXTURES = [
       v2.accepts[0].payTo = 'treasury.example.eth';
       return response({ v1, v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'F', codes: ['V2_PAYTO', 'V1_PAYTO'] },
+    expect: { grade: 'F', codes: ['V2_PAYTO', 'V1_PAYTO', 'V2_INDEX_PAYTO'] },
   },
   {
     name: 'v1 outputSchema with discoverable at the wrong level',
@@ -657,7 +663,7 @@ export const FIXTURES = [
       v2.accepts[0].payTo = [PAYTO];
       return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'F', codes: ['V2_PAYTO', 'DUAL_PAYTO'] },
+    expect: { grade: 'F', codes: ['V2_PAYTO', 'DUAL_PAYTO', 'V2_INDEX_PAYTO'] },
   },
   {
     name: 'a v2 header padded with whitespace',
