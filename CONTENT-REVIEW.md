@@ -1,5 +1,13 @@
 # 10x402 content and UI review
 
+> **A RECORD, NOT A LIVE SURFACE.** This is what one content review found and
+> changed, dated at the commit that added it. Its "64 checks" is the count on
+> that day; the catalogue has since been audited and grown, and every number a
+> reader can act on is derived from `CHECKS.length` in `worker/lint.js`. Left
+> unedited on purpose: a review rewritten to match the present is a review that
+> can no longer be checked against what it reviewed.
+
+
 ## What was weak
 
 - The page and README led with the category and the check count. The useful

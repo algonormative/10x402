@@ -71,7 +71,7 @@ import {
   SUPPORT_EMAIL,
   priceLabel,
 } from './catalog.js';
-import { CHECKS, GRADE_RULES, lint } from './lint.js';
+import { CHECKS, GRADE_RULES, SOURCE_KINDS, lint } from './lint.js';
 import {
   build402,
   paymentRequired,
@@ -240,17 +240,33 @@ function handleCheck(request, env) {
     // to tell "no free tier" from "this build forgot to say" will guess wrong.
     free_tier_daily: tier,
     grades: GRADE_RULES,
+    // WHAT EACH REGIME MEANS, published beside the checks rather than left for
+    // a reader to infer from the field. Two verdicts on one report is a shape
+    // nobody expects until it is explained.
+    regimes: {
+      payment: 'the specs\' MUSTs and what shipping clients parse, throw on, or refuse to sign. These findings, and only these, set the grade.',
+      bazaar: 'CDP\'s validator, prober and seller docs — what it takes to be INDEXED. These set summary.bazaar_ready and never the grade.',
+      hygiene: 'house opinions and client-quirk defenses that break no payment and block no indexing. Info only, always.',
+    },
+    source_kinds: SOURCE_KINDS,
     checks_total: CHECKS.length,
     checks: CHECKS.map((c) => ({
       id: c.id,
       area: c.area,
+      regime: c.regime,
       severity: c.severity,
       core: c.core === true,
       summary: c.summary,
+      // THE PROVENANCE SHIPS WITH THE RULE. When a source of truth moves — a
+      // client's schema, a CDP requirement, a spec section — the affected
+      // checks are greppable by ref rather than re-derivable by argument.
+      sources: c.sources,
     })),
     notes: [
       'A 402 from a paid endpoint here is a price quote, not an error.',
       'checks_run in a report is how many checks APPLIED — a v1-only endpoint legitimately skips every v2 check.',
+      'A report carries TWO verdicts. `grade` answers "can I be paid" from payment-regime findings only; `summary.bazaar_ready` answers "can I be found" from bazaar-regime errors, and names its blockers. An endpoint can be grade A and bazaar_ready false — that is the commonest interesting report this service produces.',
+      'Every check publishes its `sources`. A rule with no citation is a rule this service will not sell you.',
       'POST /lint sends exactly one unauthenticated request to the URL you name, follows no redirects, and reads at most 256 KB.',
       'POST /lint/envelope fetches nothing, so it works on staging, on localhost and on an endpoint that is not deployed yet.',
     ],
@@ -642,7 +658,9 @@ function runEnvelopeLint(body) {
       fix:
         'POST {"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"} — ' +
         'the three parts of the response you want checked. `headers` and `body` may be omitted ' +
-        'if the response genuinely had none, and that absence is itself a finding.',
+        'if the response genuinely had none, and that absence is itself a finding. Add ' +
+        '{"url": "…", "method": "GET"} to have resource.url and the declared bazaar method ' +
+        'cross-checked against the request that produced this response.',
     };
   }
   const status = Number(body.status);
@@ -690,6 +708,13 @@ function runEnvelopeLint(body) {
     headers: flat,
     body: typeof text === 'string' ? text : '',
     url: typeof body.url === 'string' ? body.url : null,
+    // OPTIONAL, AND ITS ABSENCE IS NOT A DEFAULT. One check compares the verb
+    // the response was fetched with against the one the envelope declares in
+    // extensions.bazaar.info.input.method — which is a REQUIRED CDP preflight —
+    // and a pasted response was not fetched with anything. Assuming POST would
+    // manufacture a disagreement out of this route's own ignorance, so with no
+    // method given the comparison simply does not run.
+    method: typeof body.method === 'string' ? body.method : null,
   });
 
   return {
