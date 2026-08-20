@@ -201,3 +201,91 @@ export const DIMENSIONS = Object.freeze(['payment', 'client_interop', 'discovery
 export const VERDICTS = Object.freeze(['pass', 'fail', 'n/a']);
 /** Only a RESULTS file may carry this; an expectation may not. */
 export const NOT_EVALUATED = 'not-evaluated';
+
+/**
+ * HOW STRONG A CLIENT-INTEROPERABILITY CLAIM IS. See FORMAT.md § client_interop.
+ *
+ * `parse` is what a schema citation can support: the cited client's decoder
+ * accepts or rejects the declaration. `execute` is the stronger claim — the
+ * cited client also SELECTS the offer, signs it, and issues the payment — and it
+ * needs a citation into the code that does the signing or the execution, not
+ * into the schema that reads the bytes.
+ *
+ * The corpus does not pretend to the stronger claim where it holds only the
+ * weaker evidence. A fixture states its level, and the schema requires an
+ * `execute`-level claim to cite client code from a signer or a payment path.
+ */
+export const CLIENT_INTEROP_LEVELS = Object.freeze(['parse', 'execute']);
+
+/**
+ * WHAT MAKES A DIMENSION JUDGEABLE FROM A RECORDED RESPONSE.
+ *
+ * A recorded corpus cannot demonstrate payability it never recorded. `payment`
+ * and `client_interop` both ask about a DECLARED payment; where the recording
+ * contains no challenge at all — a 200 to an anonymous caller, a redirect whose
+ * target response was not captured — there is no declaration to interpret, and
+ * neither `pass` nor `fail` is an honest answer. Those dimensions are `n/a`, and
+ * they are excluded from the agreement statistics rather than counted as
+ * agreements: two tools forced to the same non-answer have not agreed about
+ * anything.
+ *
+ * The rule is MECHANICAL so that a third adapter reaches the same set:
+ *
+ *   a challenge is recorded  ⟺  status is 402
+ *                             ∨  a non-empty PAYMENT-REQUIRED header is present
+ *                             ∨  the body parses as an x402 envelope
+ *
+ * A 402 with nothing in it is therefore still judgeable, and still a failure —
+ * a challenge that declares nothing is a broken challenge, not an absent one.
+ * `discovery` is always judgeable: under the static-declaration reading it asks
+ * whether a declaration is present and eligible, and "absent" is an answer.
+ */
+export function challengeRecorded(response) {
+  if (response.status === 402) return true;
+  const header = response.headers?.['payment-required'];
+  if (typeof header === 'string' && header.trim() !== '') return true;
+  try {
+    const body = JSON.parse(response.body ?? '');
+    return Boolean(body && typeof body === 'object' && ('x402Version' in body || Array.isArray(body.accepts)));
+  } catch {
+    return false;
+  }
+}
+
+/** The `judgeable` map a fixture must carry, computed from the response alone. */
+export function judgeableFrom(response) {
+  const challenge = challengeRecorded(response);
+  return { payment: challenge, client_interop: challenge, discovery: true };
+}
+
+/**
+ * WHICH DIMENSIONS A FINDING MAY FAIL, given the provenance of THAT finding.
+ *
+ * The one rule both adapters apply, and the repair for the defect the
+ * pre-publication review named: a citation that a check happens to carry is not
+ * the same thing as the authority the finding rests on.
+ *
+ *   operative `spec` citation        → may fail `payment`
+ *   operative `client-code` citation → may fail `client_interop`
+ *   discovery/registry regime        → may fail `discovery`
+ *   anything else — house opinion, a field report, a provider observation
+ *                                    → fails NOTHING; recorded as an observation
+ *
+ * The last line is the whole of "provider observations should not silently
+ * become protocol requirements", and it is what the previous version got wrong:
+ * a finding citing no authority was routed to `payment`, "the strict side",
+ * which is exactly the mechanism by which a house rule became a normative
+ * payment verdict.
+ */
+export function dimensionsForProvenance(provenance, { registry = false } = {}) {
+  if (registry) return { fails: ['discovery'], speaks: ['discovery'] };
+  const kinds = new Set(provenance.map((s) => s.kind));
+  const fails = [];
+  if (kinds.has('spec')) fails.push('payment');
+  if (kinds.has('client-code')) fails.push('client_interop');
+  // A finding with no normative authority still SPEAKS to the dimension whose
+  // subject it is about — it is recorded there, as an observation, and decides
+  // nothing.
+  const speaks = fails.length ? fails : ['payment', 'client_interop'];
+  return { fails, speaks };
+}

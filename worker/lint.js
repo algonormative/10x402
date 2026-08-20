@@ -335,6 +335,28 @@ export const REGIMES = ['payment', 'bazaar', 'hygiene'];
 /** The kinds of provenance a check may cite. `house-opinion` is legitimate; unlabelled is not. */
 export const SOURCE_KINDS = ['spec', 'client-code', 'cdp-docs', 'cdp-validator', 'live', 'field-report', 'house-opinion'];
 
+/**
+ * OPERATIVE vs CONTEXTUAL provenance.
+ *
+ * A citation on a check does one of two jobs. Most are OPERATIVE: the document
+ * is the authority the failure rests on, and if it said something else the check
+ * would not exist. A few are CONTEXTUAL — they locate the reader in the right
+ * section without establishing the rule. The clearest case is `V2_B64_URLSAFE`,
+ * whose transport-spec citation says the header carries "Base64-encoded" JSON
+ * and is SILENT on the alphabet; the alphabet is decided by `@x402/core`, and
+ * the 2026-08-19 audit says exactly that
+ * (`audit/2026-08-19/fable-spec-truth.jsonl:8` — "the spec is alphabet-ambiguous,
+ * so client behavior is the operative truth").
+ *
+ * The distinction is DATA rather than a comment because something reads it. The
+ * portable corpus adapter decides which conformance dimension a finding speaks
+ * to from that finding's provenance, and a contextual spec citation counted as
+ * authority is precisely how a client-specific fault becomes a normative payment
+ * verdict. `ctx()` marks a citation contextual; `operativeSources()` reads them
+ * back.
+ */
+const ctx = (source) => ({ ...source, context: true });
+
 /** Provenance constructors. The kinds are fixed; see the note at the top of the file. */
 const spec = (ref) => ({ kind: 'spec', ref });
 const client = (ref) => ({ kind: 'client-code', ref });
@@ -436,7 +458,11 @@ export const CHECKS = [
     sources: [
       client('@x402/core@2.23.0 dist/cjs/utils/index.js:133 — Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/'),
       client('@x402/core@2.23.0 dist/cjs/http/index.js:1778-1781 — the regex is tested on the RAW header, then it throws, before any decode'),
-      spec(V2_TRANSPORT),
+      // CONTEXTUAL, NOT AUTHORITY. The transport spec says "Base64-encoded" and
+      // is silent on the alphabet, so it cannot be what makes base64url a fault;
+      // the client is. Marked so the corpus adapter does not read this citation
+      // as spec authority and file the finding under `payment`.
+      ctx(spec(`${V2_TRANSPORT} — "Base64-encoded", SILENT on the alphabet`)),
     ] },
   { id: 'V2_B64_DECODE', area: 'v2', severity: 'error', core: true, regime: 'payment',
     summary: 'the header decodes as base64',
@@ -892,7 +918,11 @@ export const CHECKS = [
     summary: 'matched offers pay the same address',
     sources: [
       house('worker/lint.js — two views of one offer; divergence means half the revenue lands elsewhere'),
-      client('@x402/evm@2.23.0 dist/cjs/index.js:568 — getAddress is case-insensitive, so the comparison is too'),
+      // CONTEXTUAL. This citation says how the two addresses are COMPARED, not
+      // that a client breaks when they differ — each envelope is individually
+      // parseable and individually payable. Marking it keeps the corpus adapter
+      // from reading a house position as a client-interoperability failure.
+      ctx(client('@x402/evm@2.23.0 dist/cjs/index.js:568 — getAddress is case-insensitive, so the comparison is too')),
     ] },
   { id: 'DUAL_PRICE', area: 'dual', severity: 'error', core: true, regime: 'payment',
     summary: 'matched offers quote the same price',
@@ -901,7 +931,9 @@ export const CHECKS = [
     summary: 'the two envelopes offer overlapping chains',
     sources: [
       house('worker/lint.js — a payment signed on one chain is worthless on the other'),
-      client(`${V1_CLIENT_SCHEMAS}:52-70 — the client’s own EvmNetworkToChainId map, which is the two spellings of one chain`),
+      // CONTEXTUAL, for the same reason as DUAL_PAYTO's: the map is how the two
+      // spellings are PAIRED, not an authority that a client fails on divergence.
+      ctx(client(`${V1_CLIENT_SCHEMAS}:52-70 — the client’s own EvmNetworkToChainId map, which is the two spellings of one chain`)),
     ] },
   { id: 'DUAL_ASSET', area: 'dual', severity: 'error', core: true, regime: 'payment',
     summary: 'matched offers name the same asset',
@@ -949,6 +981,19 @@ export const CHECKS = [
 
 export const CHECKS_BY_ID = new Map(CHECKS.map((c) => [c.id, c]));
 
+/**
+ * The OPERATIVE citations on a check — the authorities its failure rests on,
+ * with the contextual ones (see `ctx()` above) removed.
+ *
+ * This is what a consumer should read when it needs to know what a finding
+ * ANSWERS TO, as opposed to what a reader should go and look at. The corpus
+ * adapter attaches the result to each finding it reduces, so the published
+ * results file records, per finding, the provenance that decided its dimensions.
+ */
+export function operativeSources(checkId) {
+  return (CHECKS_BY_ID.get(checkId)?.sources ?? []).filter((s) => s.context !== true);
+}
+
 // EVERY CHECK CARRIES A REGIME AND AT LEAST ONE SOURCE, asserted at module load
 // rather than in a test. A check with no provenance is the exact thing this
 // catalogue was audited to remove, and a test can be skipped; an import cannot.
@@ -968,6 +1013,15 @@ for (const check of CHECKS) {
     if (typeof source.ref !== 'string' || !source.ref.trim()) {
       throw new Error(`check ${check.id} has a source with no ref`);
     }
+    if (source.context !== undefined && source.context !== true) {
+      throw new Error(`check ${check.id} has a source with context ${JSON.stringify(source.context)} — the marker is \`true\` or absent`);
+    }
+  }
+  // A check whose every citation is CONTEXTUAL would answer to nothing at all,
+  // which is the same defect as citing nothing. Asserted at module load for the
+  // same reason the sources themselves are: a test can be skipped, an import cannot.
+  if (!check.sources.some((s) => s.context !== true)) {
+    throw new Error(`check ${check.id} has only contextual sources — it answers to no authority`);
   }
   // A hygiene finding that could reach `warn` would be a grade-affecting house
   // opinion wearing the label of a nit. The regime and the severity have to agree.
