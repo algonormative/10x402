@@ -1,0 +1,2403 @@
+{
+  "tool": {
+    "name": "x402-doctor (prototype)",
+    "repo": "https://github.com/Maha-Strategies/maha-corp-web",
+    "commit": "37233104653b3ff6ea211169b0201026b12758ed",
+    "license": "NONE — the repository publishes no licence file and package.json declares none",
+    "vendored": false,
+    "entry": "lib/x402/doctor.ts → diagnoseX402Endpoint()",
+    "dependency": "@x402/extensions@2.23.0"
+  },
+  "corpus_version": 1,
+  "ran": "2026-08-20",
+  "adapter": "corpus/run-x402-doctor.mjs",
+  "harness": {
+    "transport": "the recorded response is re-served from 127.0.0.1 and the fixture’s own origin is mapped onto it",
+    "payments": "no paidProbe is passed; a settlement is structurally impossible",
+    "network": "the git clone and one npm install; every other host is refused at the fetch boundary"
+  },
+  "not_evaluated_rules": [
+    "x402.bazaar.lookup",
+    "x402.bazaar.not_found",
+    "x402.bazaar.stale_metadata",
+    "x402.bazaar.partial_comparison",
+    "x402.declaration_integrity.catalog_malformed",
+    "x402.declaration_integrity.catalog_resource",
+    "x402.payment.skipped",
+    "x402.payment.status",
+    "x402.payment.receipt",
+    "x402.payment.settled"
+  ],
+  "results": [
+    {
+      "id": "calibration-spec-canonical-402",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent",
+            "bazaar-input-shape",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 2,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://api.example.com/premium-data",
+          "declarationDigest": "sha256:c2df48a70e5924c9dafdc36439e188d14bf26075be589d825b1944d1130cddaf",
+          "integrityDigest": "sha256:3c0086dc780082604f5a0ca9c40eaa4d28ff6039e8f30d6e467a8af9af4f02fd"
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.missing",
+            "level": "warning",
+            "message": "The challenge has no Bazaar discovery extension.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.crawler_input",
+            "level": "error",
+            "message": "The Bazaar extension does not contain a reproducible HTTP input example.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "calibration-live-positive-control",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://toolshed.lemon-agent.dev/convert/md-html",
+          "declarationDigest": "sha256:54d6cb8fd5ca6a099db4f55a19b5f5535281937b34e3ae8164cfead58612ccda",
+          "integrityDigest": "sha256:e35cca01a27b06c9635e6f215c0b06994408632388dac616f900a416462d8b29",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "calibration-bazaar-spec-example",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://api.example.com/weather",
+          "declarationDigest": "sha256:811150d1f183ebf4e0455e5c3b25e63ce90eb1f95941864e929bf0033715f27b",
+          "integrityDigest": "sha256:99deda660cf05f7f6bc46431465b5e0e8dc3fd3adbbc8976813e982093d44480",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "calibration-cloudflare-batch-settlement",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "scheme-unknown",
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape"
+          ],
+          "observed_tags": [
+            "discovery-metadata",
+            "bazaar-extension-absent",
+            "bazaar-input-shape",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 2,
+          "warnings": 4,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/article",
+          "declarationDigest": "sha256:eb3d2cb61931fdc07d98fa6762657c98cfb796ae1e24e5716424a2f034ef3037",
+          "integrityDigest": "sha256:d64d1d3516be228e18ce73dac344d0240b29e5bfa287c3c24c1175a0f7a1faa7"
+        },
+        "findings": [
+          {
+            "rule": "x402.resource.description",
+            "level": "warning",
+            "message": "The resource has no semantic description for discovery.",
+            "detail": null
+          },
+          {
+            "rule": "x402.requirement.scheme",
+            "level": "warning",
+            "message": "accepts[0] uses unsupported or non-standard scheme batch-settlement.",
+            "detail": null
+          },
+          {
+            "rule": "x402.requirement.timeout",
+            "level": "error",
+            "message": "accepts[0].maxTimeoutSeconds must be a positive integer.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.missing",
+            "level": "warning",
+            "message": "The challenge has no Bazaar discovery extension.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.crawler_input",
+            "level": "error",
+            "message": "The Bazaar extension does not contain a reproducible HTTP input example.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "calibration-solana-spec-envelope",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent",
+            "bazaar-input-shape",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 2,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://api.example.com/premium-data",
+          "declarationDigest": "sha256:518c6a761172b7df4e8f9a2467fdd245a3b22a8d90ccc2f6e3cd6a2db20e810a",
+          "integrityDigest": "sha256:ca04160460a2474512f0030f00cf9a337ff41ea13f5904a5e2425c1f5aa7cb0d"
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.missing",
+            "level": "warning",
+            "message": "The challenge has no Bazaar discovery extension.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.crawler_input",
+            "level": "error",
+            "message": "The Bazaar extension does not contain a reproducible HTTP input example.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "perfect-dual-stack",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:0909307bbde58b0921c7230db16770412036a46ec3621a3c64c17babd754dc1a",
+          "integrityDigest": "sha256:254cc09528bfc0555bec9146a2cef0b5fdaf36459eee8d5485f271c720d6a323",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "perfect-v2-only",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:0909307bbde58b0921c7230db16770412036a46ec3621a3c64c17babd754dc1a",
+          "integrityDigest": "sha256:254cc09528bfc0555bec9146a2cef0b5fdaf36459eee8d5485f271c720d6a323",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "perfect-v1-only",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ],
+          "observed_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ],
+          "observed_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 2,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.headers.v2",
+            "level": "error",
+            "message": "challenge response is missing the x402 v2 PAYMENT-REQUIRED header.",
+            "detail": null
+          },
+          {
+            "rule": "x402.header.payment_required",
+            "level": "error",
+            "message": "PAYMENT-REQUIRED is missing or malformed.",
+            "detail": "The server asked for payment but sent no PAYMENT-REQUIRED header."
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "dual-offers-reordered",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:a128272c113bddeb87a5da5eaf53e05a14065aa4247707e865c2d7d77af89cfe",
+          "integrityDigest": "sha256:e37e3e00303e50141371e98359a4ce200a9d9ef76e21fbb37c94467eff4de432",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-header-b64-urlsafe",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ],
+          "observed_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.header.payment_required",
+            "level": "error",
+            "message": "PAYMENT-REQUIRED is missing or malformed.",
+            "detail": "The payment challenge could not be decoded."
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "v2-header-b64-whitespace",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:0909307bbde58b0921c7230db16770412036a46ec3621a3c64c17babd754dc1a",
+          "integrityDigest": "sha256:254cc09528bfc0555bec9146a2cef0b5fdaf36459eee8d5485f271c720d6a323",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "no-envelope-html-body",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ],
+          "observed_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ],
+          "observed_tags": [
+            "envelope-absent",
+            "b64-undecodable"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 2,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.headers.v2",
+            "level": "error",
+            "message": "challenge response is missing the x402 v2 PAYMENT-REQUIRED header.",
+            "detail": null
+          },
+          {
+            "rule": "x402.header.payment_required",
+            "level": "error",
+            "message": "PAYMENT-REQUIRED is missing or malformed.",
+            "detail": "The server asked for payment but sent no PAYMENT-REQUIRED header."
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "v2-network-bare-name",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ],
+          "observed_tags": [
+            "network-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:d0b06e32d32ef86f99cb166d719b0a7fd786f57a36c7cee2fea12b143affca5e",
+          "integrityDigest": "sha256:aa738e3e2bb4b574b5b48c9f8ec8aba1b32bdca0d3258145d50feb67e6ffb617",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.requirement.network",
+            "level": "error",
+            "message": "accepts[0].network is not a CAIP-2 identifier.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v1-network-caip2",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:0909307bbde58b0921c7230db16770412036a46ec3621a3c64c17babd754dc1a",
+          "integrityDigest": "sha256:254cc09528bfc0555bec9146a2cef0b5fdaf36459eee8d5485f271c720d6a323",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-amount-uses-v1-field-name",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "amount-form"
+          ],
+          "observed_tags": [
+            "amount-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "amount-form"
+          ],
+          "observed_tags": [
+            "amount-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:97086552c8428d6ac09a10ab5056e20af3c60fef7c0e69a0870e0836eab8c3d5",
+          "integrityDigest": "sha256:13bf73ea70e322cd2b11b0870b57fc2e4aefa9139c150da9be493a1076b2b6da",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.requirement.amount",
+            "level": "error",
+            "message": "accepts[0].amount must be a positive integer string.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-resource-flat-string",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "wrong-version-field"
+          ],
+          "observed_tags": [
+            "wrong-version-field"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "wrong-version-field"
+          ],
+          "observed_tags": [
+            "wrong-version-field"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.header.payment_required",
+            "level": "error",
+            "message": "PAYMENT-REQUIRED is missing or malformed.",
+            "detail": "The payment challenge listed no terms that could be paid."
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "v2-envelope-echoed-into-body",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:0909307bbde58b0921c7230db16770412036a46ec3621a3c64c17babd754dc1a",
+          "integrityDigest": "sha256:254cc09528bfc0555bec9146a2cef0b5fdaf36459eee8d5485f271c720d6a323",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-timeout-string",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:356a89e346d2c633fd09cea3e16ad2f5c2541daaf315b9d94a8c0c770b36ca3e",
+          "integrityDigest": "sha256:d0c019073d569c881106f829fd30a7ea1a079e6510a6eb99a43234456f9289cd",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.requirement.timeout",
+            "level": "error",
+            "message": "accepts[0].maxTimeoutSeconds must be a positive integer.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-timeout-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:7dec1e5d042e9eef35aa6284a6348599dcab2d94359518c6c9a8436a6603bf18",
+          "integrityDigest": "sha256:d7a787a58223ab34df7b0ce7910966f2b61c6d5591f4640701d03914d3f4d740",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.requirement.timeout",
+            "level": "error",
+            "message": "accepts[0].maxTimeoutSeconds must be a positive integer.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-asset-ticker-not-address",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ],
+          "observed_tags": [
+            "asset-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ],
+          "observed_tags": [
+            "asset-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:cdcc4feff07b610dbd41e81c83fed8f4a3da4d9d0cecbfc695dcf2650af6281e",
+          "integrityDigest": "sha256:5ab191a3f3ec9306f05ceeef24713d2b375df975ba609b5be80873fa6f5f41ec",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.requirement.asset",
+            "level": "error",
+            "message": "accepts[0].asset is not an EVM contract address.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "extra-eip712-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:4d163e7be8ba60446c1e2e9bc0fdf4881469d57d122d2ae361456b5d573189f7",
+          "integrityDigest": "sha256:25933b34682618da55b488d57c87668ce2ed40a78e5496626414ef2ebb8dd001",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "v2-payto-array",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:b856dc7a20c8e56d57beada72573f31c1a676753462417c940dfa54aee578fc1",
+          "integrityDigest": "sha256:bbf078cd3a75b95fad03cbd80269290825969cf19171796a7faed34f71a9e7d9",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "dual-payto-divergence",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:028a3a3b38c3bf5050564e8e82adf17dd31caa2266d17520b23cd36c4877f141",
+          "integrityDigest": "sha256:1bcbec6ff557bc0c281d031f0d28ec4afd831a68daed3614e27b45fd2550cc15",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "dual-network-unmapped-chain",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:2ced5780a421eef848aabf0fe9bf475ef8099a4eed1bb7ff8232f21ef563f253",
+          "integrityDigest": "sha256:41acfa589a0c89b47b7b16add8875fde1b02007488b268f06d54620f032483e8",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "free-tier-200",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "status-not-402"
+          ],
+          "observed_tags": [
+            "status-not-402"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "status-not-402"
+          ],
+          "observed_tags": [
+            "status-not-402"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 200
+        },
+        "findings": [
+          {
+            "rule": "x402.http.challenge_status",
+            "level": "error",
+            "message": "The unpaid request returned HTTP 200; Bazaar requires HTTP 402.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "redirect-instead-of-402",
+      "dimensions": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "status-not-402"
+          ],
+          "observed_tags": [
+            "status-not-402"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "status-not-402"
+          ],
+          "observed_tags": [
+            "status-not-402"
+          ]
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 0,
+          "notes": 0
+        },
+        "live": {
+          "status": 307
+        },
+        "findings": [
+          {
+            "rule": "x402.http.challenge_status",
+            "level": "error",
+            "message": "The unpaid request returned HTTP 307; Bazaar requires HTTP 402.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [],
+        "unmapped": [],
+        "blocked_hosts": [],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "bazaar-extension-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape"
+          ],
+          "observed_tags": [
+            "bazaar-extension-absent",
+            "bazaar-input-shape",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 2,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:24df869264e2b342315bd0b07ceb74048d10a67f4697e7d8f162da52bfec168e",
+          "integrityDigest": "sha256:74f734ab99fb7fa37e1a9e3892edc744a909cc0c651d5b74b9232daca69048b4"
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.missing",
+            "level": "warning",
+            "message": "The challenge has no Bazaar discovery extension.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.crawler_input",
+            "level": "error",
+            "message": "The Bazaar extension does not contain a reproducible HTTP input example.",
+            "detail": null
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "not run",
+        "local_requests": 1
+      }
+    },
+    {
+      "id": "bazaar-info-schema-mismatch",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-info-schema-mismatch",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:2f721038384d729619fca0241318b5c7364a858915cffe24a4306bf90da7ec2b",
+          "integrityDigest": "sha256:7be4d21b8cc829366ad2ef93cbb37da07e546ad26fd103c1844c97826286cc55",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.examples",
+            "level": "error",
+            "message": "A Bazaar example does not satisfy its declared JSON Schema.",
+            "detail": "/input/bodyType: must be equal to constant"
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "bazaar-schema-external-ref",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-info-schema-mismatch",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 1,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:55f7a444de448c5aa6c7b011c7388d48487aca58832005f36157557f2e683743",
+          "integrityDigest": "sha256:cc9b29f7ed0dce17fc4bfebeb6bc00a5f4164a48e6adb230bc5a790c8bb7d3e2",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.examples",
+            "level": "error",
+            "message": "A Bazaar example does not satisfy its declared JSON Schema.",
+            "detail": "schema must not contain external $ref/$id references"
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "bazaar-input-no-type",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-info-schema-mismatch"
+          ],
+          "observed_tags": [
+            "bazaar-info-schema-mismatch",
+            "extension-responses"
+          ]
+        }
+      },
+      "tool_detail": {
+        "ok": false,
+        "summary": {
+          "errors": 2,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:8589f159023d5292052898afa44eba617e591a84bca9f820d8a0a4d242e940fa",
+          "integrityDigest": "sha256:bb97a88d1b10667aa5898dfa729f788e401ef2ff8ab0da746d215676855efbd1",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.schema",
+            "level": "error",
+            "message": "The Bazaar extension does not satisfy the extension schema.",
+            "detail": "info.input.type must be \"http\" or \"mcp\", got \"undefined\""
+          },
+          {
+            "rule": "x402.bazaar.examples",
+            "level": "error",
+            "message": "A Bazaar example does not satisfy its declared JSON Schema.",
+            "detail": "/input: must have required property 'type'"
+          },
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "bazaar-input-method-mismatch",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:4ac5b1fcb947c0b1a1ed10d3fa296f5a3a9c81d2b99a50ca7fb1a2a4c76b95bc",
+          "integrityDigest": "sha256:bf294c1242200523c072fc82c04a41c5e10c61659c61157ac3905af18b7b9ef6",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "bazaar-output-example-absent",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:06ecb929dc9021456983a4f46e329aa0a91cd3b849642598525feb47fb69d08d",
+          "integrityDigest": "sha256:d84f50c95fccb41dff0d5e14aba7691e68c8897da3a7e0b2e8c22398379b0d7e",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "amount-below-cdp-floor",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:c145e59a60b1648929a92b12d708e332d460fe312bd3b9d77f40d523a8ca0709",
+          "integrityDigest": "sha256:49247e8a31211203ae188f5d169c3409905f3c8179430da84351a21706c0fdbf",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    },
+    {
+      "id": "solana-dual-stack",
+      "dimensions": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": [],
+          "observed_tags": []
+        },
+        "discovery": {
+          "verdict": "not-evaluated",
+          "reason_tags": [],
+          "observed_tags": [
+            "extension-responses"
+          ],
+          "not_evaluated_reason": "the extension checks passed, but the live-versus-indexed comparison — the rule this tool exists for — needs a registry the offline corpus cannot provide"
+        }
+      },
+      "tool_detail": {
+        "ok": true,
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "notes": 1
+        },
+        "live": {
+          "status": 402,
+          "x402Version": 2,
+          "resource": "https://example.com/api/thing",
+          "declarationDigest": "sha256:99a381f8bcb24bffc4c9f58345bd2472a39b48a496f1117fa73ec6cd13fbb6e9",
+          "integrityDigest": "sha256:faa13796b2458b4719cd43a2eb01bdebfca9a15953f4ddbb83ecfa66a066bd3a",
+          "crawlerStatus": 402
+        },
+        "findings": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved.",
+            "detail": "corpus adapter: refused a request to https://api.cdp.coinbase.com — the corpus runs offline"
+          },
+          {
+            "rule": "x402.extensions.responses",
+            "level": "note",
+            "message": "No EXTENSION-RESPONSES header was observable on the resource responses. Facilitator responses may not be forwarded by the seller.",
+            "detail": null
+          }
+        ],
+        "not_evaluated": [
+          {
+            "rule": "x402.bazaar.lookup",
+            "level": "warning",
+            "message": "Bazaar metadata could not be retrieved."
+          }
+        ],
+        "unmapped": [],
+        "blocked_hosts": [
+          "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+        ],
+        "crawler_replay": "structurally-satisfied — the fixture server answers the replay with the same recorded response",
+        "local_requests": 2
+      }
+    }
+  ]
+}
