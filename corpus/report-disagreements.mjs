@@ -35,6 +35,11 @@ const CLASSES = {
   coverage: 'one tool has no rule for this fault',
   defect: 'one tool contradicts a document it itself cites',
   transport: 'the fault is not observable over a live HTTP probe at all',
+  placement:
+    'both tools see the same fault and their adapters file it under different dimensions. ' +
+    'This is a disagreement about WHERE a finding belongs, not about whether it is real, and ' +
+    'it is reported separately because conflating the two makes an adapter choice look like ' +
+    'two implementations reaching opposite conclusions',
 };
 
 const ANALYSIS = {
@@ -74,21 +79,41 @@ const ANALYSIS = {
       'a v2-only tool does not look at.',
   },
   'v1-network-caip2:client_interop': { sameAs: 'v1-network-caip2:payment' },
-  'v2-header-b64-whitespace:payment': {
+  'v2-header-b64-urlsafe:payment': {
+    class: 'placement',
+    text:
+      'BOTH TOOLS REFUSE THE ENVELOPE AND THEY FILE THE REFUSAL DIFFERENTLY. The header is ' +
+      'base64url, `@x402/core` tests `Base64EncodedRegex` against the raw value and throws before ' +
+      '`atob`, and neither implementation disputes any of that — the two `client_interop` verdicts ' +
+      'agree, with the same reason tag. What differs is the payment dimension. 10x402 passes it, ' +
+      'because the v2 transport specification says the header carries "Base64-encoded" JSON and is ' +
+      'SILENT on the alphabet: there is no normative text that base64url violates, so the fault is ' +
+      'a client-interoperability fault and nothing else. The prototype has one verdict per finding ' +
+      'and no dimension to separate them into, so the adapter that maps it necessarily reports the ' +
+      'refusal in both. It is worth being blunt that an earlier version of THIS corpus made the ' +
+      'same conflation from the other end — it failed the payment dimension here on the strength ' +
+      'of a spec citation that does not say what it was being made to say, and the pre-publication ' +
+      'review caught it.',
+  },
+  'v2-header-b64-whitespace:client_interop': {
     class: 'transport',
     text:
       'THE MOST INSTRUCTIVE ROW IN THE TABLE, and neither tool is wrong. The fixture is a v2 ' +
       'header with a leading and trailing space. HTTP defines optional whitespace around a header ' +
       'value as not part of the value, so it is stripped by the parser before any client sees it — ' +
       'the prototype probes a URL, is handed a clean header, and correctly reports nothing. ' +
-      '10x402 lints a RECORDED response, where the padding survives, and fails it because ' +
-      '`@x402/core`’s `Base64EncodedRegex` runs against the raw header value before `atob`. The ' +
-      'fault is real for anything that hands the header to a client without a transport in ' +
-      'between — a facilitator forwarding a stored declaration, an SDK reading from a cache — and ' +
-      'it is invisible to any live probe. It is the concrete argument for a corpus of recorded ' +
-      'responses alongside a live doctor: the two see different populations of bug.',
+      '10x402 lints a RECORDED response, where the padding survives, and fails CLIENT ' +
+      'INTEROPERABILITY because `@x402/core`’s `Base64EncodedRegex` runs against the raw header ' +
+      'value before `atob`. ' +
+      'Note what the corpus does NOT do here any more: it makes no payment claim at all. This ' +
+      'corpus defines `response.headers` as PARSED FIELD VALUES, so a padded value is one that ' +
+      'reached the client by a path with no HTTP parser in it — a facilitator replaying a stored ' +
+      'declaration, an SDK reading a cache, a pasted capture. The fixture is labelled ' +
+      '`population: "raw-input"` and scoped to exactly that population. An earlier version failed ' +
+      'the payment dimension on it, which put a client-specific raw-input opinion inside a ' +
+      'normative dimension. The two tools see different populations of bug, and that remains the ' +
+      'concrete argument for a corpus of recorded responses alongside a live doctor.',
   },
-  'v2-header-b64-whitespace:client_interop': { sameAs: 'v2-header-b64-whitespace:payment' },
   'extra-eip712-absent:payment': {
     class: 'coverage',
     text:
@@ -115,18 +140,6 @@ const ANALYSIS = {
       'coercion, not either codebase.',
   },
   'v2-payto-array:client_interop': { sameAs: 'v2-payto-array:payment' },
-  'dual-payto-divergence:payment': {
-    class: 'scope',
-    text:
-      'A dual-stack seller whose v1 body and v2 header name different payees. The prototype reads ' +
-      'only the v2 header and correctly finds nothing wrong with it. 10x402 compares the two ' +
-      'envelopes and fails the payment dimension. THE 10x402 FINDING IS NOT A PROTOCOL ' +
-      'REQUIREMENT and the corpus labels it `house-opinion`: neither specification says a ' +
-      'dual-stack seller’s two declarations must agree, and each half here is individually valid ' +
-      'and individually settleable. What is true is that the seller is being paid at two ' +
-      'addresses by two client generations. Whether that belongs in a conformance verdict at all ' +
-      'is a live question, which is exactly why the evidence is labelled rather than asserted.',
-  },
   'dual-network-unmapped-chain:client_interop': {
     class: 'scope',
     text:
@@ -137,34 +150,41 @@ const ANALYSIS = {
       'passes. Nothing in either specification closes that enum — it is a fact about one client ' +
       'at one version, which is the whole reason `client_interop` is a separate dimension.',
   },
-  'free-tier-200:payment': {
+  'free-tier-200:discovery': {
     class: 'judgement',
     text:
-      'THE SHARPEST DISAGREEMENT IN THE CORPUS, and the one closest to the thread’s own concern. ' +
-      'The endpoint answers an unauthenticated caller with 200. The prototype reports an error ' +
-      'whose text is "The unpaid request returned HTTP 200; Bazaar requires HTTP 402" — a ' +
-      'PROVIDER requirement, named as such in the message, deciding a payment-path verdict. ' +
-      '10x402 reports a warning and passes the payment dimension, on the reading that there is no ' +
-      'challenge here to misinterpret: a free tier is a seller’s choice, and the cost of it is a ' +
-      'delisting, which the discovery dimension is for. Both readings have a real cost. Ours lets ' +
-      'a response that earns an x402 buyer nothing pass the payment dimension; theirs promotes ' +
-      '"Bazaar requires" into a protocol verdict. The corpus records ours as the expectation and ' +
-      'flags it as the most arguable expectation it contains.',
+      'THE SHARPEST DISAGREEMENT IN THE CORPUS, and it now sits in the dimension it was always ' +
+      'about. The endpoint answers an unauthenticated caller with 200. The prototype reports an ' +
+      'error whose text is "The unpaid request returned HTTP 200; Bazaar requires HTTP 402" — one ' +
+      'sentence carrying a transport observation and a NAMED-PROVIDER policy, and the corpus now ' +
+      'maps that mixed-scope rule to both, rather than to payment and client interoperability ' +
+      'alone. The prototype therefore says the declaration is ineligible at the provider it names, ' +
+      'and it has a documented requirement to point at. 10x402 answers `n/a`, on the reading that ' +
+      'under the corpus’s static-declaration definition there is no v2 registry declaration in ' +
+      'this response to judge for eligibility at all: the question is not "does this fail the ' +
+      'provider’s rules", it is "is there a declaration here". Both readings are defensible and ' +
+      'the difference is real. ' +
+      'What is NOT here any more is the pair of payment/client-interoperability rows this fixture ' +
+      'used to generate. Those were an artefact of two things: the adapter filing a provider ' +
+      'policy under the payment dimension, and the corpus expecting a `pass` where no challenge ' +
+      'was recorded at all. Both are fixed, and the four rows are reported under § Scope-excluded ' +
+      'with what each tool would have said.',
   },
-  'free-tier-200:client_interop': { sameAs: 'free-tier-200:payment' },
-  'redirect-instead-of-402:payment': {
+  'redirect-instead-of-402:discovery': {
     class: 'judgement',
     text:
-      'A 307 where the 402 was advertised. The prototype fetches with `redirect: "manual"`, sees ' +
-      'the 307, and errors. 10x402 warns and passes the payment dimension, citing `@x402/fetch` ' +
-      'at 2.23.0, which uses ordinary `fetch` and therefore FOLLOWS the redirect — so the envelope ' +
-      'is reachable and the real costs are narrower (a 301/302 rewrites POST to GET; a ' +
-      'cross-origin hop drops the payment header; the provider probes the advertised URL, not the ' +
-      'final one). The disagreement is about whether "unreachable at the advertised URL" is a ' +
-      'payment failure or a hazard, and the two tools’ redirect MODES are the reason each reading ' +
-      'looks obvious from inside it.',
+      'A 307 where the 402 was advertised, and the same mixed-scope rule as `free-tier-200`. The ' +
+      'prototype fetches with `redirect: "manual"`, sees the 307, and reports that the advertised ' +
+      'URL does not answer 402 — which for the named provider is exactly right, because the ' +
+      'provider probes the advertised URL and not the final one. 10x402 answers `n/a`: this ' +
+      'response carries no v2 declaration, so under the static-declaration reading there is ' +
+      'nothing to judge for eligibility. ' +
+      'Neither tool can say what is at the other end of the redirect, and the corpus no longer ' +
+      'pretends otherwise — the target response is not in the recording, so payment and client ' +
+      'interoperability are `n/a` for both. The right fix for that is to record the target ' +
+      'response as a second exchange, not to infer a verdict from a Location header, and it is ' +
+      'noted on the fixture as the concrete next thing this corpus should carry.',
   },
-  'redirect-instead-of-402:client_interop': { sameAs: 'redirect-instead-of-402:payment' },
 };
 
 /** Reason-tag differences on rows where the two tools agreed on the verdict. */
@@ -223,7 +243,7 @@ const TAG_ANALYSIS = {
 // ------------------------------------------------------------------ compute
 
 const rows = [];
-const stats = { total: 0, comparable: 0, agree: 0, disagree: 0, notEvaluated: 0, tagDiff: 0 };
+const stats = { total: 0, comparable: 0, agree: 0, disagree: 0, notEvaluated: 0, scopeExcluded: 0, tagDiff: 0 };
 
 for (const fixture of corpus.fixtures) {
   const a = A.get(fixture.id);
@@ -234,6 +254,25 @@ for (const fixture of corpus.fixtures) {
     const y = b.dimensions[dim];
     const key = `${fixture.id}:${dim}`;
     const show = (v) => (v.verdict === 'fail' ? `fail (${v.reason_tags.join(', ')})` : v.verdict);
+    const wouldHave = (v) => (v.scope_suppressed?.length ? `fail (${v.scope_suppressed.join(', ')})` : 'nothing to report');
+    // SCOPE-EXCLUDED FIRST. The corpus itself declares that this recording
+    // cannot support a verdict on this dimension, so both tools were forced to
+    // `n/a` and counting that as an agreement would be counting two non-answers
+    // as a meeting of minds. Excluded from the comparison and reported with what
+    // each tool would have said, so the opinion survives the exclusion.
+    if (fixture.judgeable?.[dim] === false) {
+      stats.scopeExcluded++;
+      rows.push({
+        kind: 'scope-excluded',
+        key,
+        id: fixture.id,
+        dim,
+        ours: wouldHave(x),
+        theirs: wouldHave(y),
+        reason: fixture.expected[dim].na_kind === 'scope' ? 'no challenge is recorded in this fixture' : '',
+      });
+      continue;
+    }
     if (x.verdict === 'not-evaluated' || y.verdict === 'not-evaluated') {
       stats.notEvaluated++;
       rows.push({ kind: 'not-evaluated', key, id: fixture.id, dim, ours: show(x), theirs: show(y), reason: y.not_evaluated_reason ?? x.not_evaluated_reason ?? '' });
@@ -274,8 +313,9 @@ out.push('');
 out.push(
   'Two independent conformance implementations run over the same portable corpus, reported ' +
     'side by side. **No winner is declared.** Where a tool contradicts a document it itself cites, ' +
-    'the row says so and names the document — twice about 10x402, which is the point of running ' +
-    'someone else’s implementation over your own fixtures.'
+    'the row says so and names the document — six times about 10x402, which is the point of running ' +
+    'someone else’s implementation over your own fixtures and then having the corpus itself ' +
+    'reviewed. See § Where 10x402 was wrong.'
 );
 out.push('');
 out.push('Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402/issues/3104).');
@@ -312,11 +352,22 @@ out.push('');
 out.push('| | count | of |');
 out.push('| --- | ---: | ---: |');
 out.push(`| Dimension-verdicts in the corpus | ${stats.total} | ${corpus.fixtures.length} fixtures × 3 dimensions |`);
+out.push(`| Scope-excluded (the corpus cannot judge this from this recording) | ${stats.scopeExcluded} | ${pct(stats.scopeExcluded, stats.total)} of all |`);
+out.push(`| Not comparable (one tool did not evaluate) | ${stats.notEvaluated} | ${pct(stats.notEvaluated, stats.total)} of all |`);
 out.push(`| Comparable (both tools reached a verdict) | ${stats.comparable} | ${pct(stats.comparable, stats.total)} of all |`);
 out.push(`| **Agreed** | **${stats.agree}** | **${pct(stats.agree, stats.comparable)} of comparable** |`);
 out.push(`| Disagreed | ${stats.disagree} | ${pct(stats.disagree, stats.comparable)} of comparable |`);
-out.push(`| Not comparable (one tool did not evaluate) | ${stats.notEvaluated} | ${pct(stats.notEvaluated, stats.total)} of all |`);
 out.push(`| Agreed on the verdict, differed on the reason | ${stats.tagDiff} | ${pct(stats.tagDiff, stats.agree)} of agreements |`);
+out.push('');
+out.push(
+  '**Three exclusions, and they are different things.** `not-evaluated` means a TOOL did not run ' +
+    'the rules that would answer the question — for the prototype that is the live-versus-indexed ' +
+    'comparison, which needs a registry an offline corpus does not have. `scope-excluded` means the ' +
+    'CORPUS cannot support an answer from this recording, whichever tool is asked: a response with ' +
+    'no challenge in it declares no payment, and a recorded corpus cannot demonstrate payability it ' +
+    'never recorded. Neither is counted as an agreement, and neither is counted as a pass. What each ' +
+    'tool would have said on the scope-excluded rows is reported in full under § Scope-excluded.'
+);
 out.push('');
 out.push(
   'Both tools pass the calibration fixture — the v2 transport specification’s own canonical 402 — ' +
@@ -382,6 +433,33 @@ for (const entry of Object.values(TAG_ANALYSIS)) {
   out.push('');
 }
 
+out.push('## Scope-excluded');
+out.push('');
+out.push(
+  'A dimension the CORPUS cannot judge from the recording it holds. Both tools are held to `n/a` ' +
+    'here, so these rows are excluded from the agreement figures rather than counted as agreements — ' +
+    'two implementations forced to the same non-answer have not agreed about anything. **The opinion ' +
+    'is not discarded with the verdict**: whatever each tool would have reported is kept in its ' +
+    'results file under `scope_suppressed` and printed below.'
+);
+out.push('');
+out.push('| fixture | dimension | 10x402 would say | x402-doctor would say | why excluded |');
+out.push('| --- | --- | --- | --- | --- |');
+for (const row of rows.filter((r) => r.kind === 'scope-excluded')) {
+  out.push(`| \`${row.id}\` | ${row.dim} | ${esc(row.ours)} | ${esc(row.theirs)} | ${esc(row.reason)} |`);
+}
+out.push('');
+out.push(
+  'Both fixtures are cases where the response contains no payment declaration at all: a 200 to an ' +
+    'anonymous caller, and a 307 whose target response was never captured. The mechanical rule is ' +
+    'published with the corpus — `judgeableFrom()` in `corpus/vocabulary.mjs`, and the `judgeable` ' +
+    'block on every fixture — so a third adapter reaches the same set from the file rather than ' +
+    'from a convention. The right way to make the redirect case judgeable is to record the target ' +
+    'response as a second exchange; inferring payability from a Location header is not the same ' +
+    'thing and the corpus no longer does it.'
+);
+out.push('');
+
 out.push('## Not evaluated');
 out.push('');
 out.push(
@@ -436,24 +514,72 @@ out.push(
     '`v2-resource-flat-string`.'
 );
 out.push('');
+out.push('');
 out.push(
-  'A third is not a defect and is recorded as a standing judgement rather than fixed: 10x402 ' +
-    'passes the payment dimension on `free-tier-200` and `redirect-instead-of-402` where the ' +
-    'prototype fails both. The corpus notes on those fixtures say so, and the reasoning is in ' +
-    '§ Disagreements. It is the most arguable pair of expectations the corpus contains, and it is ' +
-    'written down rather than smoothed over.'
+  'A pre-publication accuracy review of the corpus itself (`CORPUS-REVIEW.md`) found four more, ' +
+    'and all four were the same fault wearing different clothes — a 10x402 position deciding a ' +
+    'dimension the corpus defines as belonging to somebody else’s document:'
+);
+out.push('');
+out.push(
+  '3. **A house rule as a normative payment failure.** `dual-payto-divergence` expected ' +
+    '`payment: fail` while its own evidence said, in capitals, that no specification requires a ' +
+    'dual-stack seller’s two envelopes to agree. The same non-normative reason was added to ' +
+    '`v2-payto-array`’s otherwise legitimate failure. Both are gone: the adapter rule is now that a ' +
+    'finding with no operative `spec` or `client-code` citation FAILS NOTHING and is recorded as an ' +
+    'observation, and the `DUAL_*` override that forced the family into `payment` regardless has ' +
+    'been deleted. The house position survives in the results file, where an unsourced rule belongs.'
+);
+out.push('');
+out.push(
+  '4. **A contextual spec citation counted as authority.** The adapter read "this check cites the ' +
+    'specification somewhere" as "this check may fail the payment dimension", so the base64url ' +
+    'family failed `payment` on the strength of a transport-spec line that says the header is ' +
+    '"Base64-encoded" and is SILENT on the alphabet — a fact 10x402’s own provenance audit records ' +
+    'in as many words. Citations are now marked operative or contextual in the check catalogue, the ' +
+    'provenance that decided each finding’s dimensions is written into the results file beside it, ' +
+    'and both base64 fixtures pass `payment` and fail `client_interop`.'
+);
+out.push('');
+out.push(
+  '5. **A pass where nothing had been recorded.** `free-tier-200` and `redirect-instead-of-402` ' +
+    'expected `payment: pass` and `client_interop: pass`. The first contains no payment declaration; ' +
+    'the second contains a 307 and a Location, and not the response at the other end of it. Those ' +
+    'passes reproduced 10x402’s warning severities as fixture truth. Both dimensions are now `n/a` ' +
+    'on both fixtures and excluded from the statistics — see § Scope-excluded.'
+);
+out.push('');
+out.push(
+  '6. **A discovery verdict with no named provider.** Eighteen non-`n/a` discovery expectations ' +
+    'carried no provider evidence at all, while the dimension’s own question named a provider. The ' +
+    'dimension is now defined narrowly as STATIC DECLARATION ELIGIBILITY, every non-`n/a` discovery ' +
+    'verdict carries a structured `discovery_target` naming the provider and the documented ' +
+    'requirement it turns on, and the builder refuses to emit one that does not. Indexed, listed and ' +
+    'crawled outcomes are reserved for a live adapter and are out of scope here — including on the ' +
+    'live positive control, whose `index.active: true` capture is recorded and explicitly is not the ' +
+    'basis of its verdict.'
 );
 out.push('');
 
 out.push('## Reproducing');
 out.push('');
 out.push('```sh');
-out.push('node corpus/build-fixtures.mjs      # regenerate corpus/fixtures.json');
-out.push('node corpus/run-10x402.mjs          # → corpus/results-10x402.json');
-out.push('node corpus/run-x402-doctor.mjs     # clones the prototype to a temp dir → corpus/results-x402-doctor.json');
+out.push('node corpus/build-fixtures.mjs       # regenerate corpus/fixtures.json — BYTE-IDENTICAL unless a fixture changed');
+out.push('node corpus/run-10x402.mjs           # → corpus/results-10x402.json (asserts the pinned engine blobs first)');
+out.push('node corpus/run-x402-doctor.mjs      # clones the prototype to a temp dir → corpus/results-x402-doctor.json');
 out.push('node corpus/report-disagreements.mjs # → DISAGREEMENTS.md');
-out.push('npm test                            # the corpus phase asserts run-10x402 reproduces every expectation');
+out.push('node corpus/validate-results.mjs corpus/results-10x402.json   # the third-adapter conformance test');
+out.push('npm test                             # the corpus phase asserts run-10x402 reproduces every expectation');
 out.push('```');
+out.push('');
+out.push(
+  'A third implementation joins by writing an adapter, emitting a results file in the shape ' +
+    '`corpus/schema/results.schema.json` defines, and running `corpus/validate-results.mjs` against ' +
+    'it. That script is the conformance test: it checks the file against the schema, that every ' +
+    'fixture is answered, that reason tags are drawn from the vocabulary and are fatal ones, that ' +
+    '`n/a` and `not-evaluated` are used the way the format defines them, and that the scope rules ' +
+    'were applied. It needs nothing from this repository’s engine and imports no worker code.'
+);
 out.push('');
 out.push(`Generated by \`corpus/report-disagreements.mjs\` from results dated ${ours.ran} and ${theirs.ran}.`);
 out.push('');
@@ -461,7 +587,8 @@ out.push('');
 writeFileSync(join(here, '..', 'DISAGREEMENTS.md'), `${out.join('\n')}`);
 process.stdout.write(
   `DISAGREEMENTS.md — ${stats.agree}/${stats.comparable} comparable verdicts agree (${pct(stats.agree, stats.comparable)}), ` +
-    `${stats.disagree} disagreements, ${stats.tagDiff} reason-only differences, ${stats.notEvaluated} not evaluated\n`
+    `${stats.disagree} disagreements, ${stats.tagDiff} reason-only differences, ` +
+    `${stats.notEvaluated} not evaluated, ${stats.scopeExcluded} scope-excluded\n`
 );
 if (missing.length) {
   for (const row of missing) process.stdout.write(`  NEEDS ANALYSIS: ${row.key}\n`);

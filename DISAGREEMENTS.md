@@ -8,8 +8,8 @@ Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402
 
 | | |
 | --- | --- |
-| Corpus | `corpus/fixtures.json`, corpus_version 1, 34 fixtures |
-| 10x402 | https://github.com/chronick/10x402 @ `853ed3f5a722` — adapter `corpus/run-10x402.mjs` |
+| Corpus | `corpus/fixtures.json`, corpus_version 2, 34 fixtures |
+| 10x402 | https://github.com/chronick/10x402 @ `4b61cda3e88c` — adapter `corpus/run-10x402.mjs` |
 | x402-doctor | https://github.com/Maha-Strategies/maha-corp-web @ `37233104653b` — adapter `corpus/run-x402-doctor.mjs` |
 | Client pins | `@x402/core` 2.23.0, `x402` 1.2.0 |
 | Spec pin | x402-foundation/x402 @ `75b519d0a3a7` |
@@ -23,11 +23,14 @@ Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402
 | | count | of |
 | --- | ---: | ---: |
 | Dimension-verdicts in the corpus | 102 | 34 fixtures × 3 dimensions |
-| Comparable (both tools reached a verdict) | 75 | 73.5% of all |
-| **Agreed** | **57** | **76.0% of comparable** |
-| Disagreed | 18 | 24.0% of comparable |
-| Not comparable (one tool did not evaluate) | 27 | 26.5% of all |
-| Agreed on the verdict, differed on the reason | 12 | 21.1% of agreements |
+| Scope-excluded (the corpus cannot judge this from this recording) | 4 | 3.9% of all |
+| Not comparable (one tool did not evaluate) | 25 | 24.5% of all |
+| Comparable (both tools reached a verdict) | 73 | 71.6% of all |
+| **Agreed** | **58** | **79.5% of comparable** |
+| Disagreed | 15 | 20.5% of comparable |
+| Agreed on the verdict, differed on the reason | 12 | 20.7% of agreements |
+
+**Three exclusions, and they are different things.** `not-evaluated` means a TOOL did not run the rules that would answer the question — for the prototype that is the live-versus-indexed comparison, which needs a registry an offline corpus does not have. `scope-excluded` means the CORPUS cannot support an answer from this recording, whichever tool is asked: a response with no challenge in it declares no payment, and a recorded corpus cannot demonstrate payability it never recorded. Neither is counted as an agreement, and neither is counted as a pass. What each tool would have said on the scope-excluded rows is reported in full under § Scope-excluded.
 
 Both tools pass the calibration fixture — the v2 transport specification’s own canonical 402 — on `payment` and `client_interop`, and both fail it on `discovery`, which is the demonstration the three dimensions were separated for.
 
@@ -37,28 +40,26 @@ Both tools pass the calibration fixture — the v2 transport specification’s o
 | --- | --- | --- | --- | --- |
 | `calibration-cloudflare-batch-settlement` | payment | pass | fail (timeout-form) | defect |
 | `calibration-cloudflare-batch-settlement` | client_interop | pass | fail (timeout-form) | defect |
-| `perfect-v1-only` | payment | pass | fail (envelope-absent, b64-undecodable) | scope |
-| `perfect-v1-only` | client_interop | pass | fail (envelope-absent, b64-undecodable) | scope |
-| `v2-header-b64-whitespace` | payment | fail (b64-urlsafe) | pass | transport |
+| `perfect-v1-only` | payment | pass | fail (envelope-absent) | scope |
+| `perfect-v1-only` | client_interop | pass | fail (envelope-absent) | scope |
+| `v2-header-b64-urlsafe` | payment | pass | fail (b64-urlsafe) | placement |
 | `v2-header-b64-whitespace` | client_interop | fail (b64-urlsafe) | pass | transport |
 | `v1-network-caip2` | payment | fail (network-form) | pass | scope |
 | `v1-network-caip2` | client_interop | fail (network-form) | pass | scope |
 | `extra-eip712-absent` | payment | fail (missing-eip712-extra) | pass | coverage |
 | `extra-eip712-absent` | client_interop | fail (missing-eip712-extra) | pass | coverage |
-| `v2-payto-array` | payment | fail (payee-form, dual-divergence) | pass | defect |
+| `v2-payto-array` | payment | fail (payee-form) | pass | defect |
 | `v2-payto-array` | client_interop | fail (payee-form) | pass | defect |
-| `dual-payto-divergence` | payment | fail (dual-divergence) | pass | scope |
 | `dual-network-unmapped-chain` | client_interop | fail (network-unknown) | pass | scope |
-| `free-tier-200` | payment | pass | fail (status-not-402) | judgement |
-| `free-tier-200` | client_interop | pass | fail (status-not-402) | judgement |
-| `redirect-instead-of-402` | payment | pass | fail (status-not-402) | judgement |
-| `redirect-instead-of-402` | client_interop | pass | fail (status-not-402) | judgement |
+| `free-tier-200` | discovery | n/a | fail (status-not-402) | judgement |
+| `redirect-instead-of-402` | discovery | n/a | fail (status-not-402) | judgement |
 
 - **scope** — the tools cover different ground by design
 - **judgement** — both read the same bytes and disagree about what they mean
 - **coverage** — one tool has no rule for this fault
 - **defect** — one tool contradicts a document it itself cites
 - **transport** — the fault is not observable over a live HTTP probe at all
+- **placement** — both tools see the same fault and their adapters file it under different dimensions. This is a disagreement about WHERE a finding belongs, not about whether it is real, and it is reported separately because conflating the two makes an adapter choice look like two implementations reaching opposite conclusions
 
 ### Each one
 
@@ -77,14 +78,15 @@ Evidence on the fixture:
 - `spec` — specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim
 - `spec` — …:110 — maxTimeoutSeconds is optional on this network
 - `spec` — …:48 — the network omits `schema` to stay under 2 KB
-- `client-code` — @x402/core@2.23.0 dist/cjs/schemas/index.js — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is legal
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is accepted by the v2 decoder. PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements `batch-settlement`, so nothing here evidences that a client can EXECUTE this offer, and the corpus does not claim it can
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required)
 
 #### `perfect-v1-only` — payment, client_interop
 
 *perfect v1-only 402*
 
 - **10x402**: pass
-- **x402-doctor**: fail (envelope-absent, b64-undecodable)
+- **x402-doctor**: fail (envelope-absent)
 - **Class**: scope
 
 The prototype is v2-only by construction: it requires the `PAYMENT-REQUIRED` header and rejects any challenge whose `x402Version` is not 2. A v1-only seller therefore fails both payment rules. 10x402 reads the v1 body, notes that `@x402/core` falls back to it when there is no header, and calls the endpoint payable — while separately answering `n/a` on discovery, because CDP’s indexing requirements are a v2 shape. This is a difference in declared scope, not in reading: the prototype’s issue text scopes it to the v2 flow.
@@ -92,10 +94,27 @@ The prototype is v2-only by construction: it requires the `PAYMENT-REQUIRED` hea
 Evidence on the fixture:
 
 - `spec` — specs/transports-v1/http.md § Payment Required Signaling
-- `client-code` — @x402/core@2.23.0 dist/cjs/schemas/index.js — @x402/core falls back to a v1 body when there is no header, so this is payable
-- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight — the PAYMENT-REQUIRED header is a required preflight, so this is not indexable
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — @x402/core falls back to a v1 body when there is no header, so the declaration is readable. PARSE-LEVEL
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight payment_required_header (severity: required) — a v2-shaped requirement this v1-only seller has no declaration to answer
 
-#### `v2-header-b64-whitespace` — payment, client_interop
+#### `v2-header-b64-urlsafe` — payment
+
+*v2 header in url-safe base64*
+
+- **10x402**: pass
+- **x402-doctor**: fail (b64-urlsafe)
+- **Class**: placement
+
+BOTH TOOLS REFUSE THE ENVELOPE AND THEY FILE THE REFUSAL DIFFERENTLY. The header is base64url, `@x402/core` tests `Base64EncodedRegex` against the raw value and throws before `atob`, and neither implementation disputes any of that — the two `client_interop` verdicts agree, with the same reason tag. What differs is the payment dimension. 10x402 passes it, because the v2 transport specification says the header carries "Base64-encoded" JSON and is SILENT on the alphabet: there is no normative text that base64url violates, so the fault is a client-interoperability fault and nothing else. The prototype has one verdict per finding and no dimension to separate them into, so the adapter that maps it necessarily reports the refusal in both. It is worth being blunt that an earlier version of THIS corpus made the same conflation from the other end — it failed the payment dimension here on the strength of a spec citation that does not say what it was being made to say, and the pre-publication review caught it.
+
+Evidence on the fixture:
+
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/`
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()
+- `spec` — specs/transports-v2/http.md § Payment Required Signaling — "Base64-encoded", and SILENT on the alphabet. CONTEXT, NOT AUTHORITY: this citation is why the corpus does NOT fail the payment dimension here
+- `field-report` — x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover
+
+#### `v2-header-b64-whitespace` — client_interop
 
 *a v2 header padded with whitespace*
 
@@ -103,11 +122,15 @@ Evidence on the fixture:
 - **x402-doctor**: pass
 - **Class**: transport
 
-THE MOST INSTRUCTIVE ROW IN THE TABLE, and neither tool is wrong. The fixture is a v2 header with a leading and trailing space. HTTP defines optional whitespace around a header value as not part of the value, so it is stripped by the parser before any client sees it — the prototype probes a URL, is handed a clean header, and correctly reports nothing. 10x402 lints a RECORDED response, where the padding survives, and fails it because `@x402/core`’s `Base64EncodedRegex` runs against the raw header value before `atob`. The fault is real for anything that hands the header to a client without a transport in between — a facilitator forwarding a stored declaration, an SDK reading from a cache — and it is invisible to any live probe. It is the concrete argument for a corpus of recorded responses alongside a live doctor: the two see different populations of bug.
+THE MOST INSTRUCTIVE ROW IN THE TABLE, and neither tool is wrong. The fixture is a v2 header with a leading and trailing space. HTTP defines optional whitespace around a header value as not part of the value, so it is stripped by the parser before any client sees it — the prototype probes a URL, is handed a clean header, and correctly reports nothing. 10x402 lints a RECORDED response, where the padding survives, and fails CLIENT INTEROPERABILITY because `@x402/core`’s `Base64EncodedRegex` runs against the raw header value before `atob`. Note what the corpus does NOT do here any more: it makes no payment claim at all. This corpus defines `response.headers` as PARSED FIELD VALUES, so a padded value is one that reached the client by a path with no HTTP parser in it — a facilitator replaying a stored declaration, an SDK reading a cache, a pasted capture. The fixture is labelled `population: "raw-input"` and scoped to exactly that population. An earlier version failed the payment dimension on it, which put a client-specific raw-input opinion inside a normative dimension. The two tools see different populations of bug, and that remains the concrete argument for a corpus of recorded responses alongside a live doctor.
 
 Evidence on the fixture:
 
-- `client-code` — @x402/core@2.23.0 dist/cjs/schemas/index.js — the regex runs on the raw value, so a leading space fails it before decoding
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/` — a leading or trailing space fails the regex before any decode
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()
+- `house-opinion` — `response.headers` in this corpus are PARSED FIELD VALUES, so a padded value is one that reached the client by a path with no HTTP parser in it — a stored declaration replayed by a facilitator, an SDK reading a cache, a pasted capture. The fixture is scoped to that population and makes no claim about an HTTP-delivered one
+- `spec` — specs/transports-v2/http.md § Payment Required Signaling — "Base64-encoded", and SILENT on padding as on the alphabet. The declared terms are conformant and settleable, which is why the payment dimension PASSES and the fault is confined to the client that refuses to decode it
+- `spec` — specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table) — and the v1 body in this dual-stack response is intact and independently payable
 
 #### `v1-network-caip2` — payment, client_interop
 
@@ -122,7 +145,8 @@ The v2 half of this response is perfect and the v1 body carries the v2 network s
 Evidence on the fixture:
 
 - `spec` — specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table)
-- `client-code` — x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — the v1 network field is a closed enum of bare names
+- `client-code` — x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — the v1 network field is a closed enum of bare names, so the entry throws invalid_enum_value at parse. PARSE-LEVEL
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the v2 half satisfies
 
 #### `extra-eip712-absent` — payment, client_interop
 
@@ -136,14 +160,15 @@ The prototype validates scheme, network, amount, timeout, asset and payee, and d
 
 Evidence on the fixture:
 
-- `spec` — specs/schemes/exact/scheme_exact_evm.md — the EIP-3009 domain is signed from extra.name/extra.version
-- `client-code` — @x402/evm — throws at payment CREATION when extra.name or extra.version is absent
+- `spec` — specs/schemes/exact/scheme_exact_evm.md — extra.name and extra.version are required for the default eip3009 assetTransferMethod
+- `client-code` — @x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs:49-53 — EXECUTE-LEVEL: `if (!requirements.extra?.name \|\| !requirements.extra?.version) throw` at payment CREATION, with no fallback
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the bazaar half satisfies
 
 #### `v2-payto-array` — payment, client_interop
 
 *payTo as an array holding a valid address*
 
-- **10x402**: fail (payee-form, dual-divergence)
+- **10x402**: fail (payee-form)
 - **x402-doctor**: pass
 - **Class**: defect
 
@@ -152,23 +177,9 @@ The fixture’s `payTo` is `["0x…"]` — a one-element ARRAY holding a valid a
 Evidence on the fixture:
 
 - `spec` — specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)
-- `client-code` — @x402/core@2.23.0 dist/cjs/schemas/index.js — the zod schema and viem both reject a non-string payTo
-- `house-opinion` — the dual-stack comparison is a house rule; neither specification requires the two envelopes to agree
-
-#### `dual-payto-divergence` — payment
-
-*dual-stack payTo divergence*
-
-- **10x402**: fail (dual-divergence)
-- **x402-doctor**: pass
-- **Class**: scope
-
-A dual-stack seller whose v1 body and v2 header name different payees. The prototype reads only the v2 header and correctly finds nothing wrong with it. 10x402 compares the two envelopes and fails the payment dimension. THE 10x402 FINDING IS NOT A PROTOCOL REQUIREMENT and the corpus labels it `house-opinion`: neither specification says a dual-stack seller’s two declarations must agree, and each half here is individually valid and individually settleable. What is true is that the seller is being paid at two addresses by two client generations. Whether that belongs in a conformance verdict at all is a live question, which is exactly why the evidence is labelled rather than asserted.
-
-Evidence on the fixture:
-
-- `house-opinion` — NOT A PROTOCOL REQUIREMENT. Neither specification says a dual-stack seller’s two envelopes must name the same payee; both halves are individually valid and individually settleable. 10x402 treats the divergence as a payment-dimension defect because the money lands in two places, and records the evidence as house-opinion so nobody mistakes it for spec.
-- `client-code` — x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a v1 client reads the body; a v2 client reads the header; neither sees the other
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the zod schema rejects a non-string payTo at decode
+- `client-code` — @x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs — EXECUTE-LEVEL: viem’s getAddress rejects a non-string outright, so the transfer authorisation cannot be built
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].payTo (severity: required) — "payTo address present", which is satisfied
 
 #### `dual-network-unmapped-chain` — client_interop
 
@@ -182,39 +193,43 @@ A correctly paired dual-stack seller on Arbitrum. The v2 half is conformant; the
 
 Evidence on the fixture:
 
-- `client-code` — x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — "arbitrum" is not a member of the v1 closed enum, so x402-fetch throws invalid_enum_value on this entry
-- `house-opinion` — the v1↔v2 chain equivalence table covers the nine chains x402 clients ship with; outside it the pair is unverified, not divergent
+- `client-code` — x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — "arbitrum" is not a member of the v1 closed enum, so x402-fetch throws invalid_enum_value on this entry at parse. PARSE-LEVEL
+- `spec` — specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table) — nothing in either specification closes that enum, which is why the payment dimension passes
+- `house-opinion` — the v1↔v2 chain equivalence table covers the nine chains x402 clients ship with; outside it the pair is unverified, not divergent. NOT NORMATIVE
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the v2 half satisfies
 
-#### `free-tier-200` — payment, client_interop
+#### `free-tier-200` — discovery
 
 *free tier: 200 to an unauthenticated caller*
 
-- **10x402**: pass
+- **10x402**: n/a
 - **x402-doctor**: fail (status-not-402)
 - **Class**: judgement
 
-THE SHARPEST DISAGREEMENT IN THE CORPUS, and the one closest to the thread’s own concern. The endpoint answers an unauthenticated caller with 200. The prototype reports an error whose text is "The unpaid request returned HTTP 200; Bazaar requires HTTP 402" — a PROVIDER requirement, named as such in the message, deciding a payment-path verdict. 10x402 reports a warning and passes the payment dimension, on the reading that there is no challenge here to misinterpret: a free tier is a seller’s choice, and the cost of it is a delisting, which the discovery dimension is for. Both readings have a real cost. Ours lets a response that earns an x402 buyer nothing pass the payment dimension; theirs promotes "Bazaar requires" into a protocol verdict. The corpus records ours as the expectation and flags it as the most arguable expectation it contains.
+THE SHARPEST DISAGREEMENT IN THE CORPUS, and it now sits in the dimension it was always about. The endpoint answers an unauthenticated caller with 200. The prototype reports an error whose text is "The unpaid request returned HTTP 200; Bazaar requires HTTP 402" — one sentence carrying a transport observation and a NAMED-PROVIDER policy, and the corpus now maps that mixed-scope rule to both, rather than to payment and client interoperability alone. The prototype therefore says the declaration is ineligible at the provider it names, and it has a documented requirement to point at. 10x402 answers `n/a`, on the reading that under the corpus’s static-declaration definition there is no v2 registry declaration in this response to judge for eligibility at all: the question is not "does this fail the provider’s rules", it is "is there a declaration here". Both readings are defensible and the difference is real. What is NOT here any more is the pair of payment/client-interoperability rows this fixture used to generate. Those were an artefact of two things: the adapter filing a provider policy under the payment dimension, and the corpus expecting a `pass` where no challenge was recorded at all. Both are fixed, and the four rows are reported under § Scope-excluded with what each tool would have said.
 
 Evidence on the fixture:
 
-- `client-code` — x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — `if (response.status !== 402) return response`; the client never enters the payment flow
-- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (required)
-- `cdp-docs` — https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval
+- `house-opinion` — NO CHALLENGE WAS RECORDED, so neither `pass` nor `fail` is available. A 200 to an anonymous caller declares no payment: there is nothing to interpret, nothing to settle, and nothing for a client to parse or execute. A recorded corpus cannot demonstrate payability it never recorded, and it must not manufacture a failure out of an absence either. See FORMAT.md § The recorded-challenge precondition
+- `client-code` — x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — `if (response.status !== 402) return response`; the client never enters the payment flow, which is why there is no client verdict to reach
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (severity: required) — a documented provider requirement this response does not meet
+- `cdp-docs` — https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval and a non-402 is grounds for delisting
 
-#### `redirect-instead-of-402` — payment, client_interop
+#### `redirect-instead-of-402` — discovery
 
 *a redirect instead of a 402*
 
-- **10x402**: pass
+- **10x402**: n/a
 - **x402-doctor**: fail (status-not-402)
 - **Class**: judgement
 
-A 307 where the 402 was advertised. The prototype fetches with `redirect: "manual"`, sees the 307, and errors. 10x402 warns and passes the payment dimension, citing `@x402/fetch` at 2.23.0, which uses ordinary `fetch` and therefore FOLLOWS the redirect — so the envelope is reachable and the real costs are narrower (a 301/302 rewrites POST to GET; a cross-origin hop drops the payment header; the provider probes the advertised URL, not the final one). The disagreement is about whether "unreachable at the advertised URL" is a payment failure or a hazard, and the two tools’ redirect MODES are the reason each reading looks obvious from inside it.
+A 307 where the 402 was advertised, and the same mixed-scope rule as `free-tier-200`. The prototype fetches with `redirect: "manual"`, sees the 307, and reports that the advertised URL does not answer 402 — which for the named provider is exactly right, because the provider probes the advertised URL and not the final one. 10x402 answers `n/a`: this response carries no v2 declaration, so under the static-declaration reading there is nothing to judge for eligibility. Neither tool can say what is at the other end of the redirect, and the corpus no longer pretends otherwise — the target response is not in the recording, so payment and client interoperability are `n/a` for both. The right fix for that is to record the target response as a second exchange, not to infer a verdict from a Location header, and it is noted on the fixture as the concrete next thing this corpus should carry.
 
 Evidence on the fixture:
 
-- `client-code` — @x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, the default redirect mode, so redirects ARE followed
-- `house-opinion` — the envelope is at the other end of the redirect, unread; the fixture is about the redirect, not about an absent envelope
+- `house-opinion` — THE TARGET RESPONSE IS NOT IN THE RECORDING. The fixture is a 307 and a Location header; whatever the target answers was never captured, so "the envelope is reachable" is an assumption and not an observation. Payment and client interoperability are therefore `n/a`. See FORMAT.md § The recorded-challenge precondition
+- `client-code` — @x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, the default redirect mode, so a live client WOULD follow the redirect. That is why the corpus does not fail this fixture; it is not why it could pass one
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (severity: required) — the provider probes the ADVERTISED url, and this one does not answer 402
 
 ## Same verdict, different reason
 
@@ -225,8 +240,8 @@ These rows agree on whether the fixture passes and disagree on why. They matter 
 | `calibration-spec-canonical-402` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
 | `calibration-cloudflare-batch-settlement` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
 | `calibration-solana-spec-envelope` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
-| `no-envelope-html-body` | payment | fail (envelope-not-json, envelope-absent) | fail (envelope-absent, b64-undecodable) |
-| `no-envelope-html-body` | client_interop | fail (envelope-not-json, envelope-absent) | fail (envelope-absent, b64-undecodable) |
+| `no-envelope-html-body` | payment | fail (envelope-not-json, envelope-absent) | fail (envelope-absent) |
+| `no-envelope-html-body` | client_interop | fail (envelope-not-json, envelope-absent) | fail (envelope-absent) |
 | `v2-amount-uses-v1-field-name` | payment | fail (missing-required-field) | fail (amount-form) |
 | `v2-amount-uses-v1-field-name` | client_interop | fail (missing-required-field) | fail (amount-form) |
 | `v2-resource-flat-string` | payment | fail (resource-shape) | fail (wrong-version-field) |
@@ -244,6 +259,19 @@ These rows agree on whether the fixture passes and disagree on why. They matter 
 - A 402 with an HTML error page and no header. The prototype reports a missing v2 header and then a malformed PAYMENT-REQUIRED — the same absence twice, because `decodeChallenge` does not distinguish "no header" from "undecodable header". 10x402 separates the missing header from the unparseable body.
 
 - On `bazaar-schema-external-ref` and `bazaar-input-no-type` both tools fail discovery. 10x402 carries a second, more specific tag alongside the shared one — the unresolvable `$ref` (which `bazaar.md` says a facilitator MUST NOT resolve), and the absent `type` discriminator. The prototype reports both as a single extension-schema failure, which is the same verdict with less to act on.
+
+## Scope-excluded
+
+A dimension the CORPUS cannot judge from the recording it holds. Both tools are held to `n/a` here, so these rows are excluded from the agreement figures rather than counted as agreements — two implementations forced to the same non-answer have not agreed about anything. **The opinion is not discarded with the verdict**: whatever each tool would have reported is kept in its results file under `scope_suppressed` and printed below.
+
+| fixture | dimension | 10x402 would say | x402-doctor would say | why excluded |
+| --- | --- | --- | --- | --- |
+| `free-tier-200` | payment | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
+| `free-tier-200` | client_interop | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
+| `redirect-instead-of-402` | payment | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
+| `redirect-instead-of-402` | client_interop | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
+
+Both fixtures are cases where the response contains no payment declaration at all: a 200 to an anonymous caller, and a 307 whose target response was never captured. The mechanical rule is published with the corpus — `judgeableFrom()` in `corpus/vocabulary.mjs`, and the `judgeable` block on every fixture — so a third adapter reaches the same set from the file rather than from a convention. The right way to make the redirect case judgeable is to record the target response as a second exchange; inferring payability from a Location header is not the same thing and the corpus no longer does it.
 
 ## Not evaluated
 
@@ -264,7 +292,7 @@ Rules held back:
 
 One more is reported and should not be read as evidence: `x402.bazaar.crawler_status` replays the declared crawler request, and the fixture server answers the replay with the same recorded response, so it is structurally satisfied for every fixture. The results file marks it `structurally-satisfied`. Replaying the declared input against a live endpoint is the one check in the prototype that a recorded corpus fundamentally cannot carry, and the two approaches are complementary for exactly that reason.
 
-27 of 102 dimension-verdicts fell into this category.
+25 of 102 dimension-verdicts fell into this category.
 
 ## Where 10x402 was wrong
 
@@ -274,7 +302,16 @@ Running someone else’s implementation over our own fixtures found two defects 
 
 2. **"Indexable" reported when nothing had been inspected.** `bazaar_ready` was computed from the ABSENCE of blocking findings. Where the registry checks could not run at all — the v2 header did not decode, or `resource` arrived as the v1 flat string, so there is no `ResourceInfo` object to read — there were no blockers, and the engine answered `true` to a seller whose envelope no indexer can read. It now answers `n/a`, joining the v1-only case under the same rule: not a failure, a question this response cannot answer. Found by `v2-resource-flat-string`.
 
-A third is not a defect and is recorded as a standing judgement rather than fixed: 10x402 passes the payment dimension on `free-tier-200` and `redirect-instead-of-402` where the prototype fails both. The corpus notes on those fixtures say so, and the reasoning is in § Disagreements. It is the most arguable pair of expectations the corpus contains, and it is written down rather than smoothed over.
+
+A pre-publication accuracy review of the corpus itself (`CORPUS-REVIEW.md`) found four more, and all four were the same fault wearing different clothes — a 10x402 position deciding a dimension the corpus defines as belonging to somebody else’s document:
+
+3. **A house rule as a normative payment failure.** `dual-payto-divergence` expected `payment: fail` while its own evidence said, in capitals, that no specification requires a dual-stack seller’s two envelopes to agree. The same non-normative reason was added to `v2-payto-array`’s otherwise legitimate failure. Both are gone: the adapter rule is now that a finding with no operative `spec` or `client-code` citation FAILS NOTHING and is recorded as an observation, and the `DUAL_*` override that forced the family into `payment` regardless has been deleted. The house position survives in the results file, where an unsourced rule belongs.
+
+4. **A contextual spec citation counted as authority.** The adapter read "this check cites the specification somewhere" as "this check may fail the payment dimension", so the base64url family failed `payment` on the strength of a transport-spec line that says the header is "Base64-encoded" and is SILENT on the alphabet — a fact 10x402’s own provenance audit records in as many words. Citations are now marked operative or contextual in the check catalogue, the provenance that decided each finding’s dimensions is written into the results file beside it, and both base64 fixtures pass `payment` and fail `client_interop`.
+
+5. **A pass where nothing had been recorded.** `free-tier-200` and `redirect-instead-of-402` expected `payment: pass` and `client_interop: pass`. The first contains no payment declaration; the second contains a 307 and a Location, and not the response at the other end of it. Those passes reproduced 10x402’s warning severities as fixture truth. Both dimensions are now `n/a` on both fixtures and excluded from the statistics — see § Scope-excluded.
+
+6. **A discovery verdict with no named provider.** Eighteen non-`n/a` discovery expectations carried no provider evidence at all, while the dimension’s own question named a provider. The dimension is now defined narrowly as STATIC DECLARATION ELIGIBILITY, every non-`n/a` discovery verdict carries a structured `discovery_target` naming the provider and the documented requirement it turns on, and the builder refuses to emit one that does not. Indexed, listed and crawled outcomes are reserved for a live adapter and are out of scope here — including on the live positive control, whose `index.active: true` capture is recorded and explicitly is not the basis of its verdict.
 
 ## Reproducing
 
