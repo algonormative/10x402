@@ -143,20 +143,33 @@ export const ENVELOPE_SAMPLE_INPUT = {
 //
 // THE PRICE SHEET, and the arithmetic in it is deliberate:
 //
-//   /lint               $0.10   full catalogue, live URL
+//   /lint               $0.25   full catalogue, live URL
 //   /lint/one           $0.02   ONE named check, live URL
-//   /lint/envelope      $0.05   full catalogue, pasted response
+//   /lint/envelope      $0.10   full catalogue, pasted response
 //   /lint/envelope/one  $0.01   ONE named check, pasted response
 //
-//   the full suite is 5x the single-check price and runs 75 checks, so buying
-//   the batch is a 15x per-check advantage. A caller who genuinely has one
-//   question pays a fifth; a caller who has three has already overpaid, and the
-//   price sheet says so rather than letting them find out.
+//   THE TWO SCOPES ARE TWO PRODUCTS, bought at two different moments, and they
+//   are priced for the moment rather than for the CPU.
 //
-//   the pasted rail is HALF the live rail at both scopes, and the reason is a
-//   cost we actually incur rather than a discount we invented: /lint makes an
-//   outbound request on the caller's behalf — a bounded fetch, a 10s deadline,
-//   our network position — and /lint/envelope makes none.
+//   A full report is bought during an incident. A seller whose 402 passes
+//   validate and still is not indexed is looking at the class of problem that
+//   eats weeks, because nothing in the stack says which of seventy-five things
+//   is wrong. $0.25 is priced against that, and it is still a fraction of the
+//   nearest signed conformance report, which is $25.
+//
+//   A single check is bought in a test, and then again on every commit. It
+//   stays micro because that is the regression product, and a regression
+//   product that is not cheap does not get run.
+//
+//   The multiples fall OUT of those two decisions rather than being designed:
+//   12.5x on the live rail, 10x on the pasted one (see BATCH_MULTIPLES). They
+//   differ because the rails do, which is why the copy computes one per rail
+//   instead of averaging them into a number true of neither.
+//
+//   the pasted rail is cheaper than the live rail at both scopes, and the
+//   reason is a cost we actually incur rather than a discount we invented:
+//   /lint makes an outbound request on the caller's behalf — a bounded fetch, a
+//   10s deadline, our network position — and /lint/envelope makes none.
 //
 // Everything is priced per SERVED report. A bad URL, an unreachable target, a
 // malformed paste or an unknown check id settles nothing, even when the payment
@@ -183,7 +196,7 @@ export const ENDPOINTS = [
     id: 'lint',
     path: '/lint',
     method: 'POST',
-    price_usd: 0.1,
+    price_usd: 0.25,
     fetches: true,
     single: false,
     pairedWith: 'lint-one',
@@ -215,8 +228,8 @@ export const ENDPOINTS = [
       'a single question — "is my v2 header base64url", "does my bazaar info validate against ' +
       'its own schema" — without buying the whole catalogue. The answer says whether the check ' +
       'PASSED, and when the check did not apply to this response it says that instead of ' +
-      'quietly passing. GET /check lists every check id. Three questions cost more this way ' +
-      'than the full report does; the full report is the better buy above two.',
+      'quietly passing. GET /check lists every check id, and publishes the batch arithmetic — so ' +
+      'you can work out where the full report becomes the cheaper buy before paying for any of it.',
     inputDescription:
       'a JSON object: { "url": "https://…", "check": "V2_B64_URLSAFE" } — exactly one check id ' +
       'from GET /check, plus optionally { "method": "POST" | "GET" }',
@@ -229,7 +242,7 @@ export const ENDPOINTS = [
     id: 'lint-envelope',
     path: '/lint/envelope',
     method: 'POST',
-    price_usd: 0.05,
+    price_usd: 0.1,
     fetches: false,
     single: false,
     pairedWith: 'lint-envelope-one',
@@ -238,8 +251,8 @@ export const ENDPOINTS = [
     long:
       'Runs the same check catalogue against a response you already have: paste the status, ' +
       'headers and body. Nothing is fetched, so it works for v1/v2 migration work, on staging, ' +
-      'on localhost and on an endpoint that is not deployed yet. Half the price of /lint for ' +
-      'that reason: there is no outbound request to make on your behalf.',
+      'on localhost and on an endpoint that is not deployed yet. Cheaper than /lint for that ' +
+      'reason: there is no outbound request to make on your behalf.',
     inputDescription:
       'a JSON object: { "status": 402, "headers": { "payment-required": "…", … }, "body": "…" }',
     outputDescription: 'a JSON lint report: grade, summary, findings[] and checks_run',
@@ -295,43 +308,106 @@ export const priceLabel = (usd) =>
 
 // ------------------------------------------------------------------ the batch advantage
 //
-// The one number the pricing copy makes an argument out of, computed from the
-// prices above so the copy cannot drift from the sheet. Stated as a function of
-// the catalogue size rather than importing worker/lint.js, which would drag the
+// The argument the pricing copy makes out of the sheet, computed from the prices
+// above so the copy cannot drift from them. Stated as a function of the
+// catalogue size rather than importing worker/lint.js, which would drag the
 // whole engine into every module that only wanted a price.
+//
+// ONE MULTIPLE PER RAIL, and that is not a compromise. The live and pasted rails
+// carry different full-report prices against the same two single-check prices,
+// so they have genuinely different multiples. A single published number could
+// only ever be true of one rail, and a sheet that averages two rails into a
+// number true of neither is worse than a sheet with two numbers on it.
+
+/** Which of the two rails an endpoint sits on. Read off `fetches`, never the id. */
+export const railOf = (endpoint) => (endpoint.fetches ? 'live' : 'pasted');
+
+export const RAILS = ['live', 'pasted'];
 
 /**
- * Full-report price ÷ single-check price.
+ * Full-report price ÷ single-check price, one entry per rail.
  *
- * ONE number for both rails, and the module refuses to load if the two rails
- * disagree — a price sheet whose own copy needs two multiples to describe it is
- * a sheet somebody edited half of. (Float division: 0.1/0.02 is
- * 5.000000000000001, so it is rounded before it is compared or printed.)
+ * Derived from the sheet above and asserted at module load. Each rail must have
+ * a full/single pair; the pair must be ON that rail; and the full report must
+ * cost MORE than one check on it — a rail where it did not would make every
+ * batch-advantage sentence below an anti-recommendation, printed confidently.
+ *
+ * The multiples are NOT required to agree with each other. They are required to
+ * be true. (Float division is not exact — 0.25/0.02 is 12.499999999999998 — so
+ * each is rounded before it is compared or printed.)
  */
-export const BATCH_MULTIPLE = (() => {
-  const multiples = ENDPOINTS.filter((e) => e.single).map((one) => {
+export const BATCH_MULTIPLES = (() => {
+  const multiples = {};
+  for (const one of ENDPOINTS.filter((e) => e.single)) {
     const full = ENDPOINTS.find((e) => e.id === one.pairedWith);
     if (!full) throw new Error(`${one.id} is paired with "${one.pairedWith}", which is not an endpoint`);
-    return Math.round((full.price_usd / one.price_usd) * 1000) / 1000;
-  });
-  if (!multiples.length) throw new Error('no single-check endpoint to derive a batch multiple from');
-  if (new Set(multiples).size !== 1) {
-    throw new Error(`the rails disagree on the batch multiple: ${multiples.join(' vs ')}`);
+    if (railOf(full) !== railOf(one)) {
+      throw new Error(`${one.id} and ${full.id} are paired ACROSS rails; a multiple over them means nothing`);
+    }
+    if (!(full.price_usd > one.price_usd)) {
+      throw new Error(
+        `${full.id} (${full.price_usd}) must cost MORE than ${one.id} (${one.price_usd}) — ` +
+          'there is no batch advantage to publish otherwise'
+      );
+    }
+    const rail = railOf(one);
+    const multiple = Math.round((full.price_usd / one.price_usd) * 1000) / 1000;
+    if (rail in multiples && multiples[rail] !== multiple) {
+      throw new Error(`the ${rail} rail disagrees with itself: ${multiples[rail]} vs ${multiple}`);
+    }
+    multiples[rail] = multiple;
   }
-  return multiples[0];
+  for (const rail of RAILS) {
+    if (!(rail in multiples)) throw new Error(`the ${rail} rail has no full/single pair to derive a multiple from`);
+  }
+  return multiples;
 })();
 
 /**
- * How much cheaper a check is inside the batch than bought alone.
+ * How much cheaper a check is inside the batch than bought alone, on one rail.
  *
- * 75 checks for 5x the price of one is 15x per check. `checksTotal` is passed
- * in by the caller that has it, so this module stays free of the engine.
+ * `checksTotal` is passed in by the caller that has it, so this module stays
+ * free of the engine.
  */
-export const perCheckAdvantage = (checksTotal) =>
-  Math.round((checksTotal / BATCH_MULTIPLE) * 10) / 10;
+export const perCheckAdvantage = (checksTotal, rail) => {
+  if (!(rail in BATCH_MULTIPLES)) throw new Error(`no such rail: ${rail}`);
+  return Math.round((checksTotal / BATCH_MULTIPLES[rail]) * 10) / 10;
+};
+
+/**
+ * The last question count at which buying singles still beats the full report.
+ *
+ * At exactly `multiple` singles the two cost the SAME, so the last count where
+ * singles are strictly cheaper is ceil(multiple) − 1: 12 on a 12.5x rail, 9 on a
+ * 10x one. The published number is the one a buyer can check with a calculator
+ * and find true, not the one that flatters the report.
+ */
+export const singlesEdge = (rail) => {
+  if (!(rail in BATCH_MULTIPLES)) throw new Error(`no such rail: ${rail}`);
+  return Math.ceil(BATCH_MULTIPLES[rail]) - 1;
+};
 
 /** The sentence every surface prints, so all of them print the same one. */
 export const batchAdvantageLine = (checksTotal) =>
-  `The full suite costs ${BATCH_MULTIPLE}x a single check and runs ${checksTotal} of them — a ` +
-  `${perCheckAdvantage(checksTotal)}x per-check advantage. One question is worth buying alone; ` +
-  'three are not.';
+  `A full ${checksTotal}-check report costs ${BATCH_MULTIPLES.live}x one check on a live URL and ` +
+  `${BATCH_MULTIPLES.pasted}x on a pasted response — a ${perCheckAdvantage(checksTotal, 'live')}x and ` +
+  `${perCheckAdvantage(checksTotal, 'pasted')}x per-check advantage. Singles stay the cheaper buy ` +
+  `through ${singlesEdge('live')} questions live and ${singlesEdge('pasted')} pasted; past that, buy the report.`;
+
+// THE COPY IS DERIVED, and the module refuses to load if it stops being. Every
+// number the sentence shows has to be one the arithmetic above produced — a
+// hand-typed ratio pasted over a computed one is exactly the drift this whole
+// file exists to prevent, and it is invisible in review because it reads right.
+// The probe count is arbitrary: what is asserted is provenance, not size.
+(() => {
+  const PROBE = 37;
+  const line = batchAdvantageLine(PROBE);
+  const shows = (n) => new RegExp(`(^|[^\\d.])${String(n).replace('.', '\\.')}(?![\\d.])`).test(line);
+  for (const rail of RAILS) {
+    for (const n of [BATCH_MULTIPLES[rail], perCheckAdvantage(PROBE, rail), singlesEdge(rail)]) {
+      if (!shows(n)) {
+        throw new Error(`the batch-advantage copy does not render its own computed ${rail} figure ${n}: ${line}`);
+      }
+    }
+  }
+})();

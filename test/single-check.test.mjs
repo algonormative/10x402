@@ -19,12 +19,15 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import {
-  BATCH_MULTIPLE,
+  BATCH_MULTIPLES,
   ENDPOINTS,
   ENDPOINTS_BY_ID,
+  RAILS,
   batchAdvantageLine,
   perCheckAdvantage,
   priceLabel,
+  railOf,
+  singlesEdge,
 } from '../worker/catalog.js';
 import { CHECKS, CHECKS_BY_ID, lint, lintOne } from '../worker/lint.js';
 import { atomicAmount, runSample } from '../worker/envelope.js';
@@ -219,16 +222,16 @@ describe('the four prices, and the atomic math underneath them', () => {
     // nobody decided on.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, e.price_usd])),
-      { '/lint': 0.1, '/lint/one': 0.02, '/lint/envelope': 0.05, '/lint/envelope/one': 0.01 }
+      { '/lint': 0.25, '/lint/one': 0.02, '/lint/envelope': 0.1, '/lint/envelope/one': 0.01 }
     );
   });
 
   test('dollars become atomic units of a 6-decimal USDC, exactly', () => {
-    // $0.10 is 100000, NOT 10000. A missing zero here is a tenfold mispricing
+    // $0.25 is 250000, NOT 25000. A missing zero here is a tenfold mispricing
     // that reads as plausible in every other assertion in this suite.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, atomicAmount(e.price_usd)])),
-      { '/lint': '100000', '/lint/one': '20000', '/lint/envelope': '50000', '/lint/envelope/one': '10000' }
+      { '/lint': '250000', '/lint/one': '20000', '/lint/envelope': '100000', '/lint/envelope/one': '10000' }
     );
     // Float division is not exact — 0.1 * 1e6 is 100000.00000000001 — so the
     // conversion has to round rather than truncate. This is that assertion.
@@ -239,56 +242,116 @@ describe('the four prices, and the atomic math underneath them', () => {
   test('a price never renders shorter than cents', () => {
     // "$0.1" on a sheet that also says "$0.02" is a 10x misread a buyer only
     // notices after paying.
-    assert.deepEqual(ENDPOINTS.map((e) => priceLabel(e.price_usd)), ['$0.10', '$0.02', '$0.05', '$0.01']);
+    assert.deepEqual(ENDPOINTS.map((e) => priceLabel(e.price_usd)), ['$0.25', '$0.02', '$0.10', '$0.01']);
     assert.equal(priceLabel(0), 'free');
     assert.equal(priceLabel(0.005), '$0.005', 'sub-cent prices keep the digits they need');
   });
 });
 
 describe('the copy cannot drift from the sheet', () => {
-  test('the batch multiple is derived from the prices, and both rails agree on it', () => {
-    assert.equal(BATCH_MULTIPLE, 5);
+  test('the batch multiple is derived from the prices, ONE PER RAIL', () => {
+    // WRITTEN OUT, like the sheet itself. The rails genuinely differ — the full
+    // report moved and the single checks did not — and a single averaged number
+    // would be true of neither, which is worse than two numbers.
+    assert.deepEqual(BATCH_MULTIPLES, { live: 12.5, pasted: 10 });
+
     for (const one of ENDPOINTS.filter((e) => e.single)) {
       const full = ENDPOINTS_BY_ID.get(one.pairedWith);
+      assert.equal(railOf(full), railOf(one), `${one.path} is paired across rails`);
       assert.equal(
         Math.round((full.price_usd / one.price_usd) * 1000) / 1000,
-        BATCH_MULTIPLE,
-        `${one.path} and ${full.path} disagree with the published multiple`
+        BATCH_MULTIPLES[railOf(one)],
+        `${one.path} and ${full.path} disagree with their rail's published multiple`
       );
     }
   });
 
-  test('the per-check advantage the copy claims is the catalogue divided by that multiple', () => {
-    // The sentence every surface prints says "5x ... 75 ... 15x". All three
-    // numbers come from here, so a re-price or a new check rewrites the copy
-    // instead of falsifying it.
-    assert.equal(perCheckAdvantage(CHECKS.length), CHECKS.length / BATCH_MULTIPLE);
-    const line = batchAdvantageLine(CHECKS.length);
-    assert.match(line, new RegExp(`${BATCH_MULTIPLE}x a single check`));
-    assert.match(line, new RegExp(`runs ${CHECKS.length} of them`));
-    assert.match(line, new RegExp(`${perCheckAdvantage(CHECKS.length)}x per-check advantage`));
+  test('a full report costs MORE than one check on its own rail', () => {
+    // The invariant the catalogue asserts at module load, made visible: a rail
+    // where this stopped holding would print a confident batch-advantage
+    // sentence recommending the more expensive buy.
+    for (const one of ENDPOINTS.filter((e) => e.single)) {
+      const full = ENDPOINTS_BY_ID.get(one.pairedWith);
+      assert.ok(full.price_usd > one.price_usd, `${full.path} does not cost more than ${one.path}`);
+      assert.ok(BATCH_MULTIPLES[railOf(one)] > 1);
+    }
   });
 
-  test('the pasted rail is exactly half the live rail, at both scopes', () => {
-    // The stated reason is a cost we do not incur — no outbound probe — so the
-    // discount has to be the same at both scopes or the reason is decoration.
+  test('the per-check advantage the copy claims is the catalogue divided by that rail', () => {
+    // Six numbers, all computed: two multiples, two per-check advantages, two
+    // crossover counts. A re-price or a new check rewrites the sentence instead
+    // of falsifying it.
+    assert.equal(perCheckAdvantage(CHECKS.length, 'live'), CHECKS.length / BATCH_MULTIPLES.live);
+    assert.equal(perCheckAdvantage(CHECKS.length, 'pasted'), CHECKS.length / BATCH_MULTIPLES.pasted);
+
+    const line = batchAdvantageLine(CHECKS.length);
+    assert.match(line, new RegExp(`A full ${CHECKS.length}-check report`));
+    assert.match(line, new RegExp(`costs ${BATCH_MULTIPLES.live}x one check on a live URL`));
+    assert.match(line, new RegExp(`${BATCH_MULTIPLES.pasted}x on a pasted response`));
+    assert.match(
+      line,
+      new RegExp(
+        `a ${perCheckAdvantage(CHECKS.length, 'live')}x and ` +
+          `${perCheckAdvantage(CHECKS.length, 'pasted')}x per-check advantage`
+      )
+    );
+    assert.match(line, new RegExp(`through ${singlesEdge('live')} questions live and ${singlesEdge('pasted')} pasted`));
+  });
+
+  test('the crossover the copy publishes is the one a calculator agrees with', () => {
+    // THE NUMBER HAS TO SURVIVE BEING CHECKED. At `singlesEdge` singles are
+    // strictly cheaper; one more and the full report is at least as cheap. A
+    // crossover that flattered the report by one would be found by any buyer
+    // who multiplied, and this is the assertion that stops it shipping.
+    for (const rail of RAILS) {
+      const one = ENDPOINTS.find((e) => e.single && railOf(e) === rail);
+      const full = ENDPOINTS_BY_ID.get(one.pairedWith);
+      const edge = singlesEdge(rail);
+      assert.ok(edge * one.price_usd < full.price_usd, `${rail}: ${edge} singles are not cheaper than the report`);
+      assert.ok(
+        (edge + 1) * one.price_usd >= full.price_usd,
+        `${rail}: ${edge + 1} singles are still cheaper — the published crossover is too low`
+      );
+    }
+  });
+
+  test('the pasted rail is cheaper than the live rail, at both scopes', () => {
+    // The stated reason is a cost we do not incur — no outbound probe — so it
+    // has to hold at BOTH scopes or the reason is decoration. It is no longer a
+    // fixed fraction: the full report is priced for an incident and the single
+    // check for CI, and those two moved apart.
     for (const [live, pasted] of [['lint', 'lint-envelope'], ['lint-one', 'lint-envelope-one']]) {
-      assert.equal(
-        ENDPOINTS_BY_ID.get(pasted).price_usd * 2,
-        ENDPOINTS_BY_ID.get(live).price_usd,
-        `${pasted} is not half of ${live}`
+      assert.ok(
+        ENDPOINTS_BY_ID.get(pasted).price_usd < ENDPOINTS_BY_ID.get(live).price_usd,
+        `${pasted} is not cheaper than ${live}`
       );
       assert.equal(ENDPOINTS_BY_ID.get(live).fetches, true);
       assert.equal(ENDPOINTS_BY_ID.get(pasted).fetches, false);
     }
   });
 
-  test('no surface still quotes the pre-launch prices', () => {
+  test('no hand-written surface still quotes a superseded price', () => {
     // The classic launch bug: the sheet moves and one file keeps the old
-    // number. $0.005 is the tell — it was a price here and is now nobody's.
+    // number. These four files type their prices as prose — nothing generates
+    // them — so they are the ones that drift. $0.005 and $0.05 are the tells:
+    // each was a price here and is now nobody's. ($0.10 is not a tell — it is
+    // still on the sheet, on the other rail.)
     for (const file of ['README.md', 'build.mjs', 'mcp/server.mjs', 'skills/10x402/SKILL.md']) {
       const text = readFileSync(join(ROOT, file), 'utf8');
-      assert.ok(!text.includes('$0.005'), `${file} still quotes the old $0.005 price`);
+      for (const gone of ['$0.005', '$0.05']) {
+        assert.ok(!text.includes(gone), `${file} still quotes the superseded ${gone} price`);
+      }
+    }
+
+    // And the three that type their prices as PROSE — build.mjs generates every
+    // one of its own from priceLabel() and so cannot drift — each name all four
+    // of the prices actually on the sheet.
+    for (const file of ['README.md', 'mcp/server.mjs', 'skills/10x402/SKILL.md']) {
+      const text = readFileSync(join(ROOT, file), 'utf8');
+      for (const endpoint of ENDPOINTS) {
+        const price = priceLabel(endpoint.price_usd);
+        assert.ok(text.includes(price), `${file} never mentions ${endpoint.path}'s ${price}`);
+      }
     }
   });
 });

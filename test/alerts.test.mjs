@@ -147,7 +147,7 @@ function paymentHeader({ from = VERIFIED_PAYER } = {}) {
         authorization: {
           from,
           to: PAYTO_TEST,
-          value: '50000',
+          value: '100000',
           validAfter: String(now - 600),
           validBefore: String(now + 60),
           nonce: `0x${randomBytes(32).toString('hex')}`,
@@ -190,9 +190,9 @@ describe('a settled payment pings the owner', () => {
     await buy();
     const { body } = await awaitAlert((s) => /THIRD PARTY PAID/.test(s.body.text), 'the settlement alert');
     // The /lint/envelope price, as money AND as the atomic value beside it —
-    // the pair is what makes a "$0.05" in a 3am notification checkable.
-    assert.match(body.text, /\$0\.05\b/);
-    assert.match(body.text, /50000 atomic/);
+    // the pair is what makes a "$0.10" in a 3am notification checkable.
+    assert.match(body.text, /\$0\.10\b/);
+    assert.match(body.text, /100000 atomic/);
     assert.match(body.text, /lint-envelope/);
     assert.match(body.text, new RegExp(VERIFIED_PAYER, 'i'));
     assert.match(body.text, new RegExp(TX_HASH));
@@ -232,7 +232,7 @@ describe('a house payer reads as a drill, not as a sale', () => {
   });
 
   test('the two headlines cannot be confused', () => {
-    const alert = { kind: 'settled', tool: 'lint', payer: HOUSE_PAYER, amount: '100000', settleOk: 1, txHash: TX_HASH };
+    const alert = { kind: 'settled', tool: 'lint', payer: HOUSE_PAYER, amount: '250000', settleOk: 1, txHash: TX_HASH };
     const house = alertHeadline({ HOUSE_PAYERS: HOUSE_PAYER }, alert);
     const stranger = alertHeadline({}, alert);
     assert.match(house, /test settlement/);
@@ -418,10 +418,11 @@ describe('the message, as a pure function', () => {
   test('atomic USDC renders as money, never shorter than cents', () => {
     // NEVER "$0.1". The price sheet has a $0.10 and a $0.02 on it, and a
     // headline that drops the second decimal is a 10x misread in the one
-    // message whose entire job is telling a human what moved.
-    assert.equal(formatUsdc('100000'), '$0.10');
+    // message whose entire job is telling a human what moved. All four amounts
+    // on the current sheet, rendered:
+    assert.equal(formatUsdc('250000'), '$0.25');
     assert.equal(formatUsdc('20000'), '$0.02');
-    assert.equal(formatUsdc('50000'), '$0.05');
+    assert.equal(formatUsdc('100000'), '$0.10');
     assert.equal(formatUsdc('10000'), '$0.01');
     // Sub-cent amounts keep the digits they need — other sellers price there,
     // and this renderer is pointed at their amounts too.
@@ -437,7 +438,7 @@ describe('the message, as a pure function', () => {
     // exactly that value. An address field holding 50 KB became 50 KB of
     // Telegram body and 50 KB of Subject header, from one unauthenticated
     // request. An EVM address is 42 characters.
-    const alert = { kind: 'settled', tool: 'lint', payer: '0x'.padEnd(50_000, 'f'), amount: '100000', settleOk: 1 };
+    const alert = { kind: 'settled', tool: 'lint', payer: '0x'.padEnd(50_000, 'f'), amount: '250000', settleOk: 1 };
     const { subject, text } = alertMessage({}, alert);
     assert.ok(subject.length < 300, `the subject is ${subject.length} characters`);
     assert.ok(text.length < 1200, `the body is ${text.length} characters`);
@@ -445,7 +446,7 @@ describe('the message, as a pure function', () => {
   });
 
   test('an ordinary address is not clipped', () => {
-    const alert = { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '100000', settleOk: 1 };
+    const alert = { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '250000', settleOk: 1 };
     assert.match(alertHeadline({}, alert), new RegExp(VERIFIED_PAYER, 'i'));
   });
 
@@ -459,14 +460,14 @@ describe('the message, as a pure function', () => {
   test('a failed settlement says so in the headline, not only in the body', () => {
     const headline = alertHeadline(
       {},
-      { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '100000', settleOk: 0, error: 'nonce_already_used' }
+      { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '250000', settleOk: 0, error: 'nonce_already_used' }
     );
     assert.match(headline, /SETTLE FAILED \(nonce_already_used\)/);
   });
 
   test('the subject and the first line of the body are the same string', () => {
     // A lock screen and an inbox preview should say the identical thing.
-    const alert = { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '100000', settleOk: 1, txHash: TX_HASH };
+    const alert = { kind: 'settled', tool: 'lint', payer: VERIFIED_PAYER, amount: '250000', settleOk: 1, txHash: TX_HASH };
     const { subject, text } = alertMessage({}, alert);
     assert.equal(text.split('\n')[0], subject);
   });
@@ -480,7 +481,7 @@ describe('the email the binding would be handed', () => {
   const message = () =>
     rawEmail({
       to: 'owner@example.com',
-      subject: 'THIRD PARTY PAID — $0.10 lint',
+      subject: 'THIRD PARTY PAID — $0.25 lint',
       text: 'line one\nline two',
       date: new Date('2026-08-19T17:43:35Z'),
     });

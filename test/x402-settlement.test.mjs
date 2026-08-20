@@ -682,7 +682,7 @@ describe('payment fairness: nobody is charged for work that was not served', () 
 
 describe('the single-check routes settle their own price', () => {
   test('a served single check settles the single-check amount, under its own endpoint id', async () => {
-    // The ledger has to be able to tell a $0.01 answer from a $0.05 report:
+    // The ledger has to be able to tell a $0.01 answer from a $0.25 report:
     // `endpoint` and `amount` are what the revenue queries in the README group
     // by, and four routes at four prices through one settle path is exactly
     // where those two could quietly come from the wrong endpoint.
@@ -710,9 +710,9 @@ describe('the single-check routes settle their own price', () => {
 
   test('the four routes quote four different amounts in their own 402s', async () => {
     for (const [path, atomic] of [
-      ['/lint', '100000'],
+      ['/lint', '250000'],
       ['/lint/one', '20000'],
-      ['/lint/envelope', '50000'],
+      ['/lint/envelope', '100000'],
       ['/lint/envelope/one', '10000'],
     ]) {
       const quote = await paid(path, {}, {}, ips.next());

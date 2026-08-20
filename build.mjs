@@ -800,8 +800,14 @@ ${ENDPOINTS.map(
 ).join('\n')}
       </tbody>
     </table></div>
-    <p class="small">${esc(batchAdvantageLine(CHECKS.length))} A pasted response is half the price
-    of a live one at both scopes, because there is no outbound request to make on your behalf.
+    <p class="small"><strong>The two scopes are two products.</strong> A full report is priced for
+    the incident it resolves: a 402 that passes validate and still is not indexed is the class of
+    problem that eats weeks, because nothing in the stack says which of the ${CHECKS.length} things
+    is wrong. At ${priceLabel(byId('lint').price_usd)} it is a fraction of the $25 a signed
+    conformance report costs. A single check is the CI product &mdash; run on every commit, against
+    one property &mdash; and stays micro for that reason.</p>
+    <p class="small">${esc(batchAdvantageLine(CHECKS.length))} A pasted response costs less than a
+    live one at both scopes, because there is no outbound request to make on your behalf.
     Every price is per <strong>served</strong> report: a bad URL, an unreachable target, a malformed
     paste or an unknown check id settles nothing, even when the payment verified.</p>
   </section>
@@ -1298,8 +1304,10 @@ asset    USDC on Base, ${USDC_BASE}
 network  ${NETWORK_V1} (v1) / ${NETWORK_V2} (v2)
 prices   ${ENDPOINTS.map((e) => `${e.path} ${priceLabel(e.price_usd)}`).join(', ')}
          ${batchAdvantageLine(CHECKS.length)}
-         A pasted response is half the price of a live one at both scopes,
-         because there is no outbound request to make on your behalf.
+         The full report is priced for the incident it resolves; a single check
+         is priced to be run in CI. A pasted response costs less than a live one
+         at both scopes, because there is no outbound request to make on your
+         behalf.
 free tier  none, deliberately — one would fail this service's own HTTP_FREE_TIER_200 check
 
 You are only charged for reports that are served. A bad URL or a malformed paste
@@ -1461,8 +1469,10 @@ curl -sS -X POST ${CANONICAL_BASE}/lint/envelope \\
 
 ## One question, one check
 
-When there is exactly ONE thing you want to know, name the check and pay a
-fifth: ${priceLabel(byId('lint-one').price_usd)} on a live URL, ${priceLabel(byId('lint-envelope-one').price_usd)} on a response you paste.
+When there is exactly ONE thing you want to know, name the check and pay for one
+answer: ${priceLabel(byId('lint-one').price_usd)} on a live URL, ${priceLabel(byId('lint-envelope-one').price_usd)} on a response you paste. This is the form to
+put in a test or a CI step, where the same one property is asserted on every
+commit.
 
 \`\`\`bash
 curl -sS -X POST ${CANONICAL_BASE}/lint/one \\
@@ -1474,9 +1484,9 @@ curl -sS -X POST ${CANONICAL_BASE}/lint/envelope/one \\
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
 \`\`\`
 
-${batchAdvantageLine(CHECKS.length)} Do the arithmetic before
-firing a third single check: at that point the full report is cheaper AND
-tells you what you did not think to ask.
+${batchAdvantageLine(CHECKS.length)} Do that
+arithmetic before firing off a stack of single checks: past the counts above the
+full report is cheaper AND tells you what you did not think to ask.
 
 **READ \`applied\` BEFORE \`passed\`.** A single-check answer has THREE outcomes,
 and the third is the one that will mislead a reader who skims:

@@ -94,19 +94,34 @@ form of either when there is exactly one check you want the answer to.
 
 | route | price | what it does |
 |---|---|---|
-| `POST /lint` | **$0.10** | Sends one unauthenticated request to a URL you name and lints the response against all 75 checks. |
+| `POST /lint` | **$0.25** | Sends one unauthenticated request to a URL you name and lints the response against all 75 checks. |
 | `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
-| `POST /lint/envelope` | **$0.05** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope` | **$0.10** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
-**Two questions, two rails, and the arithmetic is deliberate.** The full suite
-costs 5x a single check and runs 75 of them — a 15x per-check advantage, so one
-question is worth buying alone and three are not. The pasted rail is half the
-live rail at both scopes, because there is no outbound probe to make on the
-caller's behalf. Every price is per **served** report: a bad URL, an unreachable
-target, a malformed paste or an unknown check id settles nothing, even when the
-payment verified.
+**The two scopes are two products, bought at two different moments.** A full
+report is bought during an incident: a 402 that passes validate and still is not
+indexed is the class of problem that eats weeks, because nothing in the stack
+says which of the 75 things is wrong. $0.25 is priced against that, and it is
+still a fraction of the $25 a signed conformance report costs. A single check is
+bought in a test and then again on every commit — it is the CI and regression
+product, and it stays micro because a regression product that is not cheap does
+not get run.
+
+**The multiples fall out of that rather than being designed.** A full 75-check
+report costs 12.5x one check on a live URL and 10x on a pasted response — a 6x
+and 7.5x per-check advantage. Singles stay the cheaper buy through 12 questions
+live and 9 pasted; past that, buy the report. The two rails differ because the
+prices do, which is why every surface computes one multiple per rail rather than
+averaging them into a number true of neither — the sentence above is generated
+from `BATCH_MULTIPLES` in `worker/catalog.js`, never typed. `GET /check`
+publishes the same figures, free, before anyone pays for anything.
+
+The pasted rail is cheaper than the live rail at both scopes, because there is
+no outbound probe to make on the caller's behalf. Every price is per **served**
+report: a bad URL, an unreachable target, a malformed paste or an unknown check
+id settles nothing, even when the payment verified.
 
 The two full-report endpoints return the same shape:
 

@@ -113,9 +113,9 @@ describe('GET /check', () => {
     // Written out rather than derived: this is the sheet a buyer reads, and a
     // test that computed it from the same constant the Worker did would agree
     // with any re-price, including an accidental one.
-    assert.equal(byPath['/lint'].price, '$0.10');
+    assert.equal(byPath['/lint'].price, '$0.25');
     assert.equal(byPath['/lint/one'].price, '$0.02');
-    assert.equal(byPath['/lint/envelope'].price, '$0.05');
+    assert.equal(byPath['/lint/envelope'].price, '$0.10');
     assert.equal(byPath['/lint/envelope/one'].price, '$0.01');
     for (const endpoint of ENDPOINTS) {
       assert.ok(byPath[endpoint.path], `${endpoint.path} is not listed`);
@@ -154,14 +154,22 @@ describe('GET /check', () => {
     }
   });
 
-  test('publishes the arithmetic of the sheet, not just the numbers', async () => {
-    // A caller with three questions should be able to work out, before paying
-    // for any of them, that the full report is the cheaper buy.
+  test('publishes the arithmetic of the sheet, not just the numbers — per rail', async () => {
+    // A caller with a stack of questions should be able to work out, before
+    // paying for any of them, exactly where the full report becomes the cheaper
+    // buy ON THE RAIL THEY ARE ON. The two rails differ, so one published
+    // number would be true for one caller and wrong for the other.
     const { body } = await api.check({ ip: ips.next() });
-    assert.equal(body.pricing.batch_multiple, 5);
-    assert.equal(body.pricing.per_check_advantage, CHECKS.length / 5);
-    assert.match(body.pricing.note, /5x/);
+    assert.deepEqual(body.pricing.batch_multiples, { live: 12.5, pasted: 10 });
+    assert.deepEqual(body.pricing.per_check_advantage, {
+      live: CHECKS.length / 12.5,
+      pasted: CHECKS.length / 10,
+    });
+    assert.deepEqual(body.pricing.singles_cheaper_through, { live: 12, pasted: 9 });
+    assert.match(body.pricing.note, /12\.5x one check on a live URL/);
+    assert.match(body.pricing.note, /10x on a pasted response/);
     assert.match(body.pricing.note, new RegExp(`${CHECKS.length}`));
+    assert.match(body.pricing.scope_pricing, /incident/i);
     assert.match(body.pricing.per, /served/i);
   });
 

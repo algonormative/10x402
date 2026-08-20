@@ -34,7 +34,9 @@ quote, not the report; an x402-capable client must pay and retry the request.
 Use the official [x402 buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
 to configure `@x402/fetch` or another supported client.
 
-**Public endpoint — $0.10 per served report:**
+**Public endpoint — $0.25 per served report.** Priced for the incident it
+resolves: a 402 that passes validate and still is not indexed, with nothing in
+the stack saying which of the 75 things is wrong.
 
 ```bash
 curl -sS -X POST https://10x402.com/lint \
@@ -42,11 +44,11 @@ curl -sS -X POST https://10x402.com/lint \
   -d '{"url": "https://their-endpoint.example.com/api/thing"}'
 ```
 
-**Captured response — $0.05 per served report.** Prefer this whenever you can
+**Captured response — $0.10 per served report.** Prefer this whenever you can
 already see the response: from a curl, from a test, or from the code that builds
 it. It fetches nothing, so it works on staging, on localhost, behind auth, and
-on an endpoint that is not deployed yet — and it is half the price for exactly
-that reason.
+on an endpoint that is not deployed yet — and it costs less for exactly that
+reason.
 
 ```bash
 curl -sS -X POST https://10x402.com/lint/envelope \
@@ -54,8 +56,9 @@ curl -sS -X POST https://10x402.com/lint/envelope \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"}'
 ```
 
-**One named check — $0.02 live, $0.01 pasted.** When there is exactly one thing
-you want to know and you know which check answers it:
+**One named check — $0.02 live, $0.01 pasted.** The CI product: run on every
+commit, against one property. Use it when there is exactly one thing you want to
+know and you know which check answers it:
 
 ```bash
 curl -sS -X POST https://10x402.com/lint/one \
@@ -67,9 +70,12 @@ curl -sS -X POST https://10x402.com/lint/envelope/one \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
 ```
 
-The full suite costs 5x a single check and runs 75 of them — a 15x per-check
-advantage. **Do the arithmetic before a third single check**: past two questions
-the full report is both cheaper and tells you what you did not think to ask.
+A full 75-check report costs 12.5x one check on a live URL and 10x on a pasted
+response — a 6x and 7.5x per-check advantage. Singles stay the cheaper buy
+through 12 questions live and 9 pasted; past that, buy the report. **Do that
+arithmetic before firing off a stack of single checks**: past those counts the
+full report is both cheaper and tells you what you did not think to ask.
+`GET /check` publishes the same numbers, free.
 
 As MCP tools, call `x402_checks` first (free), then choose `lint_x402`,
 `lint_x402_envelope`, `lint_x402_one_check` or `lint_x402_envelope_one_check`.

@@ -3,12 +3,12 @@
 //   GET  /check              free. Service info, the whole check catalogue,
 //                            prices, the grade ladder, x402 versions. No D1,
 //                            no fetch.
-//   POST /lint               $0.10. One unauthenticated request to a URL you
+//   POST /lint               $0.25. One unauthenticated request to a URL you
 //                            name, then the full check catalogue over what came
 //                            back.
 //   POST /lint/one           $0.02. The same outbound request, reported for ONE
 //                            named check.
-//   POST /lint/envelope      $0.05. The full catalogue over a response you
+//   POST /lint/envelope      $0.10. The full catalogue over a response you
 //                            paste. No outbound request at all.
 //   POST /lint/envelope/one  $0.01. ONE named check over a response you paste.
 //
@@ -72,7 +72,7 @@
 //   costs the caller nothing.
 
 import {
-  BATCH_MULTIPLE,
+  BATCH_MULTIPLES,
   ENDPOINTS,
   ENDPOINTS_BY_ID,
   ENDPOINTS_BY_PATH,
@@ -87,6 +87,7 @@ import {
   batchAdvantageLine,
   perCheckAdvantage,
   priceLabel,
+  singlesEdge,
 } from './catalog.js';
 import { CHECKS, CHECKS_BY_ID, GRADE_RULES, SOURCE_KINDS, lint, lintOne } from './lint.js';
 import {
@@ -261,16 +262,27 @@ function handleCheck(request, env) {
         sample: e.sample,
       })),
     ],
-    // THE ARITHMETIC OF THE SHEET, published rather than implied. A caller with
-    // three questions should be able to work out — before paying for any of
-    // them — that the full report is the cheaper buy.
+    // THE ARITHMETIC OF THE SHEET, published rather than implied, and PER RAIL
+    // because the two rails genuinely differ. A caller with a stack of questions
+    // should be able to work out — before paying for any of them — exactly where
+    // the full report becomes the cheaper buy, on the rail they are actually on.
     pricing: {
-      batch_multiple: BATCH_MULTIPLE,
-      per_check_advantage: perCheckAdvantage(CHECKS.length),
+      batch_multiples: { ...BATCH_MULTIPLES },
+      per_check_advantage: Object.fromEntries(
+        Object.keys(BATCH_MULTIPLES).map((rail) => [rail, perCheckAdvantage(CHECKS.length, rail)])
+      ),
+      singles_cheaper_through: Object.fromEntries(
+        Object.keys(BATCH_MULTIPLES).map((rail) => [rail, singlesEdge(rail)])
+      ),
       note: batchAdvantageLine(CHECKS.length),
+      scope_pricing:
+        'the two scopes are two products. A full report is priced for the incident it resolves — ' +
+        'a 402 that passes validate and still is not indexed, with nothing in the stack saying ' +
+        `which of ${CHECKS.length} things is wrong. A single check is priced to be run in CI, ` +
+        'over and over, which is why it stays micro.',
       envelope_discount:
-        'the pasted-response routes are half the price of the ones that fetch, because they make ' +
-        'no outbound request on your behalf.',
+        'the pasted-response routes cost less than the ones that fetch, because they make no ' +
+        'outbound request on your behalf.',
       per: 'every price is per SERVED report — a bad URL, an unreachable target, a malformed paste ' +
         'or an unknown check id settles nothing, even when the payment verified.',
     },
