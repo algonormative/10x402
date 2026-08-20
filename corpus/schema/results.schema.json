@@ -4,60 +4,75 @@
   "title": "x402 portable conformance corpus — results document",
   "description": "The shape of a results file: one tool's answers to every fixture in corpus/fixtures.json. THIS SCHEMA IS WRITTEN FOR A THIRD TOOL, not for the two adapters that happen to ship in this repository, and the difference shows in what it does not require. It asks for the answers, the identification of what produced them, and an honest declaration of what was held back — and it asks nothing at all about the internals of `tool_detail`, because a third implementation's own report is its own business and a corpus that legislated its shape would be demanding that everybody model their findings the way this repository models its own. Restricted, like fixtures.schema.json, to the JSON Schema subset worker/json-schema.js implements; the cross-field rules it therefore cannot express are enforced programmatically by corpus/validate-results.mjs, which is the actual conformance test.",
   "type": "object",
-  "required": ["tool", "corpus_version", "ran", "adapter", "partial_evaluation", "results"],
+  "required": [
+    "tool",
+    "corpus_version",
+    "ran",
+    "adapter",
+    "partial_evaluation",
+    "results"
+  ],
   "additionalProperties": true,
   "properties": {
     "tool": {
       "type": "object",
       "description": "WHAT PRODUCED THESE ANSWERS. `name` is the only required key, and everything else here is free-form on purpose: how a tool is best identified differs by what it is. A repository pins by commit or by content hash, a published package pins by version and registry integrity, a hosted service can pin by nothing better than a build id and a date. Requiring one of those shapes would mean the others lie to satisfy it. What is not negotiable is that SOMETHING here lets a reader get back to the code, and the shipped adapters both go further than the schema asks — 10x402 publishes the git blob hash of every file whose bytes can change an answer, since a commit says where a tree was and a blob hash says what the bytes were.",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": true,
       "properties": {
-        "name": { "type": "string", "minLength": 1 }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-
     "corpus_version": {
       "type": "integer",
       "minimum": 1,
       "description": "The corpus version these answers were produced against. validate-results.mjs refuses a mismatch outright rather than comparing across versions: the tag list and the dimension contract are versioned together with the fixtures, so an answer given under version 1 is not a smaller or older version of an answer given under version 2, it is an answer to a different question."
     },
-
     "ran": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}",
       "description": "When the run happened. An ISO 8601 date, optionally carrying a time after it — the pattern is unanchored at the end so a full timestamp is admitted, since `format: date-time` is outside the supported subset and a tool that records the hour should not be punished for it."
     },
-
     "adapter": {
       "type": "string",
       "minLength": 1,
       "description": "The thing that mapped this tool's own findings into the corpus vocabulary, named so a reader can go and read it. The mapping is where a comparison is most easily rigged, and an adapter nobody can see is a set of numbers nobody can check."
     },
-
     "partial_evaluation": {
       "type": "object",
-      "description": "WHAT THIS RUN DID NOT DO, stated up front. It is required even when the answer is nothing, because the alternative is that silence covers two very different situations: a tool that ran every rule it has, and a tool whose registry-dependent rules could not run offline and quietly returned a pass. `rules_held_back` names the second case in the tool's own rule vocabulary, and a dimension left `not-evaluated` is only acceptable when either the row says why or this list does.",
-      "required": ["rules_held_back"],
+      "description": "WHAT THIS RUN DID NOT DO, stated up front. It is required even when the answer is nothing, because the alternative is that silence covers two very different situations: a tool that ran every rule it has, and a tool whose registry-dependent rules could not run offline and quietly returned a pass. `rules_held_back` names the second case in the tool's own rule vocabulary. IT IS A DECLARATION AND NEVER AN EXCUSE: a file-wide list cannot account for any individual `not-evaluated` verdict, because a reader cannot attach it to a particular unanswered question. Each such verdict is accounted for on its own row, either by `not_evaluated_reason` or by that fixture's own `partial_evaluation.rules_held_back` naming a rule that would have decided the dimension — and every rule named here must be accounted for by at least one per-fixture record, so that a rule nothing ever held back is caught rather than believed. corpus/validate-results.mjs enforces all three directions.",
+      "required": [
+        "rules_held_back"
+      ],
       "additionalProperties": true,
       "properties": {
         "rules_held_back": {
           "type": "array",
           "description": "Empty is a real and meaningful answer: it asserts that nothing was held back, which is a claim a reader can hold the tool to.",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "note": { "type": "string" }
+        "note": {
+          "type": "string"
+        }
       }
     },
-
     "results": {
       "type": "array",
       "minItems": 1,
       "description": "One entry per corpus fixture. That the set is exactly the corpus's set — every fixture answered, answered once, and no unknown id — is checked programmatically; `uniqueItems` is outside the supported subset and would in any case compare whole entries rather than ids.",
-      "items": { "$ref": "#/$defs/result" }
+      "items": {
+        "$ref": "#/$defs/result"
+      }
     }
   },
-
   "$defs": {
     "reason_tag": {
       "type": "string",
@@ -102,49 +117,108 @@
         "truncated"
       ]
     },
-
     "dimension_result": {
       "type": "object",
       "description": "One tool's answer on one dimension of one fixture. The rules that bind the fields to each other — a `fail` says why, anything else says nothing, a `not-evaluated` is accounted for, an unjudgeable dimension is `n/a` with `na_kind: \"scope\"` — are the substance of the format and none of them survives translation into this subset of JSON Schema. They are enforced by corpus/validate-results.mjs, which names the fixture, the dimension and the rule; a conditional built out of anyOf would report every one of them as 'matches none of the alternatives', which is not a finding a tool author can act on.",
-      "required": ["verdict", "reason_tags"],
+      "required": [
+        "verdict",
+        "reason_tags"
+      ],
       "additionalProperties": false,
       "properties": {
         "verdict": {
           "type": "string",
           "description": "`not-evaluated` is a RESULTS-only verdict and is never a pass. It says the tool did not run the rules that would answer the question, which is a fact about the run and not about the endpoint, and it is excluded from agreement statistics rather than counted either way.",
-          "enum": ["pass", "fail", "n/a", "not-evaluated"]
+          "enum": [
+            "pass",
+            "fail",
+            "n/a",
+            "not-evaluated"
+          ]
         },
         "reason_tags": {
           "type": "array",
           "description": "Why the dimension failed, in the corpus vocabulary and not in the tool's own. Only fatal tags belong here; an observational one goes in `observed_tags`, and putting it here would turn something a tool merely noticed into something that decided a verdict.",
-          "items": { "$ref": "#/$defs/reason_tag" }
+          "items": {
+            "$ref": "#/$defs/reason_tag"
+          }
         },
         "observed_tags": {
           "type": "array",
           "description": "Everything the tool noticed on this dimension, whether or not it decided anything — including the findings whose provenance gave them no authority to decide. This is where a house rule or a provider observation belongs: on the record, and deciding nothing.",
-          "items": { "$ref": "#/$defs/reason_tag" }
+          "items": {
+            "$ref": "#/$defs/reason_tag"
+          }
         },
         "scope_suppressed": {
           "type": "array",
           "description": "What this tool WOULD have failed the dimension on, had the recording been able to support a verdict at all. The opinion is not discarded along with the verdict: a scope exclusion removes a row from the statistics, and a tool that had something to say about it should still have said it.",
-          "items": { "$ref": "#/$defs/reason_tag" }
+          "items": {
+            "$ref": "#/$defs/reason_tag"
+          }
         },
         "na_kind": {
           "type": "string",
           "description": "Which kind of `n/a` this is, where the tool distinguishes them. `scope` is mandatory on a dimension the corpus declares unjudgeable and forbidden on one it does not, and both directions are checked; `question-does-not-arise` is optional, because a tool that answers `n/a` without classifying why has still given a usable answer.",
-          "enum": ["question-does-not-arise", "scope"]
+          "enum": [
+            "question-does-not-arise",
+            "scope"
+          ]
         },
         "not_evaluated_reason": {
           "type": "string",
           "minLength": 1,
-          "description": "Why this tool did not answer. Required on a `not-evaluated` row unless the file's `partial_evaluation.rules_held_back` already accounts for it — the point being that a `not-evaluated` must be explained somewhere, so that it can never read as a quiet pass."
+          "description": "Why this tool did not answer. Required on a `not-evaluated` row unless THIS FIXTURE's own `partial_evaluation.rules_held_back` names a held-back rule whose `dimensions` include this dimension — the point being that a `not-evaluated` must be explained where it happened, so that it can never read as a quiet pass and so that the file-wide declaration cannot be used as a blanket excuse for a question nothing in particular prevented the tool from answering."
         }
       }
     },
-
+    "held_back_rule": {
+      "type": "object",
+      "description": "ONE RULE THAT DID NOT DECIDE ANYTHING ON THIS FIXTURE, in the tool's own rule vocabulary. This is the record that makes partial evaluation accountable: the corpus never sees a tool's rule ids, so the only thing it can check is that an unanswered dimension has something specific standing behind it, that the something is a rule the file declared file-wide, and that every rule so declared turns up somewhere. `dimensions` is what carries the per-dimension half of that and is required even when it is empty, because an empty array is itself a claim — that the rule not running took nothing away from any of the three questions the corpus asks — and a tool that means it should have to write it down.",
+      "required": [
+        "rule",
+        "status",
+        "dimensions"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The tool's own id for the rule. It must also appear in the file-wide `partial_evaluation.rules_held_back`; the two lists are one declaration seen from two ends, and a rule held back on a fixture but not declared for the run is a bookkeeping error worth reporting."
+        },
+        "status": {
+          "type": "string",
+          "description": "`reported-by-tool` means the tool raised this rule on this fixture but the run could not stand behind the result — an offline lookup that failed, say. `held-back` means it was never attempted. Neither decided anything; the distinction is recorded because \"the lookup failed\" and \"the lookup never ran\" are different facts about the same unanswered question.",
+          "enum": [
+            "reported-by-tool",
+            "held-back"
+          ]
+        },
+        "dimensions": {
+          "type": "array",
+          "description": "Which of the three dimensions this rule would have decided had it run. A `not-evaluated` verdict with no `not_evaluated_reason` is accounted for only by a record whose `dimensions` include it. Empty means the rule decides none of them — legitimate, and the honest answer for a check that lies outside what the corpus asks.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "payment",
+              "client_interop",
+              "discovery"
+            ]
+          }
+        },
+        "note": {
+          "type": "string",
+          "description": "Free prose, for a rule whose scope is not obvious from its id."
+        }
+      }
+    },
     "result": {
       "type": "object",
-      "required": ["id", "dimensions"],
+      "required": [
+        "id",
+        "dimensions"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -156,12 +230,42 @@
         "dimensions": {
           "type": "object",
           "description": "All three, always. A tool with no rules for a dimension answers `not-evaluated` and says so, rather than omitting the key: an absent answer and an unevaluated one look identical to a reader and mean very different things to a comparison.",
-          "required": ["payment", "client_interop", "discovery"],
+          "required": [
+            "payment",
+            "client_interop",
+            "discovery"
+          ],
           "additionalProperties": false,
           "properties": {
-            "payment": { "$ref": "#/$defs/dimension_result" },
-            "client_interop": { "$ref": "#/$defs/dimension_result" },
-            "discovery": { "$ref": "#/$defs/dimension_result" }
+            "payment": {
+              "$ref": "#/$defs/dimension_result"
+            },
+            "client_interop": {
+              "$ref": "#/$defs/dimension_result"
+            },
+            "discovery": {
+              "$ref": "#/$defs/dimension_result"
+            }
+          }
+        },
+        "partial_evaluation": {
+          "type": "object",
+          "description": "WHAT DID NOT RUN ON THIS FIXTURE. Optional, and absent is the right answer for a tool that ran everything it has — the two adapters that ship here are the two ends of that: 10x402 holds nothing back and carries no such block anywhere, and the x402-doctor adapter carries the complete ten-rule list on all thirty-four fixtures. What is not optional is the consequence: without a record here, every `not-evaluated` dimension on this fixture must carry its own `not_evaluated_reason`.",
+          "required": [
+            "rules_held_back"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "rules_held_back": {
+              "type": "array",
+              "description": "The complete set for this fixture, not only the rules that happened to be load-bearing on it. v1 recorded a skipped rule on a fixture only when the tool mentioned it there, so nine of ten existed solely in a top-level list and no reader could tell, per fixture, what had actually run.",
+              "items": {
+                "$ref": "#/$defs/held_back_rule"
+              }
+            },
+            "note": {
+              "type": "string"
+            }
           }
         },
         "tool_detail": {

@@ -40,7 +40,12 @@
 //   - the scope rule, in both directions, on both the corpus and the results
 //   - every fixture is answered exactly once and no unknown id appears
 //   - `corpus_version` matches
-//   - a `not-evaluated` row is accounted for, by the row or by the file
+//   - every `not-evaluated` row is accounted for INDIVIDUALLY — by its own
+//     reason, or by its own fixture's held-back record naming a rule that would
+//     have decided that dimension; the file-wide list excuses nothing
+//   - every rule the file declares held back is held back on some fixture, and
+//     no fixture holds back a rule the file did not declare
+//   - a dimension whose deciding rule was held back is not reported as a pass
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -233,6 +238,92 @@ function scopeShape(entry, judgeable, where) {
   return problems;
 }
 
+// ------------------------------------------------------------------ partial evaluation
+
+/**
+ * PARTIAL EVALUATION IS ACCOUNTED FOR PER FIXTURE AND PER DIMENSION, OR IT IS
+ * NOT ACCOUNTED FOR AT ALL.
+ *
+ * The version of this check that shipped with corpus v2 reduced the file-wide
+ * `partial_evaluation.rules_held_back` to a BOOLEAN — a file that declared any
+ * held-back rule at all was thereafter allowed to leave every `not-evaluated`
+ * row unexplained. An external re-review demonstrated what that buys: it
+ * replaced the list with the single invented string `fictional.rule`, turned
+ * every judgeable answer in a results file into a reasonless `not-evaluated`,
+ * and the validator returned OK. A results file that answers nothing and
+ * explains nothing was conforming, which makes the whole file-wide declaration
+ * decorative.
+ *
+ * The rule is therefore three-way, and each direction closes a different hole:
+ *
+ *   1. UPWARD, per dimension. An unanswered dimension must point at something —
+ *      its own `not_evaluated_reason`, or a rule this fixture says was held back
+ *      AND that names this dimension among the ones it would have decided. A
+ *      list attached to the run cannot explain a question, because it does not
+ *      know which question it is being asked about.
+ *   2. DOWNWARD, per rule. Everything the file declares held back must actually
+ *      be held back on some fixture. `fictional.rule` is caught here: it is
+ *      declared, it accounts for nothing, and nothing accounts for it.
+ *   3. SIDEWAYS, per fixture. A fixture may not hold back a rule the run never
+ *      declared. The file-wide list and the per-fixture records are one
+ *      declaration seen from two ends, and a rule that appears at only one end
+ *      is a bookkeeping error in whichever direction it points.
+ *
+ * Note what is NOT required: a per-fixture block at all. A tool that ran
+ * everything it has declares an empty list and carries no records, and both
+ * shipped adapters are honest under this rule — 10x402 holds nothing back
+ * anywhere, and the x402-doctor adapter carries the complete ten-rule list on
+ * every one of its thirty-four answers.
+ */
+function heldBackIndex(results) {
+  const declared = new Set(
+    (Array.isArray(results.partial_evaluation?.rules_held_back) ? results.partial_evaluation.rules_held_back : []).filter(
+      (rule) => typeof rule === 'string'
+    )
+  );
+  // Per fixture id, per dimension, the declared rules that stand behind an
+  // unanswered question there. Undeclared rules are deliberately excluded from
+  // the excuse — they are reported separately, and a rule the run never
+  // admitted to holding back should not be able to silence a row.
+  const byFixture = new Map();
+  const accounted = new Set();
+  const problems = [];
+
+  for (const entry of results.results ?? []) {
+    const id = typeof entry?.id === 'string' ? entry.id : null;
+    const excuses = { payment: [], client_interop: [], discovery: [] };
+    for (const record of entry?.partial_evaluation?.rules_held_back ?? []) {
+      const rule = record?.rule;
+      if (typeof rule !== 'string' || rule === '') continue; // the schema has already said so
+      accounted.add(rule);
+      if (!declared.has(rule)) {
+        problems.push(
+          `${id ?? 'a result'}: holds back "${rule}", which the file-wide partial_evaluation.rules_held_back does not ` +
+            'declare — the run-level list and the per-fixture records are one declaration, and a rule that appears at ' +
+            'only one end is unreviewable'
+        );
+        continue;
+      }
+      for (const dim of record?.dimensions ?? []) {
+        if (excuses[dim]) excuses[dim].push(rule);
+      }
+    }
+    if (id) byFixture.set(id, excuses);
+  }
+
+  for (const rule of declared) {
+    if (!accounted.has(rule)) {
+      problems.push(
+        `partial_evaluation.rules_held_back declares "${rule}", and no fixture's own partial_evaluation records it — ` +
+          'a rule held back on nothing held nothing back, and a run-level list that no result corroborates is exactly ' +
+          'what a fabricated one looks like'
+      );
+    }
+  }
+
+  return { byFixture, problems, empty: { payment: [], client_interop: [], discovery: [] } };
+}
+
 // ------------------------------------------------------------------ results
 
 function validateResults(results, corpus, schema, path) {
@@ -246,11 +337,8 @@ function validateResults(results, corpus, schema, path) {
     );
   }
 
-  // A file that declares rules held back has accounted for its `not-evaluated`
-  // rows collectively; one that does not has to account for each row.
-  const heldBack = Array.isArray(results.partial_evaluation?.rules_held_back)
-    ? results.partial_evaluation.rules_held_back.length > 0
-    : false;
+  const heldBack = heldBackIndex(results);
+  problems.push(...heldBack.problems.map((p) => `${path}: ${p}`));
 
   const answers = new Map();
   for (const entry of results.results ?? []) {
@@ -279,10 +367,31 @@ function validateResults(results, corpus, schema, path) {
       problems.push(...verdictShape(answer, where));
       problems.push(...scopeShape(answer, judgeable[dim], where));
 
-      if (answer.verdict === NOT_EVALUATED && !answer.not_evaluated_reason && !heldBack) {
+      // THE PER-DIMENSION HALF of the partial-evaluation contract. `excuses` is
+      // the list of rules THIS fixture says were held back AND that name THIS
+      // dimension among the ones they would have decided; the file-wide
+      // declaration is deliberately not consulted here, because it cannot know
+      // which question it is being offered in place of.
+      const excuses = (heldBack.byFixture.get(id) ?? heldBack.empty)[dim];
+
+      if (answer.verdict === NOT_EVALUATED && !answer.not_evaluated_reason && excuses.length === 0) {
         problems.push(
-          `${where}: not-evaluated with no not_evaluated_reason, and the file declares no ` +
-            'partial_evaluation.rules_held_back — a not-evaluated must be explained somewhere or it reads as a quiet pass'
+          `${where}: not-evaluated with no not_evaluated_reason, and nothing in this fixture's ` +
+            'partial_evaluation.rules_held_back names a held-back rule that would have decided this dimension — a ' +
+            'not-evaluated must be accounted for where it happened or it reads as a quiet pass'
+        );
+      }
+
+      // The other side of the same declaration, and it is the sentence FORMAT.md
+      // § Partial evaluation already published: a dimension whose deciding rule
+      // was held back is `not-evaluated`, NEVER A PASS. A `fail` is allowed to
+      // sit on top of a held-back subrule — a tool that found one fatal fault
+      // and could not check for a second should say both — and an `n/a` is the
+      // corpus's own exclusion rather than the tool's answer.
+      if (answer.verdict === 'pass' && excuses.length > 0) {
+        problems.push(
+          `${where}: pass, while this fixture declares [${excuses.join(', ')}] held back on this dimension — a rule ` +
+            'that did not run cannot have found nothing wrong, so the honest answer is not-evaluated'
         );
       }
 

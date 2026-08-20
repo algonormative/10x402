@@ -1,0 +1,8 @@
+{
+  "name": "x402-doctor-deps",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@x402/extensions": "2.23.0"
+  }
+}
