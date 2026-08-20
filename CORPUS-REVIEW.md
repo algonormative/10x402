@@ -558,3 +558,223 @@ corpus that lies about its own scope is caught by the same script a stranger run
   `dual-payto-divergence.payment` (fail → pass), `free-tier-200.payment` and
   `.client_interop` (pass → n/a), `redirect-instead-of-402.payment` and `.client_interop`
   (pass → n/a). Nothing else moved.
+
+---
+
+## Re-review verdict (2026-08-20)
+
+Recommendation: **HOLD — do not offer this corpus upstream yet.**
+
+The accepted adjudications are not reopened here. Static declaration eligibility is a
+clear, disclosed meaning of `discovery`; response headers are parsed field values; and
+payment/client verdicts are `n/a` when no challenge was recorded. Those choices are now
+implemented consistently. The remaining HOLDs below are implementation, evidence, and
+reproducibility failures under those accepted choices.
+
+### 1. Fixture truth and evidence
+
+| Original HOLD item | Verdict | Re-review |
+| --- | --- | --- |
+| 1. House rules leaked into normative dimensions | **PASS** | The `DUAL_*` override is gone. `dual-payto-divergence.payment` passes, and `v2-payto-array.payment` is decided only by `payee-form`. |
+| 2. `discovery` lacked provider-side truth | **HOLD** | All 27 non-`n/a` discovery verdicts now have a structured target and provider-scoped evidence, but the evidence is not always true of the declaration. `v2-timeout-absent.discovery` passes and says it satisfies the target's required set while its cited CDP capture marks `accepts[0].maxTimeoutSeconds` as required; the fixture deliberately omits it. `v2-asset-ticker-not-address` and `v2-payto-array` also make provider-acceptance claims not established by their cited scalar/address captures. |
+| 3. No-challenge/redirect cases were normative passes | **PASS** | `free-tier-200` and `redirect-instead-of-402` are mechanically unjudgeable for payment and client interop and carry scope `n/a`; their provider observations remain in discovery. |
+| 4. Whitespace/base64 truth was wrong | **PASS** | The two base64 citations resolve to the pinned ESM bytes. Base64url is accepted by the cited decoder. The whitespace fixture is correctly payment-valid under parsed-field headers and client-invalid only in its explicitly labelled raw-input population. |
+| 5. Client claims were not demonstrated | **HOLD** | `calibration-cloudflare-batch-settlement.client_interop` is still `pass` at parse level, but the exact pinned `PaymentRequiredV2Schema` requires `accepts[0].maxTimeoutSeconds`; the fixture and Cloudflare profile omit it. Parsing the fixture with that schema fails with `maxTimeoutSeconds: Required`. The citation proves only that `cloudflare:402` is a valid network string. Also, `dual-payto-divergence` says both v1 and v2 clients parse while citing only the v1 `x402-fetch` path. |
+| 6. Citation precision | **PASS, except where noted above** | The base64 references match the invoked ESM path; the asset evidence now distinguishes the core non-empty-string schema from the EVM client's `getAddress(requirements.asset)` execution path. The remaining failures are substantive support failures, not locator formatting. |
+| 7. Corpus boundaries | **PASS** | The builder and tests agree on five calibration and three constructed fixtures. The revision's phrase "six fixture expectations" refers to six fixture IDs; the list actually changes eight dimension cells, including the reason-set-only change. |
+
+The six named changed fixture IDs were checked individually. The changes for the two
+base64 fixtures, `v2-payto-array.payment`, `dual-payto-divergence.payment`, and the four
+scope-excluded free-tier/redirect cells match their cited contracts. That does not cure
+the separate provider-evidence gap on `v2-payto-array` or the missing v2 client citation
+on `dual-payto-divergence`.
+
+### 2. Contract and reproducibility
+
+| Original HOLD item | Verdict | Re-review |
+| --- | --- | --- |
+| 1. The engine pin could mislabel the code run | **HOLD** | The six declared blob hashes are asserted before execution and match the tree, but the set is incomplete. `worker/lint.js` directly imports result-affecting `worker/json-schema.js`, which is not blob-pinned. The prose also says informational commit `b5c36b9` is one commit behind HEAD; at this revision it is two commits behind. |
+| 2. Regeneration was nondeterministic | **PASS** | The real builder's output is byte-equal to `corpus/fixtures.json`, and the suite-derived responses deep-equal the suite builder's output. |
+| 3. Verdict dependencies were not fully pinned | **HOLD** | All six direct package pins have integrity hashes matching the available lock records. The doctor runner nevertheless performs a fresh unlocked `npm install @x402/extensions@2.23.0`, and cache reuse checks only for path existence. Result-affecting transitive packages are neither committed/locked nor verified; for example the extension's ranged Ajv dependency currently resolves to 8.20.0 and is used by the Bazaar validator. Different fresh installs can therefore execute different bytes while reporting the same pins. |
+| 4. Offline rules were not preserved per fixture | **PASS for the committed doctor result** | All 34 doctor fixtures carry the complete ten-rule held-back list; the status accounting is 28 `reported-by-tool` plus 312 `held-back`, and all 25 dimension-level `not-evaluated` verdicts have reasons. The general conformance-validator gap is recorded under format item 6 below. |
+
+### 3. Adapter honesty
+
+| Original HOLD item | Verdict | Re-review |
+| --- | --- | --- |
+| 1. Provenance was reduced per check ID, not per finding | **HOLD** | The committed 54 findings reproduce exactly and their published arrays match the current check catalogue, but that catalogue is still queried as `operativeSources(finding.code)`. Individual findings do not carry branch-specific provenance. The committed Cloudflare `V2_MAX_TIMEOUT` info finding is decided by the scheme's optional-timeout exception, yet publishes only generic core/EVM/CDP required-timeout sources and says it decides payment/client interop. A Solana negative probe likewise acquired the unrelated EVM citation and failed client interop without a cited Solana client. This is the original check-ID reduction defect, not merely untidy output. |
+| 2. The DUAL override violated payment | **PASS** | The override is removed, house provenance is non-operative, and the DUAL family decides neither normative dimension. |
+| 3. Discovery was an engine self-report | **HOLD on implementation, with the redefinition accepted** | The narrowed static-eligibility definition is disclosed and mechanically scoped. However, the timeout-absent fixture passes against a target whose cited preflight says the omitted field is required, so the adapter still does not implement its accepted definition truthfully for every row. |
+| 4. Missing headers were labelled undecodable | **PASS** | The doctor adapter now checks the actual header. `perfect-v1-only` and `no-envelope-html-body` carry `envelope-absent`, not `b64-undecodable`. |
+| 5. Mixed provider/transport scope was lost | **PASS** | `x402.http.challenge_status` maps to all three relevant dimensions, while the shared recorded-challenge precondition makes only the payment/client halves unjudgeable on the two non-402 fixtures. |
+
+### 4. Regenerated disagreement report
+
+**PASS for recomputation and the challenged row analyses.** Independent recomputation
+from the two result files gives 102 total dimension verdicts, 4 scope-excluded, 25 tool
+not-evaluated, 73 comparable, 58 agreed, and 15 disagreed; there are also 12 same-verdict
+reason-set differences. The whitespace disagreement is now client-only, free-tier and
+redirect are analysed in discovery with their other halves scope-excluded, the absent
+header no longer gains a duplicate base64 diagnosis, and DUAL is no longer presented as
+a normative disagreement.
+
+The report still inherits the false Cloudflare client expectation, contradictory
+timeout discovery verdict, incomplete pin claim, and non-finding-specific provenance.
+Correct arithmetic does not make those source artifacts ready to ship.
+
+### 5. Format and conformance gates
+
+| Format item | Verdict | Re-review |
+| --- | --- | --- |
+| 1. Schemas | **PASS** | Both schemas exist, validate both committed files, and the validator enforces fixture/result identity. |
+| 2. Dimension-scoped evidence | **PASS structurally; HOLD substantively** | Every non-`n/a` verdict has dimension-scoped evidence, but the timeout discovery and Cloudflare client evidence do not establish their verdicts. |
+| 3. Client quantifier | **PASS in the format; HOLD in the corpus** | Parse and execute levels are separated, and execute claims have execute-level evidence. The Cloudflare parse claim fails the cited parser. |
+| 4. Structured provider identity | **PASS structurally; HOLD in the corpus** | Targets and exclusions are explicit, but the timeout fixture contradicts its target evidence. |
+| 5. `n/a` rules | **PASS** | Four scope exclusions and seven question-does-not-arise rows are classified consistently. |
+| 6. Partial evaluation | **HOLD** | The schema requires only a file-wide non-empty `rules_held_back` list, and the validator reduces it to a boolean. A negative control replaced that list with `fictional.rule` and changed every judgeable answer to reasonless `not-evaluated`; validation still returned OK. It therefore does not enforce the documented per-fixture/per-dimension accountability contract for a third adapter. |
+| 7. Unmapped-rule policy | **PASS for the current data** | The policy is specified and the committed doctor result contains zero unmapped rules. |
+| 8. Agreement algorithm | **PASS** | The implementation and recomputed totals follow the documented ordering and exclusions. |
+| 9. Parsed header values | **PASS** | The representation and raw-input exception are explicit and exercised. |
+| 10. Pinning | **HOLD** | `worker/json-schema.js` is omitted from the blob set, and the doctor's transitive installation is not locked or integrity-verified. |
+| 11. Rebuild/diff procedure | **PASS** | The byte-equality rebuild gate invokes the real builder and passes. |
+
+### Verification performed
+
+- `node corpus/validate-results.mjs corpus/results-10x402.json corpus/results-x402-doctor.json`
+  passes and reports 58/73/15 with 25 tool-not-evaluated and 4 scope-excluded.
+- A scope negative control is rejected by fixture and dimension. The partial-evaluation
+  negative control above is incorrectly accepted, demonstrating that gate's remaining
+  hole.
+- A fresh in-memory 10x402 run deep-equals the committed result, including all 54
+  finding records; that confirms the output while also exposing the check-keyed
+  provenance design.
+- Direct package integrity values match the available locks, but the doctor dependency
+  graph is not reproducibly locked or checked.
+- The corpus phase passes: **332 passed, 0 failed**. `npm test` completes the pure phase:
+  **570 passed, 0 failed**, then this sandbox rejects the served-test listener with
+  `EPERM` on `127.0.0.1`; the corpus phase was therefore run separately as requested.
+- The real-builder byte-equality gate passes.
+
+### Final decision
+
+**HOLD.** Before re-review, correct and regenerate the false Cloudflare client verdict
+and contradictory provider-discovery verdicts; make operative provenance branch/finding
+specific; pin every result-affecting local blob and the doctor's complete verified
+dependency graph; and make the conformance validator reject unexplained or fictitiously
+held-back partial evaluations. Then rerun both schema validations, the negative controls,
+the byte rebuild, and the full test suite in an environment that permits the served
+phases.
+
+### Round 2 (2026-08-20) — response to the re-review
+
+Appended to the revision response rather than replacing it; neither review above is
+edited. The corpus is now **format v3**. Where round 1 was a narrowing of what the corpus
+claims, round 2 is mostly a change of *method*: v2 reasoned about what the pinned clients
+and the named provider do, and the re-review was right that reasoning is not evidence.
+v3 runs them.
+
+| Re-review HOLD | Status |
+| --- | --- |
+| §1.2 discovery verdicts contradict their cited capture (`v2-timeout-absent`) | **Fixed, and four more found by rechecking all of them.** |
+| §1.2 / §1.5 `v2-asset-ticker-not-address`, `v2-payto-array` provider-acceptance claims | **Fixed** — both now FAIL discovery against the capture's own required set. |
+| §1.5 `calibration-cloudflare-batch-settlement.client_interop` cites a schema that rejects it | **Fixed by running the parser.** The verdict survives; the citation did not. |
+| §1.5 `dual-payto-divergence` claims two client generations, cites one | **Fixed** — both halves observed and cited. |
+| §2.1 blob set incomplete; commit-lag prose wrong | **Both fixed.** |
+| §2.3 doctor's transitive graph unlocked and unverified | **Fixed** — committed lockfile, `npm ci`, and a two-way tree verification. |
+| §3.1 provenance still reduced per check id | **Fixed** — branch-level attribution in the engine. |
+| §3.3 adapter does not implement the accepted definition truthfully | **Fixed** by the discovery work above. |
+| §5.6 validator accepts fictitious partial evaluation | **Fixed** — per-dimension accountability enforced; the re-review's own control now exits 1. |
+
+**Every discovery verdict was rechecked against the cited capture, field by field.** The
+re-review named one contradiction; the sweep found five. `v2-timeout-absent`,
+`v2-asset-ticker-not-address` and `v2-payto-array` were the named cases;
+`v2-amount-uses-v1-field-name` (a v2 entry carrying the v1 field name presents CDP's
+required `>= 1000` comparison with nothing to read) and `v2-network-bare-name` (`"base"`
+is not a string the required network preflight can match) were not, and were wrong for the
+same reason. All five now FAIL discovery.
+
+The engine had the matching gap, which is why v2 could hold those expectations and still
+reproduce them: `bazaar_ready` was computed from an absence of blockers in a regime that
+had no rule able to raise one for the payment terms. That is the same defect twice fixed
+already in another disguise. Four checks were added — `V2_INDEX_AMOUNT`,
+`V2_INDEX_TIMEOUT`, `V2_INDEX_ASSET`, `V2_INDEX_PAYTO`, all bazaar-regime, none affecting
+the grade — and `V2_NETWORK_SUPPORTED` was widened from `eip155:*`-only to every namespace
+and raised from warn to error *in the discovery dimension only*. The catalogue is 79
+checks; `network-unsupported-by-provider` becomes fatal, and only there.
+
+**The recheck also corrected the engine in a seller's favour.** `CDP_FACILITATOR_CHAINS`
+encoded only the EVM half of a set whose captured expectation reads "a
+facilitator-supported network (Base, **Solana**, Polygon, Arbitrum, World)". A conformant
+Solana seller was being told their chain was outside CDP's settlement set by a document
+that says the opposite. Solana mainnet and devnet are in the set, and `solana-dual-stack`
+keeps its discovery pass — which is the control that shows the sweep was reading the
+capture rather than looking for failures.
+
+**The pinned clients are now RUN, not read** (`corpus/probe-clients.mjs` →
+`corpus/client-probe.json`, installed from a committed lockfile, byte-identical across
+runs). This is the round's most consequential finding and it is larger than the row that
+prompted it. `@x402/core@2.23.0` contains **two consumers that disagree**:
+`decodePaymentRequiredHeader`, which is what a client calls, runs
+`Base64EncodedRegex` and then `JSON.parse(safeBase64Decode(…))` with **no zod on the path
+at all**; `PaymentRequiredV2Schema`, exported for consumers that validate, rejects seven
+corpus envelopes the decoder accepts. "The client rejects this at decode" and "the client's
+schema rejects this" are therefore different claims about different code, and **seven
+citations in v2 made the first while the evidence supported only the second**. All seven
+are corrected and the divergence is recorded rather than smoothed away.
+
+On the two named rows specifically. The Cloudflare fixture: the decoder **accepts** it and
+`PaymentRequiredV2Schema` **rejects** it with exactly one issue,
+`accepts.0.maxTimeoutSeconds · invalid_type · Required` — so the re-review's reading of
+the schema is confirmed, the parse-level pass stands on the decoder, and the sentence that
+cited the schema as the basis for that pass is gone. `dual-payto-divergence`: both
+generations do parse it, now observed on both sides rather than asserted from one.
+
+Paths that cannot be exercised offline are recorded as `not-exercisable-offline` and never
+guessed at. That covers every signer, so the corpus's `execute`-level claims still rest on
+reading `@x402/evm` at the pinned version — and the two fixtures that depend on it
+entirely (`v2-asset-ticker-not-address`, `extra-eip712-absent`) now say so on their own
+evidence rather than leaving a reader to discover it.
+
+**Provenance is per branch.** `report.check()` takes the citations the emitting branch
+rests on; the finding carries them; the adapter reduces from them. Both named symptoms are
+gone: the Cloudflare `V2_MAX_TIMEOUT` note now publishes the scheme clause that makes the
+field optional — the document that actually decided it — instead of the three that make it
+required, and a Solana `V2_PAYTO` failure publishes the SVM scheme rule with no EVM client
+cited anywhere. The results file also separates `could_decide` from `decides`: a warning
+or a note decides nothing, and v2 printed dimensions beside findings that failed none.
+
+**Pins.** `worker/json-schema.js` is blob-pinned — it is imported by `lint.js` and the
+bazaar schema-validation checks run through it, so an edit there moved discovery verdicts
+while the pin block reported no change. The probe record and its lockfile are pinned too,
+since fixture evidence cites the record by name. The doctor runner installs with `npm ci`
+from a committed 28-package lockfile and then verifies the installed tree against it in
+both directions, publishing the whole resolved graph (Ajv at **8.20.0**) in its results.
+That verification is load-bearing rather than decorative: `npm ci` fetches by
+`resolved`/`integrity` and does **not** check that an installed package's own version
+matches the lockfile's `version` field, which a deliberately mismatched lockfile
+demonstrated. The commit-pin prose no longer claims a fixed lag; it is informational and
+always behind, by construction.
+
+**Statistics.** Recomputed, and the headline figures are unchanged: 102 verdicts, 4
+scope-excluded, 25 not comparable, 73 comparable, **58 agreed (79.5%)**, 15 disagreed, 12
+reason-set differences. That stability is itself a result and worth stating plainly — the
+five discovery flips all landed on rows where the prototype reports `not-evaluated`,
+because its registry half cannot run offline, so they were never in the comparable set.
+One row moved: `calibration-cloudflare-batch-settlement.discovery` gains
+`network-unsupported-by-provider` alongside `bazaar-extension-absent`, and it was already
+a reason-set difference rather than a disagreement.
+
+**Verification.** Full `npm test` green in an environment that permits the served phases.
+Both schema validations pass; the byte rebuild is byte-identical; the pinned-blob
+assertion and the byte-equality gate were re-proved with negative controls; the
+re-review's own partial-evaluation control was reproduced verbatim in this session and now
+exits 1 naming `fictional.rule` and all 98 unexplained rows.
+
+**Two things found along the way that were nobody's HOLD.** A pricing assertion compared a
+published, rounded figure against the raw quotient and passed only because 75 divided
+evenly by both rails; the catalogue growing to 79 exposed it, and it would have hidden any
+genuine drift between the sheet and the published copy until that day. It is fixed in both
+places it appears, with the rounding stated rather than assumed. And the earlier claim of
+"six fixture expectations" in the round-1 response was, as the re-review noted, six fixture
+IDs across eight dimension cells; this round changed five more discovery cells, listed
+above.

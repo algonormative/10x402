@@ -1,6 +1,6 @@
-# The portable x402 conformance corpus — format v2
+# The portable x402 conformance corpus — format v3
 
-`corpus_version: 2`
+`corpus_version: 3`
 
 A corpus of recorded HTTP responses with **tool-neutral expectations**, so that two
 conformance implementations can be run over the same cases and their disagreements read
@@ -16,12 +16,21 @@ adapters ship here: `corpus/run-10x402.mjs` and `corpus/run-x402-doctor.mjs`.
 `corpus/validate-results.mjs` is the conformance test a third adapter runs against its own
 results file; it imports nothing from this repository's engine.
 
-> **What changed in v2.** A pre-publication accuracy review (`CORPUS-REVIEW.md`) found
-> that v1 let 10x402 house rules decide the normative `payment` dimension, asserted
+> **What changed in v2 and v3.** A pre-publication accuracy review (`CORPUS-REVIEW.md`)
+> found that v1 let 10x402 house rules decide the normative `payment` dimension, asserted
 > provider-specific `discovery` outcomes with no provider named or cited, and turned
-> responses containing no challenge at all into passes. v2 is the repair, and the repair
-> is mostly *narrowing what the corpus claims*. Every change is listed in
-> § What v2 changed.
+> responses containing no challenge at all into passes. v2 was that repair, and it was
+> mostly a *narrowing of what the corpus claims*.
+>
+> A re-review of v2 then found the narrowing implemented but not always told the truth
+> under: discovery verdicts that contradicted the provider capture they cited, a
+> client-interoperability pass resting on a schema that in fact rejects the fixture, and
+> provenance still reduced per check id rather than per finding. **v3 is the repair for
+> that, and its method is different: where v2 reasoned about what the pinned clients do,
+> v3 RUNS them.** `corpus/probe-clients.mjs` installs the pinned packages from a committed
+> lockfile and records what each entry point actually did with each fixture, and that
+> record — not a reading of the source — is what the client citations now rest on. Every
+> change is listed in § What v2 and v3 changed.
 
 ---
 
@@ -65,6 +74,17 @@ marked in the engine's own check catalogue (`ctx()` in `worker/lint.js`), and th
 provenance that decided each finding's dimensions is written into the results file beside
 the finding, so the reduction is auditable rather than asserted.
 
+**And it is per BRANCH, not per check id.** A check id is one subject; its branches can
+rest on different documents, and v2 published the id's whole citation list on whichever
+branch fired. Two consequences were real and both were wrong. `V2_PAYTO` failing on a
+`solana:*` entry published viem's `getAddress` — an EVM citation on a Solana envelope —
+and failed client interoperability with no Solana client cited anywhere. `V2_MAX_TIMEOUT`
+firing on a network whose scheme makes the field *optional* published the three documents
+that make it *required*, and said it decided `payment` and `client_interop` while failing
+neither. In v3 the emitting branch passes its own citations, the finding carries them, and
+the results file records both what a finding **could** decide and what it **did** —
+which for a warning or a note is nothing at all.
+
 ### `client_interop`
 
 **The quantifier.** The dimension is about *the cited client appropriate to the declared
@@ -90,6 +110,35 @@ pass is `parse`-level**, because no fixture here evidences a successful executio
 a downgrade of the corpus's own claims, deliberately: the alternative is a stronger
 statement than the evidence supports. The builder refuses to emit an `execute` claim with
 no execution citation.
+
+### The claims are OBSERVED, not read
+
+`corpus/probe-clients.mjs` installs the pinned client packages from the committed
+`corpus/client-probe.lock.json` and runs every reachable decode and validate entry point
+over every fixture, recording the outcome and the verbatim error in
+`corpus/client-probe.json`. It exists because v2 asserted that a schema accepts an envelope
+which that schema rejects, and nobody had run it.
+
+What running it found is worth stating, because it changes what a client citation can
+mean. **`@x402/core@2.23.0` contains two consumers that disagree**, and the corpus cited
+the wrong one seven times:
+
+- `decodePaymentRequiredHeader` — what a client actually calls — tests
+  `Base64EncodedRegex` against the raw header, then does `JSON.parse(safeBase64Decode(…))`.
+  **No zod runs on that path at all.**
+- `PaymentRequiredV2Schema` — exported for consumers that validate — rejects seven corpus
+  envelopes the decoder accepts.
+
+So "the client rejects this at decode" and "the client's schema rejects this" are
+different claims about different code, and a fixture must say which. The sharpest case is
+the batch-settlement calibration: the decoder accepts it, the schema rejects it with
+`accepts.0.maxTimeoutSeconds: Required`, and v2 cited the schema as the basis for a
+**pass**. The verdict survived the correction; the sentence under it did not.
+
+Where a path cannot be exercised offline it is recorded as `not-exercisable-offline` and
+never guessed at. That covers every signer path, so the corpus's `execute`-level claims
+rest on reading `@x402/evm` at the pinned version — and the two fixtures that depend on it
+entirely say so on their own evidence.
 
 ### `discovery`
 
@@ -132,6 +181,24 @@ scoped to the `discovery` dimension. The builder throws rather than emit one tha
 not. The Bazaar *specification* is not a provider: the pinned document says storage and
 indexing are an implementation detail, so a spec citation can establish schema validity
 and cannot establish eligibility at anybody's index.
+
+**A verdict may never contradict the evidence it cites**, and in v2 five of them did.
+Every discovery expectation is now checked against the cited capture's own REQUIRED
+preflight set, field by field. The capture marks `accepts[0].amount`,
+`accepts[0].maxTimeoutSeconds`, `accepts[0].asset`, `accepts[0].payTo` and
+`accepts[0].network` required alongside the bazaar-extension family — so a declaration
+that omits `maxTimeoutSeconds`, or names a ticker where the provider resolves a token, is
+not eligible however complete its bazaar block is. v2 read "the extension is fine" as "the
+declaration is eligible" and passed all five. The engine had the matching gap and it was
+the same defect twice fixed already in another disguise: `bazaar_ready` computed from an
+absence of blockers, in a regime with no rule able to raise one. Four checks were added to
+close it, and one existing check was widened.
+
+The recheck also corrected the engine in the seller's favour once. `CDP_FACILITATOR_CHAINS`
+listed only the EVM half of a set whose own captured expectation reads "a
+facilitator-supported network (Base, **Solana**, Polygon, Arbitrum, World)", so a
+conformant Solana seller was told their chain was outside CDP's settlement set by a
+document that says the opposite.
 
 The live positive control is the case where this matters most. The repository holds CDP's
 own answer for that endpoint — every required preflight passed, `simulation.outcome:
@@ -338,6 +405,14 @@ error severity — only those can appear in an expectation or in a results `reas
 rest (`redirect`, `free-tier-200`, `content-type`, `bazaar-output-example`,
 `legacy-v1-header-names`, …) are observational and appear only in `observed_tags`.
 
+`network-unsupported-by-provider` became fatal in v3, and the change is confined to one
+dimension. A provider's required network preflight cannot pass on a network it does not
+settle, so the declaration is not *eligible* there — but the envelope remains perfectly
+legal x402, and no rule mapping to this tag can fail `payment` or `client_interop`. That
+is the same shape as `amount-below-provider-floor`, which has always been fatal in
+`discovery` and meaningless anywhere else. A tag's fatality is a statement about what it
+can withhold, not about how bad it is.
+
 ---
 
 ## Adapters
@@ -432,16 +507,73 @@ A results file declares what it did not run, under `partial_evaluation`:
 }
 ```
 
-and every result carries the **complete** held-back list per fixture, each entry marked
-`reported-by-tool` (the tool itself mentioned it on this fixture) or `held-back` (it could
-not run and the tool said nothing). v1 recorded a skipped rule on a fixture only if the
+**That list is a declaration and never an excuse.** It says which rules the run could not
+execute; it cannot say why any particular question went unanswered, because it does not
+know which question it is being offered in place of. The v2 validator treated it as one —
+a file that declared anything held back was allowed to leave every `not-evaluated` row
+unexplained — and an external re-review showed what that bought: it replaced the list with
+the invented string `fictional.rule`, turned every judgeable answer into a reasonless
+`not-evaluated`, and the file still validated. Answering nothing and explaining nothing
+was conforming.
+
+#### What a third adapter must provide, exactly
+
+Every `not-evaluated` dimension is accounted for **individually**, by one of two routes:
+
+- **the row says why** — a non-empty `not_evaluated_reason` on that dimension; or
+- **the fixture says which rule** — that result's own `partial_evaluation.rules_held_back`
+  contains a record whose `dimensions` include this dimension.
+
+A per-fixture record is `{ "rule", "status", "dimensions", "note"? }`:
+
+```jsonc
+"partial_evaluation": {
+  "rules_held_back": [
+    { "rule": "x402.bazaar.lookup",  "status": "reported-by-tool", "dimensions": ["discovery"] },
+    { "rule": "x402.payment.settled", "status": "held-back",       "dimensions": [],
+      "note": "a settlement probe; the corpus decides `payment` from the declaration" }
+  ]
+}
+```
+
+`status` is `reported-by-tool` (the tool raised the rule on this fixture but the run could
+not stand behind the outcome) or `held-back` (it was never attempted). Neither decided
+anything; the distinction is recorded because *the lookup failed* and *the lookup never
+ran* are different facts about the same unanswered question. `dimensions` is required even
+when empty — an empty array claims that the rule not running took nothing away from any of
+the three questions the corpus asks, which is the honest answer for a check lying outside
+them, and a tool that means it should have to write it down.
+
+The list on each fixture is the **complete** set for that fixture, not only the entries
+that happen to be load-bearing on it. v1 recorded a skipped rule on a fixture only if the
 tool happened to mention it there, so nine of ten held-back rules existed only in a
 top-level list and no reader could tell, per fixture, what had actually run.
 
+Three consistency rules bind the two lists together, and `corpus/validate-results.mjs`
+enforces all three:
+
+1. **Per dimension, upward.** An unexplained `not-evaluated` must be covered by a record on
+   its own fixture naming its own dimension. The file-wide list covers nothing.
+2. **Per rule, downward.** Every rule in the file-wide `rules_held_back` must appear in at
+   least one per-fixture record. A rule held back on nothing held nothing back — which is
+   what a fabricated entry looks like, and how `fictional.rule` is caught.
+3. **Per fixture, sideways.** A fixture may not hold back a rule the run never declared.
+   The two lists are one declaration seen from two ends.
+
+None of this obliges a tool to carry a per-fixture block. A tool that ran everything it has
+declares an empty `rules_held_back` and writes no records, and every `not-evaluated` it
+emits — if any — carries its own reason. The two shipped adapters are the two ends of that
+range: 10x402 holds nothing back and has no `not-evaluated` verdict anywhere, and the
+x402-doctor adapter carries the complete ten-rule list on all thirty-four of its answers.
+
+#### Verdicts under partial evaluation
+
 A dimension whose rules all ran carries a verdict. **A dimension whose deciding rule was
-held back is `not-evaluated`, never a pass**, and carries a `not_evaluated_reason` saying
-what was missing. A failing dimension may still contain held-back subrules — a tool that
-found one fatal fault and could not check for a second should say both.
+held back is `not-evaluated`, never a pass** — the validator rejects a `pass` on a
+dimension the same fixture declares held back — and it carries a `not_evaluated_reason`
+saying what was missing, or is covered by the record above. A failing dimension may still
+contain held-back subrules: a tool that found one fatal fault and could not check for a
+second should say both.
 
 A tool that cannot evaluate a fixture at all — an unsupported protocol version, a
 dependency it could not resolve — reports `not-evaluated` on all three dimensions with the
@@ -517,9 +649,18 @@ the git **blob hash** of every file whose bytes can change an answer — `worker
 still recorded, marked `commit_is: informational`. A published result can therefore not
 claim to be the output of code that is not the code that produced it.
 
+The blob set has to be COMPLETE or the claim it makes is false, and in v2 it was not:
+`worker/json-schema.js` is imported by `worker/lint.js` and the bazaar schema-validation
+checks run through it, so an edit there moved discovery verdicts while the pin block
+reported no change. It is pinned now, along with the observed-client record and its
+lockfile, because fixture evidence cites that record by name.
+
 **Every package named by evidence or by execution is pinned, with its registry integrity
 hash**, under `pins.packages`: `@x402/core`, `@x402/evm`, `@x402/fetch`,
-`@x402/extensions`, `x402` and `x402-fetch`. v1 cited `@x402/evm` and `@x402/fetch` with no
+`@x402/extensions`, `x402` and `x402-fetch`. The client probe and the x402-doctor runner
+both install from **committed lockfiles** rather than resolving ranges at run time — a
+direct pin with a ranged transitive dependency underneath it lets two runs execute
+different bytes while reporting the same version. v1 cited `@x402/evm` and `@x402/fetch` with no
 pin at all, and treated `x402-fetch` as covered by the `x402` pin, which it is not — they
 are separate packages. `@x402/extensions` is cited by no fixture and is pinned anyway,
 because `corpus/run-x402-doctor.mjs` installs it and it can change that tool's answers.
@@ -591,10 +732,30 @@ a reader with the specification open, which is how v2 exists.
 
 ---
 
-## What v2 changed
+## What v2 and v3 changed
 
-Every item is a narrowing of what the corpus claims, and each was a finding in
-`CORPUS-REVIEW.md`.
+Every item was a finding in `CORPUS-REVIEW.md`. The v2 rows are narrowings of what the
+corpus claims; the v3 rows are corrections to claims that were narrow enough and still
+untrue.
+
+### v3
+
+| v2 | v3 |
+| --- | --- |
+| five discovery verdicts passed against a capture whose required set they did not meet | every discovery expectation is checked field by field against the cited capture; four engine checks added and one widened so the adapter reproduces it |
+| `CDP_FACILITATOR_CHAINS` held only the EVM half of a set whose captured expectation names Solana | Solana is in the set, and a conformant Solana seller is no longer told otherwise |
+| a `client_interop` pass cited a schema that rejects the fixture | the pinned clients are RUN (`corpus/probe-clients.mjs`); seven citations that said "rejected at decode" now name the entry point that actually rejected, and the decoder/schema divergence is recorded rather than smoothed |
+| `dual-payto-divergence` claimed both client generations parse it, citing only v1 | both halves observed, both cited |
+| provenance was reduced per check id | the emitting branch supplies its own citations; the finding carries them; results record what a finding could decide and what it did |
+| an info finding published `decides: [payment, client_interop]` | a warning or a note decides nothing, and the record says so |
+| `worker/json-schema.js` was not blob-pinned | pinned, with the probe record and its lockfile |
+| the doctor runner did a fresh unlocked install | installs from a committed lockfile and verifies the resolved graph |
+| the commit pin claimed to be "one commit behind" | no fixed lag is claimed; it is informational and always behind |
+| the validator accepted a fictitious `rules_held_back` with unexplained `not-evaluated` rows | per-dimension accountability is enforced |
+
+### v2
+
+Every item is a narrowing of what the corpus claims.
 
 | v1 | v2 |
 | --- | --- |

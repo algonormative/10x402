@@ -8,13 +8,13 @@ Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402
 
 | | |
 | --- | --- |
-| Corpus | `corpus/fixtures.json`, corpus_version 2, 34 fixtures |
-| 10x402 | https://github.com/chronick/10x402 @ `b5c36b905d9e` — adapter `corpus/run-10x402.mjs` |
+| Corpus | `corpus/fixtures.json`, corpus_version 3, 34 fixtures |
+| 10x402 | https://github.com/chronick/10x402 @ `2a0f2fb628e4` — adapter `corpus/run-10x402.mjs` |
 | x402-doctor | https://github.com/Maha-Strategies/maha-corp-web @ `37233104653b` — adapter `corpus/run-x402-doctor.mjs` |
 | Package pins | `@x402/core` 2.23.0, `@x402/evm` 2.23.0, `@x402/fetch` 2.23.0, `@x402/extensions` 2.23.0, `x402` 1.2.0, `x402-fetch` 1.2.0 — each with its registry integrity hash |
 | Spec pin | x402-foundation/x402 @ `75b519d0a3a7` |
 
-**The engine is pinned by content, not by commit.** The commit above says where the tree was when the corpus was stamped; it is marked informational in `pins`, and it is one commit behind this file by construction, because stamping is itself a commit. The AUTHORITY is the git blob hash of every file whose bytes can change an answer — `worker/lint.js`, `worker/envelope.js`, `worker/positive-control.js`, `test/fixtures/envelopes.mjs`, `corpus/vocabulary.mjs`, `corpus/run-10x402.mjs` — and `assertPinnedBlobs()` recomputes them and refuses to run on a mismatch, before the engine executes. A published result therefore cannot claim to be the output of code that is not the code that produced it.
+**The engine is pinned by content, not by commit.** The commit above says where the tree was when the corpus was last stamped; it is marked informational in `pins`, and it is ALWAYS behind this file — writing the file is itself a change to be committed, and it falls further behind with every commit made after a stamp, so no fixed lag is claimed. The AUTHORITY is the git blob hash of every file whose bytes can change an answer — `worker/lint.js`, `worker/json-schema.js`, `worker/envelope.js`, `worker/positive-control.js`, `test/fixtures/envelopes.mjs`, `corpus/vocabulary.mjs`, `corpus/run-10x402.mjs`, `corpus/client-probe.json`, `corpus/client-probe.lock.json` — and `assertPinnedBlobs()` recomputes them and refuses to run on a mismatch, before the engine executes. A published result therefore cannot claim to be the output of code that is not the code that produced it.
 
 **Licence.** The prototype’s repository publishes no licence — no `LICENSE` file, no `license` field in `package.json`, and `license: null` from the GitHub API — so all rights are reserved and **no code from it is vendored into this repository**. `corpus/run-x402-doctor.mjs` clones it to a temporary directory at the pinned commit and imports `diagnoseX402Endpoint()` from there. What is committed here is our mapping and the SHA.
 
@@ -80,8 +80,10 @@ Evidence on the fixture:
 - `spec` — specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim
 - `spec` — …:110 — maxTimeoutSeconds is optional on this network
 - `spec` — …:48 — the network omits `schema` to stay under 2 KB
-- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is accepted by the v2 decoder. PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements `batch-settlement`, so nothing here evidences that a client can EXECUTE this offer, and the corpus does not claim it can
-- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required)
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — OBSERVED: `decodePaymentRequiredHeader` ACCEPTS this envelope, and so does `x402HTTPClient#getPaymentRequiredResponse`, which is the path a client actually takes. That is what the parse-level pass rests on. PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements `batch-settlement`, so nothing evidences that a client can EXECUTE this offer, and the corpus does not claim it can
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — AND THE DIVERGENCE, RECORDED RATHER THAN HIDDEN: the exported `PaymentRequiredV2Schema.safeParse` REJECTS this same envelope, with exactly one issue — `accepts.0.maxTimeoutSeconds`, invalid_type, "Required". The decoder and the schema shipped in one package disagree about a 402 the batch-settlement scheme publishes as its own example, because the decode path runs no zod at all. An earlier version of this fixture cited the zod schemas as the basis for the PASS, which is the opposite of what they do
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight has_bazaar_extension (severity: required) — absent here
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].network (severity: required), expected "a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)" — cloudflare:402 is not among them, so the declaration is ineligible at this provider whatever else it does
 
 #### `perfect-v1-only` — payment, client_interop
 
@@ -113,6 +115,7 @@ Evidence on the fixture:
 
 - `client-code` — @x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/`
 - `client-code` — @x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — OBSERVED: `decodePaymentRequiredHeader` THROWS "Invalid payment required header" on this header value, and `Base64EncodedRegex.test` returns false. Note the envelope underneath is well formed — recovered leniently it passes `PaymentRequiredV2Schema` — so the fault is purely transport-layer, which is the whole of the client-interoperability claim
 - `spec` — specs/transports-v2/http.md § Payment Required Signaling — "Base64-encoded", and SILENT on the alphabet. CONTEXT, NOT AUTHORITY: this citation is why the corpus does NOT fail the payment dimension here
 - `field-report` — x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover
 
@@ -130,6 +133,7 @@ Evidence on the fixture:
 
 - `client-code` — @x402/core@2.23.0 dist/esm/chunk-UQQR4X3S.mjs:95 — `var Base64EncodedRegex = /^[A-Za-z0-9+/]*={0,2}$/` — a leading or trailing space fails the regex before any decode
 - `client-code` — @x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2199-2204 — decodePaymentRequiredHeader tests the regex against the RAW header value and throws BEFORE atob()
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — OBSERVED: `decodePaymentRequiredHeader` THROWS "Invalid payment required header" on the padded value. The probe never makes an HTTP round trip, which is exactly why it can see a fault a live doctor structurally cannot
 - `house-opinion` — `response.headers` in this corpus are PARSED FIELD VALUES, so a padded value is one that reached the client by a path with no HTTP parser in it — a stored declaration replayed by a facilitator, an SDK reading a cache, a pasted capture. The fixture is scoped to that population and makes no claim about an HTTP-delivered one
 - `spec` — specs/transports-v2/http.md § Payment Required Signaling — "Base64-encoded", and SILENT on padding as on the alphabet. The declared terms are conformant and settleable, which is why the payment dimension PASSES and the fault is confined to the client that refuses to decode it
 - `spec` — specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table) — and the v1 body in this dual-stack response is intact and independently payable
@@ -164,6 +168,7 @@ Evidence on the fixture:
 
 - `spec` — specs/schemes/exact/scheme_exact_evm.md — extra.name and extra.version are required for the default eip3009 assetTransferMethod
 - `client-code` — @x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs:49-53 — EXECUTE-LEVEL: `if (!requirements.extra?.name \|\| !requirements.extra?.version) throw` at payment CREATION, with no fallback
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — AND THE LIMIT OF WHAT WAS OBSERVED: this envelope PARSES cleanly at every reachable entry point, which is the point of the fixture — nothing in the decode or validate layer objects. The signer is `not-exercisable-offline` without a key and a chain, so the execute-level claim rests on reading @x402/evm at the pinned version rather than on running it
 - `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight — the required set the bazaar half satisfies
 
 #### `v2-payto-array` — payment, client_interop
@@ -179,9 +184,10 @@ The fixture’s `payTo` is `["0x…"]` — a one-element ARRAY holding a valid a
 Evidence on the fixture:
 
 - `spec` — specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)
-- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the zod schema rejects a non-string payTo at decode
+- `client-code` — @x402/core@2.23.0 dist/esm/chunk-N4QXZG2Z.mjs (PaymentRequirements/ResourceInfo zod schemas) — the zod schema rejects a non-string payTo
+- `client-code` — corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json) — OBSERVED: `PaymentRequiredV2Schema.safeParse` rejects with `accepts.0.payTo`, invalid_type, "Expected string, received array"; `decodePaymentRequiredHeader` accepts it, so a decoding client carries the array as far as the signer
 - `client-code` — @x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs — EXECUTE-LEVEL: viem’s getAddress rejects a non-string outright, so the transfer authorisation cannot be built
-- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].payTo (severity: required) — "payTo address present", which is satisfied
+- `cdp-validator` — audit/2026-08-19/cdp-validator-toolshed.json preflight accepts[0].payTo (severity: required) — "payTo address present", captured with a string address as the actual value. An earlier version of this corpus read that as a PRESENCE rule satisfied by an array; the captured detail says address, and the wrapped value is exactly the type-coercion trap this fixture exists to demonstrate
 
 #### `dual-network-unmapped-chain` — client_interop
 
@@ -240,7 +246,7 @@ These rows agree on whether the fixture passes and disagree on why. They matter 
 | fixture | dimension | 10x402 | x402-doctor |
 | --- | --- | --- | --- |
 | `calibration-spec-canonical-402` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
-| `calibration-cloudflare-batch-settlement` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
+| `calibration-cloudflare-batch-settlement` | discovery | fail (network-unsupported-by-provider, bazaar-extension-absent) | fail (bazaar-input-shape) |
 | `calibration-solana-spec-envelope` | discovery | fail (bazaar-extension-absent) | fail (bazaar-input-shape) |
 | `no-envelope-html-body` | payment | fail (envelope-not-json, envelope-absent) | fail (envelope-absent) |
 | `no-envelope-html-body` | client_interop | fail (envelope-not-json, envelope-absent) | fail (envelope-absent) |

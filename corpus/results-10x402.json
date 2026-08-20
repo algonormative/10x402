@@ -2,17 +2,20 @@
   "tool": {
     "name": "10x402",
     "repo": "https://github.com/chronick/10x402",
-    "commit": "b5c36b905d9ee23af6e6079539b973db44e06ada",
+    "commit": "2a0f2fb628e4ccfaa335911316a39002bad85f37",
     "blobs": {
-      "worker/lint.js": "ddf15145a8d1a706c731bb685663c41bd1319fd5",
+      "worker/lint.js": "c048f9f775232062f7dfb9f3d879340c6572d729",
+      "worker/json-schema.js": "852ff5546384c03cf7f3251b372d804dad7a6ab0",
       "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
       "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
-      "test/fixtures/envelopes.mjs": "2987f2e6182c3e7a8879db472d407b85f00fd4fe",
-      "corpus/vocabulary.mjs": "61e856c59f04db224ac99d32d5e90e49fc5500e7",
-      "corpus/run-10x402.mjs": "0393d8e3bebbcf5c69464750ff1b9a0a98a5c37a"
+      "test/fixtures/envelopes.mjs": "747819569f2a2fcf57ae98ea3827d45c56682b90",
+      "corpus/vocabulary.mjs": "a554ac76db053c6fad6c1bcbf0f4e3a8c8f998c3",
+      "corpus/run-10x402.mjs": "f437405d5ec41d22cdbab1304f6e665cea5757ad",
+      "corpus/client-probe.json": "8f80dc795b51f80fbae49172a13f62ecee7de1d3",
+      "corpus/client-probe.lock.json": "c42b926aa770c49fa3e5e4d94eb18b5f40e2d174"
     }
   },
-  "corpus_version": 2,
+  "corpus_version": 3,
   "ran": "2026-08-20",
   "adapter": "corpus/run-10x402.mjs",
   "partial_evaluation": {
@@ -53,7 +56,7 @@
         "blockers": [
           "V2_BAZAAR_PRESENT"
         ],
-        "checks_run": 37,
+        "checks_run": 41,
         "findings": [
           {
             "code": "V2_BAZAAR_PRESENT",
@@ -78,6 +81,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -100,7 +106,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -129,7 +136,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -161,7 +169,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": []
       }
     },
@@ -192,7 +200,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 48,
+        "checks_run": 52,
         "findings": [
           {
             "code": "V1_ABSENT",
@@ -214,7 +222,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -243,7 +252,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -268,16 +278,17 @@
           "verdict": "pass",
           "reason_tags": [],
           "observed_tags": [
-            "timeout-form",
             "envelope-absent"
           ]
         },
         "discovery": {
           "verdict": "fail",
           "reason_tags": [
+            "network-unsupported-by-provider",
             "bazaar-extension-absent"
           ],
           "observed_tags": [
+            "network-unsupported-by-provider",
             "discovery-metadata",
             "bazaar-extension-absent"
           ]
@@ -287,9 +298,10 @@
         "grade": "A",
         "bazaar_ready": false,
         "blockers": [
+          "V2_NETWORK_SUPPORTED",
           "V2_BAZAAR_PRESENT"
         ],
-        "checks_run": 34,
+        "checks_run": 35,
         "findings": [
           {
             "code": "V2_NETWORK_CAIP2_STYLE",
@@ -307,7 +319,8 @@
                 "ref": "no shipping client bounds the namespace; @x402/core requires only min(3) and a colon, so this may only be an info"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment"
             ],
             "message": "the v2 accept network \"cloudflare:402\" parses, but is not CAIP-2 shaped — CAIP-2 bounds the namespace at 3–8 lowercase characters."
@@ -332,10 +345,35 @@
                 "ref": "worker/lint.js addressFamily() — eip155 and solana are the namespaces whose address formats this linter knows; everything else is checked structurally, and the report says which"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment"
             ],
             "message": "the v2 accept is on \"cloudflare:402\"; this linter validates the inside of an accepts entry deeply for eip155:* and solana:* only, so payTo, asset and the EIP-712 domain were checked structurally rather than against a known address format."
+          },
+          {
+            "code": "V2_NETWORK_SUPPORTED",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "network-unsupported-by-provider",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[9] accepts[0].network, expected \"a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)\""
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "a chain outside that set is legal x402 and payable through a self-hosted facilitator — it is CDP indexing that is lost, not payment"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept is on \"cloudflare:402\", which is not one of the networks CDP's facilitator settles."
           },
           {
             "code": "V2_MAX_TIMEOUT",
@@ -346,24 +384,12 @@
             "provenance": [
               {
                 "kind": "spec",
-                "ref": "specs/x402-specification-v2.md:129 § 5.1.2 — maxTimeoutSeconds, type number, Required"
-              },
-              {
-                "kind": "client-code",
-                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:107 — maxTimeoutSeconds: z.number().positive(), required, no coercion"
-              },
-              {
-                "kind": "client-code",
-                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:539 — validBefore is computed from it; undefined yields BigInt(\"NaN\"), which throws"
-              },
-              {
-                "kind": "cdp-validator",
-                "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required)"
+                "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — \"maxTimeoutSeconds: ... (optional, see note below)\" on this network, which is why this is a note rather than a break"
               }
             ],
-            "decides": [
-              "payment",
-              "client_interop"
+            "decides": [],
+            "could_decide": [
+              "payment"
             ],
             "message": "the v2 accept has no maxTimeoutSeconds."
           },
@@ -383,7 +409,8 @@
                 "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — \"the CDP Facilitator rejects verify and settle requests whose description exceeds that limit\" (500 characters)"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "discovery"
             ],
             "message": "resource.description is not set."
@@ -411,6 +438,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -433,7 +463,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -474,7 +505,7 @@
         "blockers": [
           "V2_BAZAAR_PRESENT"
         ],
-        "checks_run": 34,
+        "checks_run": 40,
         "findings": [
           {
             "code": "V2_BAZAAR_PRESENT",
@@ -499,6 +530,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
           },
           {
@@ -521,7 +555,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -550,7 +585,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — the body is parsed as JSON during indexing"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -582,7 +618,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": []
       }
     },
@@ -611,7 +647,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 49,
+        "checks_run": 53,
         "findings": [
           {
             "code": "V1_ABSENT",
@@ -633,7 +669,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -697,6 +734,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
           }
         ]
@@ -725,7 +765,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": []
       }
     },
@@ -775,6 +815,9 @@
               }
             ],
             "decides": [
+              "client_interop"
+            ],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=], including the base64url characters \"-\" and/or \"_\"."
@@ -828,6 +871,9 @@
               }
             ],
             "decides": [
+              "client_interop"
+            ],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the PAYMENT-REQUIRED header is not standard base64 — it contains characters outside [A-Za-z0-9+/=]."
@@ -903,6 +949,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope."
           },
           {
@@ -922,6 +971,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -948,6 +1001,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -978,16 +1035,22 @@
           ]
         },
         "discovery": {
-          "verdict": "pass",
-          "reason_tags": [],
-          "observed_tags": []
+          "verdict": "fail",
+          "reason_tags": [
+            "network-unsupported-by-provider"
+          ],
+          "observed_tags": [
+            "network-unsupported-by-provider"
+          ]
         }
       },
       "tool_detail": {
         "grade": "F",
-        "bazaar_ready": true,
-        "blockers": [],
-        "checks_run": 68,
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_NETWORK_SUPPORTED"
+        ],
+        "checks_run": 69,
         "findings": [
           {
             "code": "V2_NETWORK_CAIP2",
@@ -1013,7 +1076,35 @@
               "payment",
               "client_interop"
             ],
+            "could_decide": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v2 accept uses the v1 network name \"base\" in a v2 envelope."
+          },
+          {
+            "code": "V2_NETWORK_SUPPORTED",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "network-unsupported-by-provider",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[9] accepts[0].network, expected \"a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)\""
+              },
+              {
+                "kind": "house-opinion",
+                "ref": "a chain outside that set is legal x402 and payable through a self-hosted facilitator — it is CDP indexing that is lost, not payment"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept is on \"base\", which is not one of the networks CDP's facilitator settles."
           }
         ]
       }
@@ -1049,7 +1140,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 70,
+        "checks_run": 74,
         "findings": [
           {
             "code": "V1_NETWORK_NAME",
@@ -1068,6 +1159,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1100,17 +1195,43 @@
           ]
         },
         "discovery": {
-          "verdict": "pass",
-          "reason_tags": [],
-          "observed_tags": []
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-required-field"
+          ],
+          "observed_tags": [
+            "missing-required-field"
+          ]
         }
       },
       "tool_detail": {
         "grade": "F",
-        "bazaar_ready": true,
-        "blockers": [],
-        "checks_run": 70,
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_INDEX_AMOUNT"
+        ],
+        "checks_run": 74,
         "findings": [
+          {
+            "code": "V2_INDEX_AMOUNT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "missing-required-field",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[11] accepts[0].amount (required), expected \">= 1000\" — the check compares a value, so an absent or non-integer amount cannot satisfy it"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept has no amount CDP's preflight can read: undefined."
+          },
           {
             "code": "V2_AMOUNT",
             "severity": "error",
@@ -1128,6 +1249,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1153,7 +1278,8 @@
                 "ref": "@x402/core@2.23.0 dist/esm/client/index.mjs:262 — the raw entry is echoed as `accepted`, unstripped"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1193,7 +1319,7 @@
         "grade": "F",
         "bazaar_ready": "n/a",
         "blockers": [],
-        "checks_run": 64,
+        "checks_run": 68,
         "findings": [
           {
             "code": "V2_RESOURCE_OBJECT",
@@ -1216,6 +1342,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1252,7 +1382,7 @@
         "grade": "B",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 49,
+        "checks_run": 53,
         "findings": [
           {
             "code": "VERSION_BODY_SAYS_V2",
@@ -1274,7 +1404,8 @@
                 "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:22-23 — a v1 client reads the body with v1 rules whatever it declares"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1300,7 +1431,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -1339,7 +1471,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "V2_MAX_TIMEOUT",
@@ -1366,6 +1498,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1396,17 +1532,43 @@
           ]
         },
         "discovery": {
-          "verdict": "pass",
-          "reason_tags": [],
-          "observed_tags": []
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ],
+          "observed_tags": [
+            "timeout-form"
+          ]
         }
       },
       "tool_detail": {
         "grade": "F",
-        "bazaar_ready": true,
-        "blockers": [],
-        "checks_run": 72,
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_INDEX_TIMEOUT"
+        ],
+        "checks_run": 76,
         "findings": [
+          {
+            "code": "V2_INDEX_TIMEOUT",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "timeout-form",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required) — \"maxTimeoutSeconds is set\". Presence is the whole of the provider’s stated rule; the JSON type is a payment question and V2_MAX_TIMEOUT asks it"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept has no maxTimeoutSeconds, and CDP's preflight requires the field to be set."
+          },
           {
             "code": "V2_MAX_TIMEOUT",
             "severity": "error",
@@ -1432,6 +1594,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1463,17 +1629,47 @@
           ]
         },
         "discovery": {
-          "verdict": "pass",
-          "reason_tags": [],
-          "observed_tags": []
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ],
+          "observed_tags": [
+            "asset-form"
+          ]
         }
       },
       "tool_detail": {
         "grade": "F",
-        "bazaar_ready": true,
-        "blockers": [],
-        "checks_run": 49,
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_INDEX_ASSET"
+        ],
+        "checks_run": 53,
         "findings": [
+          {
+            "code": "V2_INDEX_ASSET",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "asset-form",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[10] accepts[0].asset (required) — \"Asset is USDC\", captured with a token contract address as the actual value"
+              },
+              {
+                "kind": "spec",
+                "ref": "specs/x402-specification-v2.md:127 § 5.1.2 — on a chain, asset is the token contract address; a ticker cannot be the token CDP looks up"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept asset \"USDC\" does not identify a token on a network CDP settles, so its required asset preflight cannot pass."
+          },
           {
             "code": "V2_ASSET",
             "severity": "error",
@@ -1487,14 +1683,14 @@
               },
               {
                 "kind": "client-code",
-                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:565 — verifyingContract: getAddress(requirements.asset)"
-              },
-              {
-                "kind": "spec",
-                "ref": "specs/schemes/exact/scheme_exact_svm.md:71 — asset is the token mint public key"
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:565 — `verifyingContract: getAddress(requirements.asset)`; a ticker throws before signing"
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1520,7 +1716,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -1559,7 +1756,7 @@
         "grade": "D",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "V2_EXTRA_EIP712",
@@ -1586,6 +1783,10 @@
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1619,6 +1820,10 @@
               "payment",
               "client_interop"
             ],
+            "could_decide": [
+              "payment",
+              "client_interop"
+            ],
             "message": "the v1 accept has no extra.{name,version} — the EIP-712 domain is missing."
           }
         ]
@@ -1648,17 +1853,43 @@
           ]
         },
         "discovery": {
-          "verdict": "pass",
-          "reason_tags": [],
-          "observed_tags": []
+          "verdict": "fail",
+          "reason_tags": [
+            "payee-form"
+          ],
+          "observed_tags": [
+            "payee-form"
+          ]
         }
       },
       "tool_detail": {
         "grade": "F",
-        "bazaar_ready": true,
-        "blockers": [],
-        "checks_run": 72,
+        "bazaar_ready": false,
+        "blockers": [
+          "V2_INDEX_PAYTO"
+        ],
+        "checks_run": 76,
         "findings": [
+          {
+            "code": "V2_INDEX_PAYTO",
+            "severity": "error",
+            "core": false,
+            "regime": "bazaar",
+            "tag": "payee-form",
+            "provenance": [
+              {
+                "kind": "cdp-validator",
+                "ref": "cdp-validator-toolshed.json preflight[12] accepts[0].payTo (required) — \"payTo address present\", captured with a string address as the actual value"
+              }
+            ],
+            "decides": [
+              "discovery"
+            ],
+            "could_decide": [
+              "discovery"
+            ],
+            "message": "the v2 accept payTo [\"0x0000000000000000000000000000000000000001\"] is not an address, and CDP's preflight requires one."
+          },
           {
             "code": "V2_PAYTO",
             "severity": "error",
@@ -1668,22 +1899,18 @@
             "provenance": [
               {
                 "kind": "spec",
-                "ref": "specs/x402-specification-v2.md:128 § 5.1.2 — \"Recipient wallet address or role constant (e.g., \\\"merchant\\\")\""
-              },
-              {
-                "kind": "spec",
-                "ref": "specs/schemes/exact/scheme_exact_svm.md:53-68 — a base58 payTo on solana:*"
+                "ref": "specs/x402-specification-v2.md:128 § 5.1.2 — payTo, Required"
               },
               {
                 "kind": "client-code",
-                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:537 — `to: getAddress(paymentRequirements.payTo)`; viem throws on a non-address"
-              },
-              {
-                "kind": "client-code",
-                "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:106 — payTo: NonEmptyString, i.e. the shape rule is the scheme’s, not the envelope’s"
+                "ref": "@x402/evm@2.23.0 dist/cjs/index.js:537 — `to: getAddress(paymentRequirements.payTo)`; viem throws on anything that is not a 20-byte address"
               }
             ],
             "decides": [
+              "payment",
+              "client_interop"
+            ],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1702,6 +1929,7 @@
               }
             ],
             "decides": [],
+            "could_decide": [],
             "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays [\"0x0000000000000000000000000000000000000001\"]."
           }
         ]
@@ -1734,7 +1962,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "DUAL_PAYTO",
@@ -1749,6 +1977,7 @@
               }
             ],
             "decides": [],
+            "could_decide": [],
             "message": "on eip155:8453 the v1 envelope pays 0x0000000000000000000000000000000000000001 and the v2 envelope pays 0x00000000000000000000000000000000000000ff."
           }
         ]
@@ -1784,7 +2013,7 @@
         "grade": "D",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 68,
+        "checks_run": 72,
         "findings": [
           {
             "code": "V1_NETWORK_KNOWN",
@@ -1809,6 +2038,9 @@
             "decides": [
               "client_interop"
             ],
+            "could_decide": [
+              "client_interop"
+            ],
             "message": "the v1 accept network \"arbitrum\" is not one of the names the v1 client's enum admits."
           },
           {
@@ -1824,6 +2056,7 @@
               }
             ],
             "decides": [],
+            "could_decide": [],
             "message": "the v1 envelope is on arbitrum and the v2 envelope on eip155:42161 — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
           }
         ]
@@ -1878,7 +2111,8 @@
                 "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "an unauthenticated request was served a 200 — this endpoint has a free tier."
@@ -1937,7 +2171,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[0] url_valid — the ADVERTISED url is what is probed"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "payment",
               "client_interop"
             ],
@@ -1975,7 +2210,7 @@
         "blockers": [
           "V2_BAZAAR_PRESENT"
         ],
-        "checks_run": 62,
+        "checks_run": 66,
         "findings": [
           {
             "code": "V2_BAZAAR_PRESENT",
@@ -1998,6 +2233,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "extensions.bazaar is absent — this resource is payable but not discoverable."
@@ -2034,7 +2272,7 @@
         "blockers": [
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "V2_BAZAAR_INFO_VALIDATES",
@@ -2057,6 +2295,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input.bodyType should be exactly \"text\" but is \"json\""
@@ -2098,7 +2339,7 @@
           "V2_BAZAAR_SCHEMA_CONTENT",
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 49,
+        "checks_run": 53,
         "findings": [
           {
             "code": "V2_BAZAAR_SCHEMA_CONTENT",
@@ -2117,6 +2358,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "bazaar.schema does not meet the extension's own requirements: it carries 1 external reference (https://internal.example.com/bazaar-input.json)."
@@ -2144,6 +2388,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input: unable to validate — the schema's $ref \"https://internal.example.com/bazaar-input.json\" points outside this document. Same-document \"#/...\" fragments only; a facilitator must not resolve external references"
           },
           {
@@ -2166,7 +2413,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -2208,7 +2456,7 @@
           "V2_BAZAAR_INPUT_TYPE",
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 48,
+        "checks_run": 52,
         "findings": [
           {
             "code": "V2_BAZAAR_INPUT_TYPE",
@@ -2231,6 +2479,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "bazaar.info.input has no `type` discriminator."
@@ -2258,6 +2509,9 @@
             "decides": [
               "discovery"
             ],
+            "could_decide": [
+              "discovery"
+            ],
             "message": "bazaar.info does not validate against bazaar.schema: $.input.type is required by the schema but missing"
           },
           {
@@ -2280,7 +2534,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -2319,7 +2574,7 @@
         "blockers": [
           "V2_BAZAAR_INPUT_METHOD"
         ],
-        "checks_run": 49,
+        "checks_run": 53,
         "findings": [
           {
             "code": "V2_BAZAAR_INPUT_METHOD",
@@ -2338,6 +2593,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "bazaar.info.input.method declares \"PUT\" but this 402 was fetched with POST."
@@ -2362,7 +2620,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "client_interop"
             ],
             "message": "the 402 body carries no x402 v1 envelope — this endpoint publishes v2 only."
@@ -2395,7 +2654,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "V2_BAZAAR_OUTPUT_EXAMPLE",
@@ -2417,7 +2676,8 @@
                 "ref": "cdp-validator-toolshed.json preflight[22] bazaar.info.output.example (advisory)"
               }
             ],
-            "decides": [
+            "decides": [],
+            "could_decide": [
               "discovery"
             ],
             "message": "bazaar.info.output.example is not published."
@@ -2454,7 +2714,7 @@
         "blockers": [
           "V2_AMOUNT_MINIMUM"
         ],
-        "checks_run": 72,
+        "checks_run": 76,
         "findings": [
           {
             "code": "V2_AMOUNT_MINIMUM",
@@ -2473,6 +2733,9 @@
               }
             ],
             "decides": [
+              "discovery"
+            ],
+            "could_decide": [
               "discovery"
             ],
             "message": "the v2 accept asks 100 atomic units, below CDP's 1000 minimum."
@@ -2507,7 +2770,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 65,
+        "checks_run": 71,
         "findings": [
           {
             "code": "DUAL_NETWORK",
@@ -2522,6 +2785,7 @@
               }
             ],
             "decides": [],
+            "could_decide": [],
             "message": "the v1 envelope is on solana and the v2 envelope on solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp — this linter does not recognise the v1 name, so it could not verify that the two name the same chain."
           }
         ]

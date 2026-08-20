@@ -39,7 +39,7 @@ const EVIDENCE_KINDS = new Set([
 
 describe('corpus: the file itself', () => {
   test('parses, and declares its version and pins', () => {
-    assert.equal(corpus.corpus_version, 2);
+    assert.equal(corpus.corpus_version, 3);
     for (const pin of ['10x402', '@x402/core', 'x402', 'x402-foundation/x402', 'x402-doctor-prototype']) {
       assert.ok(corpus.pins[pin], `no pin for ${pin}`);
     }

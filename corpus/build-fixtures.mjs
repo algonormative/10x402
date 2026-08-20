@@ -64,11 +64,21 @@ const git = (args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' })
  */
 const PINNED_BLOBS = [
   'worker/lint.js',
+  // IMPORTED BY lint.js AND THEREFORE ABLE TO CHANGE A VERDICT. It was missing
+  // from this list, which made the claim "every file whose bytes can change an
+  // answer" false: the bazaar schema-validation checks run through it, so an
+  // edit here moves discovery verdicts while the pin block reported no change.
+  'worker/json-schema.js',
   'worker/envelope.js',
   'worker/positive-control.js',
   'test/fixtures/envelopes.mjs',
   'corpus/vocabulary.mjs',
   'corpus/run-10x402.mjs',
+  // The observed-client record and the lockfile that makes it reproducible.
+  // Fixture evidence cites the record by name, so its bytes are part of what a
+  // reader is being asked to check.
+  'corpus/client-probe.json',
+  'corpus/client-probe.lock.json',
 ];
 
 const blobs = Object.fromEntries(PINNED_BLOBS.map((path) => [path, git(['hash-object', path])]));
@@ -123,13 +133,15 @@ function buildPins(headCommit) {
       repo: 'https://github.com/chronick/10x402',
       commit: headCommit,
       commit_is:
-        'INFORMATIONAL. Where the tree was when this corpus was stamped, which is by construction ' +
-        'one commit behind the commit that carries this file — stamping is itself a commit. It is ' +
-        'not, and cannot be, a handle on "what code ran". The AUTHORITY is `blobs` below: ' +
-        'content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and ' +
-        'checked before the engine executes.',
+        'INFORMATIONAL, AND ALWAYS BEHIND. Where the tree was when this corpus was last stamped. ' +
+        'It cannot be the commit that carries this file, because writing this file is itself a ' +
+        'change to be committed, and it falls further behind with every commit made after a stamp — ' +
+        'so no fixed lag is claimed here, and an earlier version of this note claiming "one commit" ' +
+        'was wrong by the time it was read. It is not, and cannot be, a handle on "what code ran". ' +
+        'The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in ' +
+        'corpus/run-10x402.mjs, and checked before the engine executes.',
       blobs,
-      note: 'the engine under test — worker/lint.js, 75 checks',
+      note: 'the engine under test — worker/lint.js, 79 checks',
     },
     packages: PACKAGES,
     'x402-foundation/x402': {
@@ -175,6 +187,19 @@ const EVM_SIGNER = '@x402/evm@2.23.0 dist/esm/chunk-REWHAFTU.mjs';
 const V1_SCHEMAS = 'x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema)';
 const V1_FETCH = 'x402-fetch@1.2.0 dist/esm/index.mjs:19-23';
 const CDP_VALIDATOR = 'audit/2026-08-19/cdp-validator-toolshed.json';
+/**
+ * THE PINNED CLIENTS, OBSERVED RATHER THAN READ.
+ *
+ * corpus/probe-clients.mjs installs the pinned client packages from a committed
+ * lockfile and runs every reachable decode and validate entry point over every
+ * fixture, recording what each one did. It exists because a pre-publication
+ * re-review found this corpus asserting that a schema accepts an envelope which
+ * that schema in fact rejects — a claim nobody had run. Seven citations turned
+ * out to be worded as "rejected at decode" when the real decode path accepts the
+ * envelope and only the exported zod schema rejects it. Reading source is how
+ * those sentences got written; running it is how they got fixed.
+ */
+const PROBE = 'corpus/client-probe.json (corpus/probe-clients.mjs, run against the committed corpus/client-probe.lock.json)';
 const CDP_GET_DISCOVERED = 'https://docs.cdp.coinbase.com/x402/seller/get-discovered';
 
 /**
@@ -545,19 +570,29 @@ const ENTRIES = [
     title: 'the Cloudflare batch-settlement profile',
     calibration: 'must-not-fail-payment',
     built: cloudflareBatchSettlement(),
-    expected: expect(PASS, PASS_PARSE, fail('bazaar-extension-absent')),
-    discovery_target: cdpBazaar('has_bazaar_extension is a REQUIRED preflight and this envelope publishes no extensions.bazaar'),
+    expected: expect(PASS, PASS_PARSE, fail('network-unsupported-by-provider', 'bazaar-extension-absent')),
+    discovery_target: cdpBazaar('accepts[0].network is a REQUIRED preflight expecting "a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)" and cloudflare:402 is not one, and has_bazaar_extension is REQUIRED and absent'),
     evidence: [
       spec('specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim', P),
       spec('…:110 — maxTimeoutSeconds is optional on this network', P),
       spec('…:48 — the network omits `schema` to stay under 2 KB', D),
       client(
-        `${CORE_SCHEMAS} — NetworkSchemaV2 is min(3) plus a colon, so \`cloudflare:402\` is accepted by the v2 decoder. ` +
-          `PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements \`batch-settlement\`, so nothing here ` +
-          `evidences that a client can EXECUTE this offer, and the corpus does not claim it can`,
+        `${PROBE} — OBSERVED: \`decodePaymentRequiredHeader\` ACCEPTS this envelope, and so does ` +
+          `\`x402HTTPClient#getPaymentRequiredResponse\`, which is the path a client actually takes. That is what ` +
+          `the parse-level pass rests on. PARSE-LEVEL AND NO FURTHER: no pinned client in this corpus implements ` +
+          `\`batch-settlement\`, so nothing evidences that a client can EXECUTE this offer, and the corpus does not claim it can`,
         C
       ),
-      validator(`${CDP_VALIDATOR} preflight has_bazaar_extension (severity: required)`, D),
+      client(
+        `${PROBE} — AND THE DIVERGENCE, RECORDED RATHER THAN HIDDEN: the exported \`PaymentRequiredV2Schema.safeParse\` ` +
+          `REJECTS this same envelope, with exactly one issue — \`accepts.0.maxTimeoutSeconds\`, invalid_type, "Required". ` +
+          `The decoder and the schema shipped in one package disagree about a 402 the batch-settlement scheme publishes ` +
+          `as its own example, because the decode path runs no zod at all. An earlier version of this fixture cited the ` +
+          `zod schemas as the basis for the PASS, which is the opposite of what they do`,
+        C
+      ),
+      validator(`${CDP_VALIDATOR} preflight has_bazaar_extension (severity: required) — absent here`, D),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].network (severity: required), expected "a facilitator-supported network (Base, Solana, Polygon, Arbitrum, World)" — cloudflare:402 is not among them, so the declaration is ineligible at this provider whatever else it does`, D),
     ],
     notes:
       'A spec-defined scheme with `asset: "USD"`, `payTo: "merchant"` and no bazaar extension. ' +
@@ -646,6 +681,7 @@ const ENTRIES = [
     evidence: [
       client(`${CORE_B64_REGEX}`, C),
       client(`${CORE_B64_USE}`, C),
+      client(`${PROBE} — OBSERVED: \`decodePaymentRequiredHeader\` THROWS "Invalid payment required header" on this header value, and \`Base64EncodedRegex.test\` returns false. Note the envelope underneath is well formed — recovered leniently it passes \`PaymentRequiredV2Schema\` — so the fault is purely transport-layer, which is the whole of the client-interoperability claim`, C),
       spec(`${V2_TRANSPORT} — "Base64-encoded", and SILENT on the alphabet. CONTEXT, NOT AUTHORITY: this citation is why the corpus does NOT fail the payment dimension here`, P),
       fieldReport('x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover', C),
     ],
@@ -666,6 +702,7 @@ const ENTRIES = [
     evidence: [
       client(`${CORE_B64_REGEX} — a leading or trailing space fails the regex before any decode`, C),
       client(`${CORE_B64_USE}`, C),
+      client(`${PROBE} — OBSERVED: \`decodePaymentRequiredHeader\` THROWS "Invalid payment required header" on the padded value. The probe never makes an HTTP round trip, which is exactly why it can see a fault a live doctor structurally cannot`, C),
       house('`response.headers` in this corpus are PARSED FIELD VALUES, so a padded value is one that reached the client by a path with no HTTP parser in it — a stored declaration replayed by a facilitator, an SDK reading a cache, a pasted capture. The fixture is scoped to that population and makes no claim about an HTTP-delivered one', C),
       spec(`${V2_TRANSPORT} — "Base64-encoded", and SILENT on padding as on the alphabet. The declared terms are conformant and settleable, which is why the payment dimension PASSES and the fault is confined to the client that refuses to decode it`, P),
       spec(`${V1_ACCEPTS} — and the v1 body in this dual-stack response is intact and independently payable`, P),
@@ -700,13 +737,19 @@ const ENTRIES = [
   {
     id: 'v2-network-bare-name',
     ...fromSuite('v2 envelope naming the network "base"'),
-    expected: expect(fail('network-form'), fail('network-form'), PASS),
-    discovery_target: cdpBazaar('the bazaar declaration itself is complete and schema-valid; the network spelling is not a preflight subject'),
+    expected: expect(fail('network-form'), fail('network-form'), fail('network-unsupported-by-provider')),
+    discovery_target: cdpBazaar('accepts[0].network is a REQUIRED preflight expecting a facilitator-supported network in CAIP-2, and "base" is not a string it can match'),
     evidence: [
       spec(V2_ACCEPTS, P),
-      client(`${CORE_SCHEMAS} — NetworkSchemaV2 requires a colon, so the entry is rejected at decode. PARSE-LEVEL`, C),
-      validator(`${CDP_VALIDATOR} preflight — the bazaar half of this envelope satisfies the required set`, D),
+      client(`${CORE_SCHEMAS} — NetworkSchemaV2 requires a colon`, C),
+      client(`${PROBE} — OBSERVED, AND NOT WHERE THIS FIXTURE USED TO SAY: \`decodePaymentRequiredHeader\` ACCEPTS this envelope; it is the exported \`PaymentRequiredV2Schema.safeParse\` that rejects it, with \`accepts.0.network\`, custom, "Network must be in CAIP-2 format (e.g., 'eip155:84532')". So the failure belongs to a consumer that VALIDATES, not to one that decodes — a decoding client carries the bad network onward. PARSE-LEVEL`, C),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].network (severity: required), captured with "eip155:8453" as the actual value — the v1 spelling "base" is not a member of the set this check matches against, so the listing is refused as well as the payment`, D),
     ],
+    notes:
+      'ONE SPELLING MISTAKE, TWO REGIMES. The bazaar extension on this envelope is complete and ' +
+      'schema-valid, and an earlier version of this corpus passed discovery on that basis alone — ' +
+      'reading "the extension is fine" as "the declaration is eligible", when the provider’s ' +
+      'required preflight set covers the payment terms too.',
   },
   {
     id: 'v1-network-caip2',
@@ -722,12 +765,13 @@ const ENTRIES = [
   {
     id: 'v2-amount-uses-v1-field-name',
     ...fromSuite('v2 envelope carrying maxAmountRequired instead of amount'),
-    expected: expect(fail('missing-required-field'), fail('missing-required-field'), PASS),
-    discovery_target: cdpBazaar('the bazaar declaration is complete and schema-valid; the amount FIELD NAME is not a preflight subject, though the amount VALUE is'),
+    expected: expect(fail('missing-required-field'), fail('missing-required-field'), fail('missing-required-field')),
+    discovery_target: cdpBazaar('accepts[0].amount is a REQUIRED preflight with the expectation ">= 1000", and a v2 entry carrying the v1 field name presents that comparison with nothing to read'),
     evidence: [
       spec(`${V2_ACCEPTS} — v2 renamed maxAmountRequired to amount, and amount is required`, P),
-      client(`${CORE_SCHEMAS} — \`amount\` is absent, so the entry fails the schema. PARSE-LEVEL`, C),
-      validator(`${CDP_VALIDATOR} preflight — the bazaar half satisfies the required set`, D),
+      client(`${CORE_SCHEMAS} — \`amount\` is absent, so the entry fails the schema`, C),
+      client(`${PROBE} — OBSERVED: \`decodePaymentRequiredHeader\` ACCEPTS it and \`PaymentRequiredV2Schema.safeParse\` REJECTS it with \`accepts.0.amount\`, invalid_type, "Required". A decoding client reads \`undefined\` as the price and has nothing to sign over. PARSE-LEVEL`, C),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].amount (severity: required), expected ">= 1000" — the check compares a VALUE, and there is none at the name it reads`, D),
     ],
     notes: 'The corpus tags the FATAL reason (`amount` is absent). The v1 field left behind is reported by 10x402 as a non-fatal crosstalk warning.',
   },
@@ -737,7 +781,8 @@ const ENTRIES = [
     expected: expect(fail('resource-shape'), fail('resource-shape'), NA),
     evidence: [
       spec(V2_RESOURCE, P),
-      client(`${CORE_SCHEMAS} — ResourceInfoSchema is an object; a string fails it at decode. PARSE-LEVEL`, C),
+      client(`${CORE_SCHEMAS} — ResourceInfoSchema is an object; a string fails it`, C),
+      client(`${PROBE} — OBSERVED: \`decodePaymentRequiredHeader\` ACCEPTS it; \`PaymentRequiredV2Schema.safeParse\` REJECTS it with \`resource\`, invalid_type, "Expected object, received string". PARSE-LEVEL`, C),
       validator(`${CDP_VALIDATOR} — every preflight in the required set reads the ResourceInfo OBJECT, so with a string in its place not one of them can run`, D),
     ],
     notes:
@@ -772,6 +817,7 @@ const ENTRIES = [
     evidence: [
       spec(V2_ACCEPTS, P),
       client(`${CORE_SCHEMAS} — \`maxTimeoutSeconds: z.number().positive()\`, no coercion, so "60" fails the schema`, C),
+      client(`${PROBE} — OBSERVED: \`PaymentRequiredV2Schema.safeParse\` rejects with \`accepts.0.maxTimeoutSeconds\`, invalid_type, "Expected number, received string", while \`decodePaymentRequiredHeader\` accepts it — which is precisely why the EXECUTE-level citation below is the one that matters here`, C),
       client(`${EVM_SIGNER}:34 — EXECUTE-LEVEL: \`validBefore: (now + paymentRequirements.maxTimeoutSeconds).toString()\` concatenates rather than adds when the value is a string, and the signer produces a nonsense deadline`, C),
       validator(`${CDP_VALIDATOR} preflight accepts[0].maxTimeoutSeconds (severity: required) — satisfied, the field IS set`, D),
     ],
@@ -781,16 +827,20 @@ const ENTRIES = [
     title: 'a v2 accepts entry with no maxTimeoutSeconds, on an EVM chain',
     built: v2TimeoutAbsent(),
     constructed: true,
-    expected: expect(fail('timeout-form'), failExec('timeout-form'), PASS),
-    discovery_target: cdpBazaar('the v2 half carries a complete, schema-valid bazaar declaration'),
+    expected: expect(fail('timeout-form'), failExec('timeout-form'), fail('timeout-form')),
+    discovery_target: cdpBazaar('accepts[0].maxTimeoutSeconds is a REQUIRED preflight — "maxTimeoutSeconds is set" — and this fixture deliberately omits the field'),
     evidence: [
       spec(`${V2_ACCEPTS} — maxTimeoutSeconds is required for the exact scheme on EVM`, P),
       client(`${CORE_SCHEMAS} — the field is required by the zod schema`, C),
+      client(`${PROBE} — OBSERVED: \`PaymentRequiredV2Schema.safeParse\` rejects with \`accepts.0.maxTimeoutSeconds\`, invalid_type, "Required", while \`decodePaymentRequiredHeader\` accepts it; the break a buyer actually hits is the signer, cited next`, C),
       client(`${EVM_SIGNER}:34 — EXECUTE-LEVEL: \`now + undefined\` yields "NaN", and BigInt("NaN") throws inside signEIP3009Authorization, so no payment is created`, C),
       spec('specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — and is OPTIONAL on cloudflare:402, which is why this fixture is on eip155', P),
-      validator(`${CDP_VALIDATOR} preflight — the required set the bazaar half satisfies`, D),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].maxTimeoutSeconds (severity: required) — "maxTimeoutSeconds is set". PRESENCE is the whole of the provider’s stated rule, which is why v2-timeout-string (the field set to a string) keeps its discovery pass while this fixture cannot`, D),
     ],
     notes:
+      'DISCOVERY FAILS TOO, AND AN EARLIER VERSION OF THIS CORPUS SAID IT PASSED — against a ' +
+      'provider target whose own cited capture marks the omitted field required. A verdict may ' +
+      'not contradict the evidence it cites. ' +
       'The pair to calibration-cloudflare-batch-settlement: the ' +
       'same absent field is a defect on one network and legal on another, so a checker that ' +
       'hardcodes "maxTimeoutSeconds is required" fails a spec-defined profile.',
@@ -800,8 +850,8 @@ const ENTRIES = [
     title: 'asset given as the ticker "USDC" instead of the contract address',
     built: v2AssetSymbol(),
     constructed: true,
-    expected: expect(fail('asset-form'), failExec('asset-form'), PASS),
-    discovery_target: cdpBazaar('the bazaar declaration is complete and schema-valid; asset FORM is not a preflight subject (the CDP preflight checks the asset is USDC by address, which this fixture’s v2-only shape does not reach)'),
+    expected: expect(fail('asset-form'), failExec('asset-form'), fail('asset-form')),
+    discovery_target: cdpBazaar('accepts[0].asset is a REQUIRED preflight — captured as "Asset is USDC" against a token contract address — and on an eip155 network a ticker is not a token the provider can resolve'),
     evidence: [
       spec(`${V2_ACCEPTS} — asset is the on-chain identifier: "Token contract address or ISO 4217 currency code"`, P),
       // CORRECTED. The review found this fixture claiming the generic core
@@ -810,9 +860,14 @@ const ENTRIES = [
       // Address validation happens in the EVM signer, and that is what is cited.
       client(`${CORE_SCHEMAS} — \`asset: NonEmptyString\`. THE GENERIC SCHEMA DOES NOT REQUIRE AN ADDRESS, and an earlier version of this fixture said it did; ISO 4217 codes are spec-legal, which is why it cannot`, C),
       client(`${EVM_SIGNER} — EXECUTE-LEVEL AND THE ACTUAL AUTHORITY: on an eip155 network the signer computes \`verifyingContract: getAddress(requirements.asset)\`, and getAddress throws on "USDC", so the payment is never signed`, C),
-      validator(`${CDP_VALIDATOR} preflight — the required set the bazaar half satisfies`, D),
+      client(`${PROBE} — AND THE LIMIT OF WHAT WAS OBSERVED, stated rather than left to be assumed: this envelope PARSES cleanly at all eleven reachable entry points. The signer is \`not-exercisable-offline\` — reaching it needs a private key and a chain — so the execute-level claim above rests on reading @x402/evm at the pinned version, not on running it`, C),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].asset (severity: required), captured with "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as the actual value and the detail "Asset is USDC" — the provider resolves the token to decide what it is listing, and "USDC" on eip155:8453 is not a token identifier it can resolve`, D),
     ],
-    notes: 'v2-only so it carries exactly one fault.',
+    notes:
+      'ONE FAULT, THREE DIMENSIONS. An earlier version of this corpus passed discovery here on the ' +
+      'reasoning that asset form "is not a preflight subject" — which its own cited capture ' +
+      'contradicts, since accepts[0].asset is in the required set. v2-only so it still carries ' +
+      'exactly one fault; a fault can legitimately cost a seller three different things.',
   },
   {
     id: 'extra-eip712-absent',
@@ -822,19 +877,21 @@ const ENTRIES = [
     evidence: [
       spec('specs/schemes/exact/scheme_exact_evm.md — extra.name and extra.version are required for the default eip3009 assetTransferMethod', P),
       client(`${EVM_SIGNER}:49-53 — EXECUTE-LEVEL: \`if (!requirements.extra?.name || !requirements.extra?.version) throw\` at payment CREATION, with no fallback`, C),
+      client(`${PROBE} — AND THE LIMIT OF WHAT WAS OBSERVED: this envelope PARSES cleanly at every reachable entry point, which is the point of the fixture — nothing in the decode or validate layer objects. The signer is \`not-exercisable-offline\` without a key and a chain, so the execute-level claim rests on reading @x402/evm at the pinned version rather than on running it`, C),
       validator(`${CDP_VALIDATOR} preflight — the required set the bazaar half satisfies`, D),
     ],
   },
   {
     id: 'v2-payto-array',
     ...fromSuite('payTo as an array holding a valid address'),
-    expected: expect(fail('payee-form'), failExec('payee-form'), PASS),
-    discovery_target: cdpBazaar('the bazaar declaration is complete and schema-valid; the CDP preflight checks payTo is PRESENT, which it is'),
+    expected: expect(fail('payee-form'), failExec('payee-form'), fail('payee-form')),
+    discovery_target: cdpBazaar('accepts[0].payTo is a REQUIRED preflight captured as "payTo address present" against a literal string address, and a one-element ARRAY is not an address'),
     evidence: [
       spec(V2_ACCEPTS, P),
-      client(`${CORE_SCHEMAS} — the zod schema rejects a non-string payTo at decode`, C),
+      client(`${CORE_SCHEMAS} — the zod schema rejects a non-string payTo`, C),
+      client(`${PROBE} — OBSERVED: \`PaymentRequiredV2Schema.safeParse\` rejects with \`accepts.0.payTo\`, invalid_type, "Expected string, received array"; \`decodePaymentRequiredHeader\` accepts it, so a decoding client carries the array as far as the signer`, C),
       client(`${EVM_SIGNER} — EXECUTE-LEVEL: viem’s getAddress rejects a non-string outright, so the transfer authorisation cannot be built`, C),
-      validator(`${CDP_VALIDATOR} preflight accepts[0].payTo (severity: required) — "payTo address present", which is satisfied`, D),
+      validator(`${CDP_VALIDATOR} preflight accepts[0].payTo (severity: required) — "payTo address present", captured with a string address as the actual value. An earlier version of this corpus read that as a PRESENCE rule satisfied by an array; the captured detail says address, and the wrapped value is exactly the type-coercion trap this fixture exists to demonstrate`, D),
     ],
     notes:
       'THE REASON SET IS `payee-form` AND NOTHING ELSE. An earlier version of this corpus added ' +
@@ -861,6 +918,14 @@ const ENTRIES = [
       ),
       spec(`${V2_ACCEPTS} — each envelope is independently well-formed`, P),
       client(`${V1_FETCH} — a v1 client reads the body; a v2 client reads the header; each parses its own half and neither sees the other. PARSE-LEVEL`, C),
+      client(
+        `${PROBE} — OBSERVED ON BOTH SIDES, which is what this fixture previously claimed while citing only the v1 ` +
+          `path: the v2 header is accepted by \`decodePaymentRequiredHeader\`, by \`x402HTTPClient\` (which returns ` +
+          `x402Version 2 — the header wins over the body) and by \`PaymentRequiredV2Schema\`; the v1 body is accepted by ` +
+          `\`x402ResponseSchema\` and \`selectPaymentRequirements\`, which picks the exact/base offer. Two generations, ` +
+          `two payees, and neither client can see the other's half`,
+        C
+      ),
       validator(`${CDP_VALIDATOR} preflight — the required set the v2 half satisfies`, D),
     ],
     notes:
@@ -1145,7 +1210,7 @@ export function buildCorpus({ generated, headCommit } = {}) {
   }
 
   return {
-    corpus_version: 2,
+    corpus_version: 3,
     name: 'x402 portable conformance corpus',
     description:
       'Recorded 402 responses with tool-neutral, three-dimensional expectations. See corpus/FORMAT.md. ' +

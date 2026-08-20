@@ -347,8 +347,9 @@ out.push(`| Spec pin | x402-foundation/x402 @ \`${corpus.pins['x402-foundation/x
 out.push('');
 out.push(
   '**The engine is pinned by content, not by commit.** The commit above says where the tree was ' +
-    'when the corpus was stamped; it is marked informational in `pins`, and it is one commit behind ' +
-    'this file by construction, because stamping is itself a commit. The AUTHORITY is the git blob ' +
+    'when the corpus was last stamped; it is marked informational in `pins`, and it is ALWAYS behind ' +
+    'this file — writing the file is itself a change to be committed, and it falls further behind ' +
+    'with every commit made after a stamp, so no fixed lag is claimed. The AUTHORITY is the git blob ' +
     'hash of every file whose bytes can change an answer — ' +
     Object.keys(corpus.pins['10x402'].blobs)
       .map((p) => `\`${p}\``)

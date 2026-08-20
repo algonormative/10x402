@@ -119,8 +119,18 @@ export function runFixture(fixture) {
   const detail = [];
   for (const finding of report.findings) {
     const tag = tagFor(finding.code);
-    const provenance = operativeSources(finding.code);
-    const { fails, speaks } = dimensionsFor(finding.code);
+    // THE BRANCH'S OWN PROVENANCE, not the check id's. worker/lint.js attaches
+    // the citations the emitting branch rests on; `operativeSources(code)` is
+    // the fallback for a check whose branches all rest on the same documents.
+    // The difference is not cosmetic: `V2_PAYTO` firing on a solana:* entry used
+    // to publish viem's getAddress and fail client interoperability with no
+    // Solana client cited anywhere, and `V2_MAX_TIMEOUT` firing BECAUSE a scheme
+    // makes the field optional used to publish the three documents that make it
+    // required.
+    const provenance = (finding.sources ?? operativeSources(finding.code)).filter((src) => src.context !== true);
+    const { fails, speaks } = dimensionsForProvenance(provenance, {
+      registry: (CHECKS_BY_ID.get(finding.code)?.regime ?? 'payment') === 'bazaar',
+    });
     detail.push({
       code: finding.code,
       severity: finding.severity,
@@ -130,7 +140,12 @@ export function runFixture(fixture) {
       // RULE 2, ON THE RECORD. The provenance that decided this finding's
       // dimensions travels with the finding into the published results.
       provenance: provenance.map((s) => ({ kind: s.kind, ref: s.ref })),
-      decides: fails,
+      // WHAT IT DECIDED, not what a finding of this kind could decide. An info
+      // or a warning decides nothing at all under rule 1, and listing dimensions
+      // beside it read as though it had — the Cloudflare optional-timeout note
+      // published `decides: [payment, client_interop]` while failing neither.
+      decides: finding.severity === 'error' ? fails : [],
+      could_decide: fails,
       message: finding.message,
     });
     for (const dim of new Set([...speaks, ...fails])) {
