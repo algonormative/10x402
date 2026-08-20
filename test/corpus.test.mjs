@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { REASON_TAGS, TAGS, DIMENSIONS, TENX402_TAGS, CLIENT_INTEROP_LEVELS, judgeableFrom } from '../corpus/vocabulary.mjs';
 import { runFixture, tagFor, assertPinnedBlobs } from '../corpus/run-10x402.mjs';
 import { buildCorpus } from '../corpus/build-fixtures.mjs';
+import { validateCorpus, validateResults, agreement } from '../corpus/validate-results.mjs';
 import { FIXTURES } from './fixtures/envelopes.mjs';
 import { CHECKS, operativeSources } from '../worker/lint.js';
 
@@ -330,6 +331,72 @@ describe('corpus: the calibration fixtures hold', () => {
       assert.equal(got.dimensions.payment.verdict, 'pass', fixture.id);
       assert.equal(got.dimensions.client_interop.verdict, 'pass', fixture.id);
     }
+  });
+});
+
+describe('corpus: the conformance test a third adapter runs', () => {
+  // corpus/validate-results.mjs is what a stranger points at their own results
+  // file. It is asserted here against OUR results files for the obvious reason:
+  // a contract we publish and do not meet is worse than no contract, and the two
+  // files in this repository are the only worked examples anybody has.
+  //
+  // It imports nothing from worker/lint.js, which is the point — a third
+  // implementation must be able to check its own output without running ours.
+  const schemas = {
+    fixtures: JSON.parse(readFileSync(new URL('../corpus/schema/fixtures.schema.json', import.meta.url), 'utf8')),
+    results: JSON.parse(readFileSync(new URL('../corpus/schema/results.schema.json', import.meta.url), 'utf8')),
+  };
+
+  test('the corpus satisfies its own published schema', () => {
+    const findings = validateCorpus(corpus, schemas.fixtures, 'corpus/fixtures.json');
+    assert.deepEqual(findings, [], findings.join('\n'));
+  });
+
+  for (const name of ['results-10x402.json', 'results-x402-doctor.json']) {
+    test(`${name} satisfies the results contract`, () => {
+      const results = JSON.parse(readFileSync(new URL(`../corpus/${name}`, import.meta.url), 'utf8'));
+      const findings = validateResults(results, corpus, schemas.results, `corpus/${name}`);
+      assert.deepEqual(findings, [], findings.join('\n'));
+    });
+  }
+
+  test('the validator rejects a results file that answers a scope-excluded dimension', () => {
+    // A CHECK THAT NEVER FAILS IS NOT A CHECK. The gate above passes on files we
+    // generated ourselves, which proves nothing on its own, so the negative
+    // control runs beside it: a results file that turns an unanswerable
+    // dimension into a pass must be caught by name.
+    const results = JSON.parse(readFileSync(new URL('../corpus/results-10x402.json', import.meta.url), 'utf8'));
+    const scoped = corpus.fixtures.find((f) => Object.values(f.judgeable).includes(false));
+    assert.ok(scoped, 'the corpus has no scope-excluded dimension to test with');
+    const dim = DIMENSIONS.find((d) => scoped.judgeable[d] === false);
+    results.results.find((r) => r.id === scoped.id).dimensions[dim] = { verdict: 'pass', reason_tags: [], observed_tags: [] };
+    const findings = validateResults(results, corpus, schemas.results, 'mutated');
+    assert.ok(findings.length > 0, 'a scope-excluded dimension reported as a pass was accepted');
+    assert.ok(findings.some((f) => f.includes(`${scoped.id}.${dim}`)), findings.join('\n'));
+  });
+
+  test('the validator rejects an observational tag used as a reason', () => {
+    const results = JSON.parse(readFileSync(new URL('../corpus/results-10x402.json', import.meta.url), 'utf8'));
+    const failing = results.results.find((r) => r.dimensions.payment.verdict === 'fail');
+    failing.dimensions.payment.reason_tags = [...failing.dimensions.payment.reason_tags, 'redirect'];
+    const findings = validateResults(results, corpus, schemas.results, 'mutated');
+    assert.ok(findings.some((f) => /OBSERVATIONAL/i.test(f)), findings.join('\n'));
+  });
+
+  test('the two results files reproduce the agreement figures the report publishes', () => {
+    // The same algorithm, computed by a script that shares no code with
+    // corpus/report-disagreements.mjs. If the two ever disagree, one of them is
+    // implementing a different definition of "agreement" and the published
+    // percentage means nothing.
+    const a = JSON.parse(readFileSync(new URL('../corpus/results-10x402.json', import.meta.url), 'utf8'));
+    const b = JSON.parse(readFileSync(new URL('../corpus/results-x402-doctor.json', import.meta.url), 'utf8'));
+    const { stats } = agreement(corpus, a, b);
+    assert.equal(stats.total, corpus.fixtures.length * 3);
+    assert.equal(stats.total, stats.comparable + stats.notEvaluated + stats.scopeExcluded);
+    assert.equal(stats.comparable, stats.agree + stats.disagree);
+    // None of the exclusions may be silently counted as agreement.
+    assert.ok(stats.scopeExcluded > 0 && stats.notEvaluated > 0);
+    assert.ok(stats.agree < stats.total, 'every dimension agreeing would mean the comparison is not comparing');
   });
 });
 

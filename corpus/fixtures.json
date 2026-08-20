@@ -11,15 +11,15 @@
   "pins": {
     "10x402": {
       "repo": "https://github.com/chronick/10x402",
-      "commit": "4b61cda3e88c6fb4f2d4ac4cd368a74f5a176a7a",
-      "commit_is": "informational — where the tree was when this corpus was stamped. The AUTHORITY is `blobs` below, which is content-addressed and checked before the adapter runs.",
+      "commit": "b5c36b905d9ee23af6e6079539b973db44e06ada",
+      "commit_is": "INFORMATIONAL. Where the tree was when this corpus was stamped, which is by construction one commit behind the commit that carries this file — stamping is itself a commit. It is not, and cannot be, a handle on \"what code ran\". The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and checked before the engine executes.",
       "blobs": {
         "worker/lint.js": "ddf15145a8d1a706c731bb685663c41bd1319fd5",
         "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
         "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
         "test/fixtures/envelopes.mjs": "2987f2e6182c3e7a8879db472d407b85f00fd4fe",
         "corpus/vocabulary.mjs": "61e856c59f04db224ac99d32d5e90e49fc5500e7",
-        "corpus/run-10x402.mjs": "00d4f2eefb7b5ff2334d387e1518d91954962d5a"
+        "corpus/run-10x402.mjs": "0393d8e3bebbcf5c69464750ff1b9a0a98a5c37a"
       },
       "note": "the engine under test — worker/lint.js, 75 checks"
     },

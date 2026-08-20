@@ -1,6 +1,6 @@
 # Disagreements: 10x402 vs the x402-doctor prototype
 
-Two independent conformance implementations run over the same portable corpus, reported side by side. **No winner is declared.** Where a tool contradicts a document it itself cites, the row says so and names the document — twice about 10x402, which is the point of running someone else’s implementation over your own fixtures.
+Two independent conformance implementations run over the same portable corpus, reported side by side. **No winner is declared.** Where a tool contradicts a document it itself cites, the row says so and names the document — six times about 10x402, which is the point of running someone else’s implementation over your own fixtures and then having the corpus itself reviewed. See § Where 10x402 was wrong.
 
 Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402/issues/3104).
 
@@ -9,10 +9,12 @@ Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402
 | | |
 | --- | --- |
 | Corpus | `corpus/fixtures.json`, corpus_version 2, 34 fixtures |
-| 10x402 | https://github.com/chronick/10x402 @ `4b61cda3e88c` — adapter `corpus/run-10x402.mjs` |
+| 10x402 | https://github.com/chronick/10x402 @ `b5c36b905d9e` — adapter `corpus/run-10x402.mjs` |
 | x402-doctor | https://github.com/Maha-Strategies/maha-corp-web @ `37233104653b` — adapter `corpus/run-x402-doctor.mjs` |
-| Client pins | `@x402/core` 2.23.0, `x402` 1.2.0 |
+| Package pins | `@x402/core` 2.23.0, `@x402/evm` 2.23.0, `@x402/fetch` 2.23.0, `@x402/extensions` 2.23.0, `x402` 1.2.0, `x402-fetch` 1.2.0 — each with its registry integrity hash |
 | Spec pin | x402-foundation/x402 @ `75b519d0a3a7` |
+
+**The engine is pinned by content, not by commit.** The commit above says where the tree was when the corpus was stamped; it is marked informational in `pins`, and it is one commit behind this file by construction, because stamping is itself a commit. The AUTHORITY is the git blob hash of every file whose bytes can change an answer — `worker/lint.js`, `worker/envelope.js`, `worker/positive-control.js`, `test/fixtures/envelopes.mjs`, `corpus/vocabulary.mjs`, `corpus/run-10x402.mjs` — and `assertPinnedBlobs()` recomputes them and refuses to run on a mismatch, before the engine executes. A published result therefore cannot claim to be the output of code that is not the code that produced it.
 
 **Licence.** The prototype’s repository publishes no licence — no `LICENSE` file, no `license` field in `package.json`, and `license: null` from the GitHub API — so all rights are reserved and **no code from it is vendored into this repository**. `corpus/run-x402-doctor.mjs` clones it to a temporary directory at the pinned commit and imports `diagnoseX402Endpoint()` from there. What is committed here is our mapping and the SHA.
 
@@ -267,9 +269,9 @@ A dimension the CORPUS cannot judge from the recording it holds. Both tools are 
 | fixture | dimension | 10x402 would say | x402-doctor would say | why excluded |
 | --- | --- | --- | --- | --- |
 | `free-tier-200` | payment | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
-| `free-tier-200` | client_interop | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
-| `redirect-instead-of-402` | payment | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
-| `redirect-instead-of-402` | client_interop | nothing to report | fail (status-not-402) | no challenge is recorded in this fixture |
+| `free-tier-200` | client_interop | observed only: free-tier-200 | fail (status-not-402) | no challenge is recorded in this fixture |
+| `redirect-instead-of-402` | payment | observed only: redirect | fail (status-not-402) | no challenge is recorded in this fixture |
+| `redirect-instead-of-402` | client_interop | observed only: redirect | fail (status-not-402) | no challenge is recorded in this fixture |
 
 Both fixtures are cases where the response contains no payment declaration at all: a 200 to an anonymous caller, and a 307 whose target response was never captured. The mechanical rule is published with the corpus — `judgeableFrom()` in `corpus/vocabulary.mjs`, and the `judgeable` block on every fixture — so a third adapter reaches the same set from the file rather than from a convention. The right way to make the redirect case judgeable is to record the target response as a second exchange; inferring payability from a Location header is not the same thing and the corpus no longer does it.
 
@@ -316,11 +318,14 @@ A pre-publication accuracy review of the corpus itself (`CORPUS-REVIEW.md`) foun
 ## Reproducing
 
 ```sh
-node corpus/build-fixtures.mjs      # regenerate corpus/fixtures.json
-node corpus/run-10x402.mjs          # → corpus/results-10x402.json
-node corpus/run-x402-doctor.mjs     # clones the prototype to a temp dir → corpus/results-x402-doctor.json
+node corpus/build-fixtures.mjs       # regenerate corpus/fixtures.json — BYTE-IDENTICAL unless a fixture changed
+node corpus/run-10x402.mjs           # → corpus/results-10x402.json (asserts the pinned engine blobs first)
+node corpus/run-x402-doctor.mjs      # clones the prototype to a temp dir → corpus/results-x402-doctor.json
 node corpus/report-disagreements.mjs # → DISAGREEMENTS.md
-npm test                            # the corpus phase asserts run-10x402 reproduces every expectation
+node corpus/validate-results.mjs corpus/results-10x402.json   # the third-adapter conformance test
+npm test                             # the corpus phase asserts run-10x402 reproduces every expectation
 ```
+
+A third implementation joins by writing an adapter, emitting a results file in the shape `corpus/schema/results.schema.json` defines, and running `corpus/validate-results.mjs` against it. That script is the conformance test: it checks the file against the schema, that every fixture is answered, that reason tags are drawn from the vocabulary and are fatal ones, that `n/a` and `not-evaluated` are used the way the format defines them, and that the scope rules were applied. It needs nothing from this repository’s engine and imports no worker code.
 
 Generated by `corpus/report-disagreements.mjs` from results dated 2026-08-20 and 2026-08-20.

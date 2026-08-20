@@ -2,14 +2,14 @@
   "tool": {
     "name": "10x402",
     "repo": "https://github.com/chronick/10x402",
-    "commit": "4b61cda3e88c6fb4f2d4ac4cd368a74f5a176a7a",
+    "commit": "b5c36b905d9ee23af6e6079539b973db44e06ada",
     "blobs": {
       "worker/lint.js": "ddf15145a8d1a706c731bb685663c41bd1319fd5",
       "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
       "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
       "test/fixtures/envelopes.mjs": "2987f2e6182c3e7a8879db472d407b85f00fd4fe",
       "corpus/vocabulary.mjs": "61e856c59f04db224ac99d32d5e90e49fc5500e7",
-      "corpus/run-10x402.mjs": "00d4f2eefb7b5ff2334d387e1518d91954962d5a"
+      "corpus/run-10x402.mjs": "0393d8e3bebbcf5c69464750ff1b9a0a98a5c37a"
     }
   },
   "corpus_version": 2,
@@ -19,7 +19,6 @@
     "rules_held_back": [],
     "note": "the engine is a pure function over a recorded response; every check in the catalogue is applied to every fixture"
   },
-  "not_evaluated": [],
   "results": [
     {
       "id": "calibration-spec-canonical-402",

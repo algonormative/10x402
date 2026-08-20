@@ -122,7 +122,12 @@ function buildPins(headCommit) {
     '10x402': {
       repo: 'https://github.com/chronick/10x402',
       commit: headCommit,
-      commit_is: 'informational — where the tree was when this corpus was stamped. The AUTHORITY is `blobs` below, which is content-addressed and checked before the adapter runs.',
+      commit_is:
+        'INFORMATIONAL. Where the tree was when this corpus was stamped, which is by construction ' +
+        'one commit behind the commit that carries this file — stamping is itself a commit. It is ' +
+        'not, and cannot be, a handle on "what code ran". The AUTHORITY is `blobs` below: ' +
+        'content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and ' +
+        'checked before the engine executes.',
       blobs,
       note: 'the engine under test — worker/lint.js, 75 checks',
     },

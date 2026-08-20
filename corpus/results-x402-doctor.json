@@ -33,18 +33,6 @@
     "payments": "no paidProbe is passed; a settlement is structurally impossible",
     "network": "the git clone and one npm install; every other host is refused at the fetch boundary"
   },
-  "not_evaluated_rules": [
-    "x402.bazaar.lookup",
-    "x402.bazaar.not_found",
-    "x402.bazaar.stale_metadata",
-    "x402.bazaar.partial_comparison",
-    "x402.declaration_integrity.catalog_malformed",
-    "x402.declaration_integrity.catalog_resource",
-    "x402.payment.skipped",
-    "x402.payment.status",
-    "x402.payment.receipt",
-    "x402.payment.settled"
-  ],
   "results": [
     {
       "id": "calibration-spec-canonical-402",

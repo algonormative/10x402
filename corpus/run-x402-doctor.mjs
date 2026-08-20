@@ -412,7 +412,6 @@ const payload = {
     payments: 'no paidProbe is passed; a settlement is structurally impossible',
     network: 'the git clone and one npm install; every other host is refused at the fetch boundary',
   },
-  not_evaluated_rules: [...DOCTOR_NOT_EVALUABLE_OFFLINE],
   results,
 };
 

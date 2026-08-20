@@ -12,7 +12,9 @@
 // is evidence about the specification's under-determination, and picking a
 // winner throws that evidence away. Where one tool is demonstrably wrong about
 // its own cited authority the row says so and names the document — including,
-// twice, about 10x402.
+// six times, about 10x402: twice about the engine, found by running someone
+// else's implementation over our own fixtures, and four times about the corpus
+// itself, found by a pre-publication review of it (CORPUS-REVIEW.md).
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -254,7 +256,16 @@ for (const fixture of corpus.fixtures) {
     const y = b.dimensions[dim];
     const key = `${fixture.id}:${dim}`;
     const show = (v) => (v.verdict === 'fail' ? `fail (${v.reason_tags.join(', ')})` : v.verdict);
-    const wouldHave = (v) => (v.scope_suppressed?.length ? `fail (${v.scope_suppressed.join(', ')})` : 'nothing to report');
+    // WHAT THE TOOL WOULD HAVE SAID, at the strength it would have said it. A
+    // suppressed FAILURE and a suppressed warning are different things, and
+    // rendering the second as "nothing to report" would hide the fact that
+    // 10x402 does have an opinion about a free tier — it just holds it at a
+    // severity that never decides a dimension.
+    const wouldHave = (v) => {
+      if (v.scope_suppressed?.length) return `fail (${v.scope_suppressed.join(', ')})`;
+      if (v.observed_tags?.length) return `observed only: ${v.observed_tags.join(', ')}`;
+      return 'nothing to report';
+    };
     // SCOPE-EXCLUDED FIRST. The corpus itself declares that this recording
     // cannot support a verdict on this dimension, so both tools were forced to
     // `n/a` and counting that as an agreement would be counting two non-answers
@@ -327,8 +338,25 @@ out.push('| --- | --- |');
 out.push(`| Corpus | \`corpus/fixtures.json\`, corpus_version ${corpus.corpus_version}, ${corpus.fixtures.length} fixtures |`);
 out.push(`| 10x402 | ${corpus.pins['10x402'].repo} @ \`${corpus.pins['10x402'].commit.slice(0, 12)}\` — adapter \`corpus/run-10x402.mjs\` |`);
 out.push(`| x402-doctor | ${corpus.pins['x402-doctor-prototype'].repo} @ \`${corpus.pins['x402-doctor-prototype'].commit.slice(0, 12)}\` — adapter \`corpus/run-x402-doctor.mjs\` |`);
-out.push(`| Client pins | \`@x402/core\` ${corpus.pins['@x402/core'].version}, \`x402\` ${corpus.pins.x402.version} |`);
+out.push(
+  `| Package pins | ${Object.entries(corpus.pins.packages)
+    .map(([name, p]) => `\`${name}\` ${p.version}`)
+    .join(', ')} — each with its registry integrity hash |`
+);
 out.push(`| Spec pin | x402-foundation/x402 @ \`${corpus.pins['x402-foundation/x402'].commit.slice(0, 12)}\` |`);
+out.push('');
+out.push(
+  '**The engine is pinned by content, not by commit.** The commit above says where the tree was ' +
+    'when the corpus was stamped; it is marked informational in `pins`, and it is one commit behind ' +
+    'this file by construction, because stamping is itself a commit. The AUTHORITY is the git blob ' +
+    'hash of every file whose bytes can change an answer — ' +
+    Object.keys(corpus.pins['10x402'].blobs)
+      .map((p) => `\`${p}\``)
+      .join(', ') +
+    ' — and `assertPinnedBlobs()` recomputes them and refuses to run on a mismatch, before the ' +
+    'engine executes. A published result therefore cannot claim to be the output of code that is ' +
+    'not the code that produced it.'
+);
 out.push('');
 out.push(
   '**Licence.** The prototype’s repository publishes no licence — no `LICENSE` file, no `license` ' +
@@ -471,7 +499,13 @@ out.push(
 out.push('');
 out.push('Rules held back:');
 out.push('');
-for (const rule of theirs.not_evaluated_rules) out.push(`- \`${rule}\``);
+// READ FROM THE CONTRACT, NOT FROM THIS TOOL'S OWN SPELLING. An earlier version
+// read a top-level `not_evaluated_rules` key that only the doctor adapter
+// happened to write, so a third implementation following the published schema
+// would have had its held-back rules render as an empty list — a report quietly
+// claiming a tool ran everything. `partial_evaluation.rules_held_back` is the
+// field corpus/schema/results.schema.json defines.
+for (const rule of theirs.partial_evaluation?.rules_held_back ?? []) out.push(`- \`${rule}\``);
 out.push('');
 out.push(
   'One more is reported and should not be read as evidence: `x402.bazaar.crawler_status` replays ' +

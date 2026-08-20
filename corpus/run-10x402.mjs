@@ -203,7 +203,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       rules_held_back: [],
       note: 'the engine is a pure function over a recorded response; every check in the catalogue is applied to every fixture',
     },
-    not_evaluated: [],
     results,
   };
   writeFileSync(join(here, 'results-10x402.json'), `${JSON.stringify(out, null, 2)}\n`);
