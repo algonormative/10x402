@@ -255,6 +255,33 @@ event rather than a slow rot: when @x402/core changes its network schema,
 `grep -l 'schemas/index.js' worker/lint.js` finds every rule that has to be
 re-argued.
 
+## The portable corpus, and a second implementation
+
+`corpus/` holds a **tool-neutral conformance corpus**: 34 recorded 402 responses,
+each with three independent expectations — can it be paid, will the cited clients
+parse it, will a registry index it — plus the evidence behind each one. Nothing in
+`corpus/fixtures.json` names a check id or a grade, so any implementation can run
+it by writing an adapter. Format spec: [`corpus/FORMAT.md`](corpus/FORMAT.md).
+
+It exists because of
+[x402-foundation/x402#3104](https://github.com/x402-foundation/x402/issues/3104),
+where the x402-doctor proposal and this project turned out to have hit the same
+failure modes independently. The corpus is the shared ground; the outcome is
+[`DISAGREEMENTS.md`](DISAGREEMENTS.md) — both implementations run over the same
+cases, with **no winner declared**.
+
+Two engine defects in 10x402 were found by running the other implementation over
+our own fixtures, both fixed and both written up there. The corpus's own test
+phase asserts that `corpus/run-10x402.mjs` reproduces every published expectation,
+so what this repo ships and what it claims cannot drift apart.
+
+```sh
+node corpus/build-fixtures.mjs        # regenerate corpus/fixtures.json
+node corpus/run-10x402.mjs            # → corpus/results-10x402.json
+node corpus/run-x402-doctor.mjs       # clones the prototype to a temp dir
+node corpus/report-disagreements.mjs  # → DISAGREEMENTS.md
+```
+
 ## The x402 conformance checklist: 75 published checks
 
 The catalogue is published in full at `GET /check` and on the page before anyone
