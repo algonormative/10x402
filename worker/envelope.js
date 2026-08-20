@@ -41,7 +41,7 @@ import {
   USDC_DECIMALS,
   X402_TIMEOUT_SECONDS,
 } from './catalog.js';
-import { lint } from './lint.js';
+import { lint, lintOne } from './lint.js';
 import { POSITIVE_CONTROL } from './positive-control.js';
 
 export const PAYMENT_HEADER_V1 = 'x-payment';
@@ -127,8 +127,10 @@ export function resourceInfoV2(requirements, endpoint) {
  *
  * This is the dogfood made visible: the output example published in /lint's
  * envelope is this engine linting a captured production 402, and the one in
- * /lint/envelope's is this engine linting the pasted v1-only sample. Neither is
- * typed by hand, so neither can drift from what the endpoint actually returns.
+ * /lint/envelope's is this engine linting the pasted v1-only sample. The two
+ * single-check routes publish the same two runs reported for one named check —
+ * a pass on the live rail, a finding with its fix on the pasted one. None is
+ * typed by hand, so none can drift from what the endpoint actually returns.
  */
 const sampleOutputCache = new Map();
 export function sampleOutput(endpoint) {
@@ -140,25 +142,33 @@ export function sampleOutput(endpoint) {
   return out;
 }
 
-/** What the endpoint's published sample input really returns. */
+/**
+ * What the endpoint's published sample input really returns.
+ *
+ * The branch is on what the endpoint IS — does it fetch, does it answer about
+ * one check — rather than on its id, so a fifth route is a row in the catalogue
+ * and not another string comparison here.
+ */
 export function runSample(endpoint) {
-  if (endpoint.id === 'lint') {
-    // POST /lint {"url": "<the positive control's url>"} fetches that URL and
-    // lints what comes back. The captured copy IS what comes back, so linting
-    // it here is the same computation without the network call.
-    return lint({
-      status: POSITIVE_CONTROL.status,
-      headers: POSITIVE_CONTROL.headers,
-      body: POSITIVE_CONTROL.body,
-      url: POSITIVE_CONTROL.url,
-      method: POSITIVE_CONTROL.method,
-    });
-  }
-  return lint({
-    status: endpoint.sample.status,
-    headers: endpoint.sample.headers,
-    body: endpoint.sample.body,
-  });
+  // A fetching endpoint's sample points at the positive control's URL, and
+  // POST /lint on it fetches that URL and lints what comes back. The captured
+  // copy IS what comes back, so linting it here is the same computation with no
+  // network call — which is what lets an envelope be built anywhere.
+  const input = endpoint.fetches
+    ? {
+        status: POSITIVE_CONTROL.status,
+        headers: POSITIVE_CONTROL.headers,
+        body: POSITIVE_CONTROL.body,
+        url: POSITIVE_CONTROL.url,
+        method: POSITIVE_CONTROL.method,
+      }
+    : {
+        status: endpoint.sample.status,
+        headers: endpoint.sample.headers,
+        body: endpoint.sample.body,
+      };
+
+  return endpoint.single ? lintOne(input, endpoint.sample.check) : lint(input);
 }
 
 /** The published sample REQUEST body, as the text an agent would actually POST. */

@@ -98,9 +98,9 @@ CREATE TABLE IF NOT EXISTS payment_seen (
 -- facilitator is never called inside it.
 CREATE TABLE IF NOT EXISTS settlements (
   ts        INTEGER,  -- unix seconds, UTC
-  endpoint  TEXT,     -- 'lint' | 'lint-envelope'
+  endpoint  TEXT,     -- 'lint' | 'lint-one' | 'lint-envelope' | 'lint-envelope-one'
   payer     TEXT,     -- payer address from the payment payload, or NULL
-  amount    TEXT,     -- atomic units as a string, '10000' for $0.01
+  amount    TEXT,     -- atomic units as a string, '100000' for $0.10
   verify_ok INTEGER,  -- 1 | 0
   settle_ok INTEGER,  -- 1 | 0
   tx_hash   TEXT,     -- settlement transaction hash, or NULL
@@ -114,10 +114,14 @@ CREATE TABLE IF NOT EXISTS settlements (
 -- are the endpoints out there getting better, and is this catalogue finding
 -- anything. A grade distribution that is all A is a linter that has stopped
 -- looking; one that is all F is a catalogue that is wrong.
+-- TWO VOCABULARIES IN `grade`, told apart by `endpoint`. A full report grades
+-- 'A'..'F'. A single-check report has no grade — a letter computed from one
+-- check would be a fabricated verdict — so those rows carry 'pass', 'fail', or
+-- 'n/a' when the named check did not apply to the response at all.
 CREATE TABLE IF NOT EXISTS lints (
   ts       INTEGER,  -- unix seconds, UTC
-  endpoint TEXT,     -- 'lint' | 'lint-envelope'
-  grade    TEXT,     -- 'A'..'F'
+  endpoint TEXT,     -- 'lint' | 'lint-one' | 'lint-envelope' | 'lint-envelope-one'
+  grade    TEXT,     -- 'A'..'F' for a full report; 'pass' | 'fail' | 'n/a' for one check
   errors   INTEGER,  -- error-severity findings
   warns    INTEGER   -- warn-severity findings
 );

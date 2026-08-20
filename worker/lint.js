@@ -2934,6 +2934,23 @@ function pairOffers(v1Accepts, v2Accepts) {
  * @returns {{grade: string, summary: object, findings: object[], checks_run: number}}
  */
 export function lint(response) {
+  const { grade, summary, findings, checks_run } = runLint(response);
+  return { grade, summary, findings, checks_run };
+}
+
+/**
+ * The whole run, INCLUDING the set of checks that actually applied.
+ *
+ * `lint()` hands back the four public fields and nothing else, because that is
+ * the report a buyer paid for. `lintOne()` needs one more thing — whether the
+ * named check RAN — and it is not derivable from the findings: a check that
+ * emitted nothing and a check that never executed look identical from outside,
+ * and telling a seller "V2_B64_URLSAFE passed" about a response that publishes
+ * no v2 header would be the single most expensive false negative this service
+ * could sell. So the Report instance comes back too, internally, rather than
+ * `ran` being bolted onto the served shape where nobody asked for it.
+ */
+function runLint(response) {
   const report = new Report();
   const { status, headers = {}, body = '', url = null, method = null, redirectedTo = null, truncated = false } = response || {};
 
@@ -3132,7 +3149,111 @@ export function lint(response) {
     report.ran_('FINDINGS_TRUNCATED', true);
   }
 
-  return { grade: grade(findings), summary, findings, checks_run: report.ran.size };
+  return { report, grade: grade(findings), summary, findings, checks_run: report.ran.size };
+}
+
+// ------------------------------------------------------------------ one named check
+
+/**
+ * Lint one response and report ONE named check.
+ *
+ * The engine is pure and cheap, so the whole catalogue is run and the answer is
+ * filtered — there is no half-run of a lint, and a check that reads the same
+ * envelope the others do would have to re-derive all of it anyway. What the
+ * caller buys is the ANSWER, not the CPU.
+ *
+ * THREE OUTCOMES, AND THE THIRD IS THE ONE THAT MATTERS:
+ *
+ *   passed: true            the check ran and found nothing
+ *   passed: false           the check ran and emitted; `finding` carries the fix
+ *   passed: null            the check DID NOT APPLY to this response. Not a
+ *                           pass, and never rendered as one — a v2 check against
+ *                           a v1-only endpoint asserted nothing whatsoever, and
+ *                           reporting that as a pass would sell a seller the
+ *                           confidence that their v2 header is fine when they
+ *                           do not have one.
+ *
+ * `checks_run` is 1 or 0 on the same rule the full report uses: how many checks
+ * APPLIED, never how many were asked for.
+ *
+ * THE SECOND VERDICT IS NOT INCLUDED. `summary.bazaar_ready` is a verdict over
+ * every bazaar-regime check, and this caller bought one check. Publishing it
+ * here would hand over a whole-report answer at a single-check price and, worse,
+ * would let one code's blockers list imply the rest of the report. The envelope
+ * description — versions, payTo, network, price, and any `partial` caveat —
+ * stays, because that is context for the answer rather than another answer.
+ *
+ * @param {object} response the same input shape lint() takes
+ * @param {string} checkId  a check id from CHECKS. Unknown ids throw: the caller
+ *                          validates first, so a stranger's typo is a 400 that
+ *                          costs them nothing rather than an exception here.
+ */
+export function lintOne(response, checkId) {
+  const def = CHECKS_BY_ID.get(checkId);
+  if (!def) throw new Error(`unknown check id ${checkId} — validate against CHECKS_BY_ID first`);
+
+  const { report, summary, findings } = runLint(response);
+  const applied = report.ran.has(checkId);
+  const hits = findings.filter((f) => f.code === checkId);
+
+  // The envelope description WITHOUT the second verdict — see the note above.
+  const context = {
+    versions_detected: summary.versions_detected,
+    payTo: summary.payTo,
+    network: summary.network,
+    price: summary.price,
+    ...(summary.partial ? { partial: summary.partial } : {}),
+  };
+
+  return {
+    check: checkId,
+    applied,
+    passed: applied ? hits.length === 0 : null,
+    // ONE finding is the shape, because one check is what was bought. A code
+    // can legitimately appear twice — several checks reach one code from
+    // branches that diagnose different things — and when it does the rest are
+    // published beside it rather than dropped, since each carries its own fix.
+    finding: hits[0] ?? null,
+    ...(hits.length > 1 ? { findings: hits } : {}),
+    ...(applied ? {} : { note: notApplicable(def, summary) }),
+    regime: def.regime,
+    severity: def.severity,
+    core: def.core === true,
+    // The provenance ships with the answer, exactly as it does in GET /check. A
+    // single-check verdict is a rule quoted at somebody, and a rule quoted with
+    // no citation is one they have to take on faith.
+    sources: def.sources,
+    summary: context,
+    checks_run: applied ? 1 : 0,
+  };
+}
+
+/**
+ * Why a named check did not run, said in the caller's terms.
+ *
+ * The engine knows the precondition failed but not, in general, which one — so
+ * this reads the report's own summary for the answer that is nearly always the
+ * real one (there was no envelope of that generation to inspect) and falls back
+ * to naming the precondition rather than inventing a reason.
+ */
+function notApplicable(def, summary) {
+  const versions = summary.versions_detected || [];
+  const lead = `${def.id} did not apply to this response, so nothing about it was asserted — this is NOT a pass. `;
+
+  if (summary.partial) return `${lead}${summary.partial}`;
+  if (def.area === 'v2' && !versions.includes(2)) {
+    return `${lead}No v2 envelope was found — there is no PAYMENT-REQUIRED response header to inspect, ` +
+      'which is itself the finding V2_HEADER_PRESENT reports.';
+  }
+  if (def.area === 'v1' && !versions.includes(1)) {
+    return `${lead}No v1 envelope was found — the 402 body carries no x402 v1 accepts[], which is ` +
+      'itself the finding V1_BODY_PRESENT reports.';
+  }
+  if (def.area === 'dual' || def.area === 'version') {
+    return `${lead}This check compares the two generations against each other and this response ` +
+      `publishes ${versions.length ? `only v${versions.join(' and v')}` : 'neither'}.`;
+  }
+  return `${lead}Its precondition was not met: it inspects ${def.summary}`;
 }
 
 /** JSON.parse that answers `undefined` instead of throwing. */

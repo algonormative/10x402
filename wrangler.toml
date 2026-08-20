@@ -25,8 +25,13 @@ compatibility_date = "2025-10-08"
 # GET /check takes no parameters today, and the wildcard is here so that adding
 # one later is not a silent outage.
 #
-# `/lint` is exact and `/lint/*` covers /lint/envelope, so a future
-# /lint/something needs no route change.
+# `/lint` is exact and `/lint/*` covers everything below it. VERIFIED WHEN THE
+# SINGLE-CHECK ROUTES LANDED: `/lint/one`, `/lint/envelope` and
+# `/lint/envelope/one` are all matched by the existing wildcard — `*` in a route
+# pattern matches any number of characters INCLUDING `/` — so no route was added
+# for them, and none should be. A test asserts every path in the catalogue is
+# covered by a pattern here, so a fifth route that needed one could not ship
+# unnoticed.
 
 routes = [
   { pattern = "10x402.com/check*", zone_name = "10x402.com" },

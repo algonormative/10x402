@@ -1,11 +1,24 @@
 // The 10x402 API Worker.
 //
-//   GET  /check          free. Service info, the whole check catalogue, prices,
-//                        the grade ladder, x402 versions. No D1, no fetch.
-//   POST /lint           $0.01. One unauthenticated request to a URL you name,
-//                        then the full check catalogue over what came back.
-//   POST /lint/envelope  $0.005. The same checks over a response you paste.
-//                        No outbound request at all.
+//   GET  /check              free. Service info, the whole check catalogue,
+//                            prices, the grade ladder, x402 versions. No D1,
+//                            no fetch.
+//   POST /lint               $0.10. One unauthenticated request to a URL you
+//                            name, then the full check catalogue over what came
+//                            back.
+//   POST /lint/one           $0.02. The same outbound request, reported for ONE
+//                            named check.
+//   POST /lint/envelope      $0.05. The full catalogue over a response you
+//                            paste. No outbound request at all.
+//   POST /lint/envelope/one  $0.01. ONE named check over a response you paste.
+//
+// Prices, paths and which route fetches all come from worker/catalog.js, and the
+// routing table is built from it — a new route is a row there, never a branch
+// here. THE DEPLOYED ROUTES ALREADY COVER THE SINGLE-CHECK PATHS: wrangler.toml
+// publishes `10x402.com/lint` and `10x402.com/lint/*`, and the wildcard matches
+// `/lint/one` and `/lint/envelope/one` as it already matched `/lint/envelope`.
+// Nothing was added there, and that is checked rather than assumed — see the
+// route note in wrangler.toml.
 //
 // ------------------------------------------------------------------ the shape of it
 //
@@ -42,7 +55,7 @@
 // Steps 2, 5 and 7 were all missing. Together they made the paid path an
 // unauthenticated amplifier: junk bytes wrote unmetered D1 rows, decodable junk
 // forced an Ed25519 signature and an outbound POST per request, and one real
-// $0.01 payment replayed concurrently bought as many reports as the per-IP
+// one real payment replayed concurrently bought as many reports as the per-IP
 // ceiling allowed.
 //
 // TWO RULES INHERITED FROM THE CHASSIS, and they are the ones worth protecting:
@@ -59,7 +72,9 @@
 //   costs the caller nothing.
 
 import {
+  BATCH_MULTIPLE,
   ENDPOINTS,
+  ENDPOINTS_BY_ID,
   ENDPOINTS_BY_PATH,
   FREE_ENDPOINT,
   MAX_BODY_BYTES,
@@ -69,9 +84,11 @@ import {
   SERVICE_TAGLINE,
   SITE_BASE,
   SUPPORT_EMAIL,
+  batchAdvantageLine,
+  perCheckAdvantage,
   priceLabel,
 } from './catalog.js';
-import { CHECKS, GRADE_RULES, SOURCE_KINDS, lint } from './lint.js';
+import { CHECKS, CHECKS_BY_ID, GRADE_RULES, SOURCE_KINDS, lint, lintOne } from './lint.js';
 import {
   build402,
   paymentRequired,
@@ -233,9 +250,30 @@ function handleCheck(request, env) {
         description: e.description,
         input: e.inputDescription,
         output: e.outputDescription,
+        // Stated as data, not left for a reader to infer from the path: which
+        // routes need a `check`, which ones make an outbound request on the
+        // caller's behalf, and which fuller or cheaper route is the sibling of
+        // this one.
+        scope: e.single ? 'one named check' : `all ${CHECKS.length} checks`,
+        check_required: e.single === true,
+        fetches: e.fetches === true,
+        paired_with: ENDPOINTS_BY_ID.get(e.pairedWith)?.path ?? null,
         sample: e.sample,
       })),
     ],
+    // THE ARITHMETIC OF THE SHEET, published rather than implied. A caller with
+    // three questions should be able to work out — before paying for any of
+    // them — that the full report is the cheaper buy.
+    pricing: {
+      batch_multiple: BATCH_MULTIPLE,
+      per_check_advantage: perCheckAdvantage(CHECKS.length),
+      note: batchAdvantageLine(CHECKS.length),
+      envelope_discount:
+        'the pasted-response routes are half the price of the ones that fetch, because they make ' +
+        'no outbound request on your behalf.',
+      per: 'every price is per SERVED report — a bad URL, an unreachable target, a malformed paste ' +
+        'or an unknown check id settles nothing, even when the payment verified.',
+    },
     // The field stays present at 0 rather than disappearing: a reader that has
     // to tell "no free tier" from "this build forgot to say" will guess wrong.
     free_tier_daily: tier,
@@ -269,6 +307,8 @@ function handleCheck(request, env) {
       'Every check publishes its `sources`. A rule with no citation is a rule this service will not sell you.',
       'POST /lint sends exactly one unauthenticated request to the URL you name, follows no redirects, and reads at most 256 KB.',
       'POST /lint/envelope fetches nothing, so it works on staging, on localhost and on an endpoint that is not deployed yet.',
+      'The two /one routes answer about exactly ONE check you name in a required `check` field, taken from checks[] below. An unknown id is a 400 that lints nothing and charges nothing.',
+      'A single-check answer distinguishes THREE outcomes: passed true, passed false with the finding and its fix, and applied false — the named check did not run against this response, which is not a pass and is never reported as one.',
     ],
   });
 }
@@ -394,16 +434,20 @@ async function handlePaid(request, env, ctx, endpoint) {
 
     if (free !== null) {
       freeClaim = ipHash;
-      // THE ATTEMPT BOUND, free /lint only. The free unit above is refunded
-      // when no report is served (see `abandon`) — which, alone, would hand an
-      // attacker unlimited free outbound fetches: name an unreachable target,
-      // eat the 10s timeout, get the unit back, repeat. So the ATTEMPT is
-      // metered separately and never refunded, on the same ceiling and the
+      // THE ATTEMPT BOUND, on the free FETCHING routes. The free unit above is
+      // refunded when no report is served (see `abandon`) — which, alone, would
+      // hand an attacker unlimited free outbound fetches: name an unreachable
+      // target, eat the 10s timeout, get the unit back, repeat. So the ATTEMPT
+      // is metered separately and never refunded, on the same ceiling and the
       // same reasoning as the verify bound below: the bound has to be on what
-      // the request costs US, not on whether it produced anything. /lint/envelope
-      // fetches nothing and needs no attempt claim; the paid path's outbound
-      // work is already bounded by the verify claim it must pass first.
-      if (endpoint.id === 'lint') {
+      // the request costs US, not on whether it produced anything.
+      //
+      // GATED ON `fetches`, NOT ON THE ID. /lint and /lint/one make the same one
+      // outbound request and cost us the same thing, so they claim from the same
+      // counter; the two pasted-envelope routes fetch nothing and claim nothing.
+      // The paid path's outbound work is already bounded by the verify claim it
+      // must pass first.
+      if (endpoint.fetches) {
         const attempt = await claimQuota(db, day, `attempt:${ipHash}`, verifyDaily(env));
         if (attempt === null) {
           return abandon(
@@ -411,10 +455,11 @@ async function handlePaid(request, env, ctx, endpoint) {
               {
                 error: 'daily lint-attempt limit reached',
                 detail:
-                  'free /lint attempts — served or failed — are bounded per caller per UTC day, ' +
-                  'because each one costs this service an outbound request whether or not it ' +
-                  'produced a report. POST /lint/envelope runs the same checks on a pasted ' +
-                  'response with no fetch, and is not bounded this way.',
+                  'free attempts at the routes that fetch — served or failed — are bounded per ' +
+                  'caller per UTC day, because each one costs this service an outbound request ' +
+                  'whether or not it produced a report. POST /lint/envelope and ' +
+                  'POST /lint/envelope/one run the same checks on a pasted response with no ' +
+                  'fetch, and are not bounded this way.',
                 retry: 'tomorrow UTC',
               },
               429,
@@ -478,7 +523,7 @@ async function handlePaid(request, env, ctx, endpoint) {
       // Verifying a payment is a READ — the facilitator says the signature is
       // good and the funds are there, and says it again every time it is asked.
       // Nothing is spent until settle, and settle runs after the response. So
-      // the same $0.01 header presented concurrently verified every time and
+      // the same paid header presented concurrently verified every time and
       // bought a report every time; the only thing bounding it was the
       // per-caller ceiling, which is per IP and therefore not a bound at all
       // for anyone with more than one.
@@ -585,9 +630,23 @@ async function handlePaid(request, env, ctx, endpoint) {
   }
 
   // --- do the work ------------------------------------------------------
+  //
+  // THE NAMED CHECK IS VALIDATED FIRST, before any work at all. On /lint/one
+  // that means before the outbound fetch: a typo in a check id must not spend
+  // our network position, and — since every no-report exit refunds — must not
+  // cost the caller anything either. It is a 400 carrying the fix, which is a
+  // pointer at the free route that lists every id.
+  let named = null;
+  if (endpoint.single) {
+    named = namedCheck(body);
+    if (named.error) return abandon(badRequest(named.error, named.fix));
+  }
+
   let report;
   try {
-    report = endpoint.id === 'lint' ? await runUrlLint(body, env) : runEnvelopeLint(body);
+    report = endpoint.fetches
+      ? await runUrlLint(body, env, named?.check)
+      : runEnvelopeLint(body, named?.check);
   } catch (err) {
     return abandon(badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint)));
   }
@@ -596,13 +655,7 @@ async function handlePaid(request, env, ctx, endpoint) {
   // Telemetry, and deliberately thin: WHICH endpoint, WHAT grade, how many
   // findings. Never the URL, never the envelope, never the report. What was
   // linted is the caller's business; what this service is good at is ours.
-  await recordLintSafely(env.DB, {
-    now: Math.floor(Date.now() / 1000),
-    endpoint: endpoint.id,
-    grade: report.grade,
-    errors: report.findings.filter((f) => f.severity === 'error').length,
-    warns: report.findings.filter((f) => f.severity === 'warn').length,
-  });
+  await recordLintSafely(env.DB, { now: Math.floor(Date.now() / 1000), endpoint: endpoint.id, report });
 
   // --- settle AFTER responding -----------------------------------------
   //
@@ -625,7 +678,73 @@ async function handlePaid(request, env, ctx, endpoint) {
 
 // ------------------------------------------------------------------ the work
 
-async function runUrlLint(body, env) {
+/**
+ * The `check` field the two single-check routes require, validated.
+ *
+ * MISSING AND UNKNOWN ARE DIFFERENT MISTAKES and get different fixes: one
+ * caller forgot a field, the other believes in a check that does not exist —
+ * usually a code they remembered from a report, mistyped, or invented. Both are
+ * answered with the free route that lists every id, because that is the answer
+ * to both questions, and both are answered BEFORE any work is done. Neither
+ * costs anything: the 400 goes through `abandon`, which hands back the payment
+ * claim, and settlement is queued only after a report exists.
+ */
+function namedCheck(body) {
+  const catalogue = `GET ${FREE_ENDPOINT.path} lists all ${CHECKS.length} check ids with what each one inspects.`;
+
+  if (body.check === undefined || body.check === null || body.check === '') {
+    return {
+      error: '`check` is required — this endpoint answers about exactly one named check',
+      fix: `Add {"check": "V2_B64_URLSAFE"}, naming one check id. ${catalogue} For the whole ` +
+        'catalogue in one report instead, use the full-report endpoint.',
+    };
+  }
+  if (typeof body.check !== 'string') {
+    return {
+      error: `\`check\` must be a single check id as a string, not ${JSON.stringify(body.check)}`,
+      fix: `Exactly one id, e.g. {"check": "V2_B64_URLSAFE"}. ${catalogue}`,
+    };
+  }
+
+  // Case-insensitive because the ids are shouted constants and a caller
+  // copying one out of prose will sometimes lower-case it; nothing else is
+  // normalised, because a near-miss should be told it is a near-miss.
+  const id = body.check.trim().toUpperCase();
+  if (!CHECKS_BY_ID.has(id)) {
+    return {
+      error: `no check "${clipId(body.check)}" — nothing was linted and nothing was charged`,
+      fix: `${catalogue} Check ids are exact, e.g. V2_B64_URLSAFE, V1_PAYTO, HTTP_STATUS_402.` +
+        suggestion(id),
+    };
+  }
+  return { check: id };
+}
+
+/** A caller-supplied id, bounded before it is echoed back into a message. */
+const clipId = (value) => {
+  const text = String(value);
+  return text.length > 64 ? `${text.slice(0, 64)}…` : text;
+};
+
+/**
+ * The nearest real ids, when a typo is close to one.
+ *
+ * Prefix and substring only — no edit distance, because the value here is
+ * turning "I meant one of the bazaar ones" into a list, and a caller who is
+ * one character out is served just as well by seeing the family.
+ */
+function suggestion(id) {
+  const stem = id.replace(/[^A-Z0-9]+/g, '_').split('_').filter(Boolean)[0] || '';
+  if (!stem) return '';
+  const near = CHECKS.filter((c) => c.id.startsWith(stem) || c.id.includes(id)).slice(0, 6).map((c) => c.id);
+  return near.length ? ` Did you mean one of: ${near.join(', ')}?` : '';
+}
+
+/**
+ * The outbound rail: fetch what the caller named, then lint it — whole, or for
+ * one named check when `check` is set.
+ */
+async function runUrlLint(body, env, check) {
   if (body.url === undefined) {
     return {
       error: '`url` is required',
@@ -639,7 +758,7 @@ async function runUrlLint(body, env) {
   const fetched = await fetchTarget(body.url, body.method, env);
   if (!fetched.ok) return { error: fetched.error, fix: fetched.fix };
 
-  const report = lint(fetched.input);
+  const report = check ? lintOne(fetched.input, check) : lint(fetched.input);
   return {
     ...report,
     target: { url: fetched.input.url, method: fetched.input.method, status: fetched.input.status },
@@ -651,7 +770,11 @@ async function runUrlLint(body, env) {
   };
 }
 
-function runEnvelopeLint(body) {
+/**
+ * The pasted rail: lint what the caller sent — whole, or for one named check
+ * when `check` is set. Nothing is fetched.
+ */
+function runEnvelopeLint(body, check) {
   if (body.status === undefined) {
     return {
       error: '`status` is required',
@@ -703,7 +826,7 @@ function runEnvelopeLint(body) {
     flat[String(key).toLowerCase()] = Array.isArray(value) ? value[0] : String(value);
   }
 
-  const report = lint({
+  const input = {
     status,
     headers: flat,
     body: typeof text === 'string' ? text : '',
@@ -715,18 +838,24 @@ function runEnvelopeLint(body) {
     // manufacture a disagreement out of this route's own ignorance, so with no
     // method given the comparison simply does not run.
     method: typeof body.method === 'string' ? body.method : null,
-  });
+  };
 
+  const report = check ? lintOne(input, check) : lint(input);
+
+  if (!reserialised) return report;
+
+  const reserialisedNote =
+    '`body` arrived as a JSON object rather than as text, so it was re-serialised. ' +
+    'Checks about the body being well-formed JSON cannot fail on a re-serialised body ' +
+    '— send the raw response text to have those mean something.';
+
+  // A single-check report may ALREADY carry a `note` — the one that says the
+  // named check did not apply — and that sentence is the answer the caller
+  // bought. Appending rather than assigning: overwriting it would turn "nothing
+  // was asserted about your v2 header" into a remark about serialisation.
   return {
     ...report,
-    ...(reserialised
-      ? {
-          note:
-            '`body` arrived as a JSON object rather than as text, so it was re-serialised. ' +
-            'Checks about the body being well-formed JSON cannot fail on a re-serialised body ' +
-            '— send the raw response text to have those mean something.',
-        }
-      : {}),
+    note: report.note ? `${report.note} Also: ${reserialisedNote}` : reserialisedNote,
   };
 }
 
@@ -987,8 +1116,34 @@ async function recordSettlementSafely(db, row) {
   }
 }
 
-async function recordLintSafely(db, { now, endpoint, grade, errors, warns }) {
+/**
+ * The telemetry row for one served report, for both report shapes.
+ *
+ * A single-check report has no grade — a letter computed from one check would
+ * be a fabricated verdict, and 'A' for "the one check you asked about passed"
+ * is exactly the sentence this service refuses to say. So the `grade` column
+ * carries the honest small vocabulary for those rows instead: `pass`, `fail`,
+ * or `n/a` when the named check did not apply. The `endpoint` column already
+ * says which shape a row is, so the two vocabularies cannot be confused, and
+ * `SELECT grade, COUNT(*) FROM lints GROUP BY grade` still answers the question
+ * it was written for.
+ */
+const lintTelemetry = (report) =>
+  report.check
+    ? {
+        grade: report.applied ? (report.passed ? 'pass' : 'fail') : 'n/a',
+        errors: report.finding?.severity === 'error' ? 1 : 0,
+        warns: report.finding?.severity === 'warn' ? 1 : 0,
+      }
+    : {
+        grade: report.grade,
+        errors: report.findings.filter((f) => f.severity === 'error').length,
+        warns: report.findings.filter((f) => f.severity === 'warn').length,
+      };
+
+async function recordLintSafely(db, { now, endpoint, report }) {
   if (!db) return;
+  const { grade, errors, warns } = lintTelemetry(report);
   try {
     await db.batch([
       db
