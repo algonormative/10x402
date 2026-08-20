@@ -133,10 +133,28 @@ describe('a fetched response lints the same as a pasted one', () => {
   // the mismatch is the subject rather than the noise.
   const RIG_ARTEFACT = 'V2_RESOURCE_URL_MATCHES';
 
-  for (const fixture of FIXTURES) {
+  // ONE FIXTURE CANNOT SURVIVE A REAL HTTP HOP, and that is a fact about HTTP
+  // rather than a gap in the test. RFC 9110 field parsing strips optional
+  // whitespace around a header value, so a PAYMENT-REQUIRED header padded with
+  // spaces arrives here already trimmed and the fixture's fault is gone before
+  // the linter sees it.
+  //
+  // It is not a fixture worth dropping: @x402/core tests its base64 regex
+  // against the RAW header value it is handed, so a seller whose framework
+  // emits a padded value — or whose proxy preserves one — really does publish
+  // an envelope some clients discard unread. The place to catch it is
+  // /lint/envelope, where the caller supplies the header string directly, and
+  // test/lint-envelope.test.mjs asserts it there.
+  const NOT_REPRODUCIBLE_OVER_HTTP = new Set(['a v2 header padded with whitespace']);
+
+  for (const fixture of FIXTURES.filter((f) => !NOT_REPRODUCIBLE_OVER_HTTP.has(f.name))) {
     test(fixture.name, async () => {
       target.reset();
       target.serve(fixture.response());
+      // No `method` override: this route's default probe verb is POST, which is
+      // the verb every fixture is written against. The one fixture that is ABOUT
+      // a declared-verb disagreement declares PUT while being probed with POST,
+      // so the default is exactly the condition it needs.
       const res = await lintTarget();
       assert.equal(res.status, 200, res.text);
       assert.deepEqual(
@@ -149,6 +167,18 @@ describe('a fetched response lints the same as a pasted one', () => {
       assert.equal(res.body.grade, fixture.expect.grade);
     });
   }
+
+  test('the padded-header fixture is stripped BY HTTP, not by this linter', () => {
+    // VERIFY THE EXCUSE. A skipped fixture with a plausible reason is how a
+    // real gap gets written down as a known limitation, so the reason is
+    // asserted rather than asserted-to-be-true: the fixture is genuinely
+    // padded, and the pure engine genuinely catches it.
+    const fixture = FIXTURES.find((f) => NOT_REPRODUCIBLE_OVER_HTTP.has(f.name));
+    assert.ok(fixture, 'the skipped fixture no longer exists — remove the skip');
+    const header = fixture.response().headers['payment-required'];
+    assert.notEqual(header, header.trim(), 'the fixture is not actually padded');
+    assert.deepEqual(fixture.expect.codes, ['V2_B64_URLSAFE']);
+  });
 
   test('a real production 402, replayed over the wire, still grades A', async () => {
     target.reset();
@@ -231,7 +261,17 @@ describe('redirects are reported, not followed', () => {
     const redirect = res.body.findings.find((f) => f.code === 'HTTP_REDIRECT');
     assert.ok(redirect, JSON.stringify(res.body.findings));
     assert.match(redirect.message, /302/);
-    assert.match(redirect.fix, /drops the header|do not follow redirects/i);
+    // The fix text used to claim x402 clients do not follow redirects and that
+    // a redirect drops the payment header. Both are false: @x402/fetch calls
+    // ordinary fetch, whose default is to follow. What is TRUE about a 302 in
+    // particular is that it rewrites a POST into a GET, and that is what the
+    // seller needs to hear — a 307 would not have this problem.
+    assert.match(redirect.fix, /301 or 302 rewrites your POST into a GET/i);
+    assert.match(redirect.fix, /advertise that final URL in resource\.url/i);
+    assert.ok(
+      !/do not follow redirects|drops the header/i.test(redirect.fix),
+      'the fix text has regained a claim the audit disproved'
+    );
   });
 
   test('a redirect to a private address is still not followed', async () => {

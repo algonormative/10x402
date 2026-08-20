@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { CHECKS, CHECKS_BY_ID, GRADE_RULES, grade, lint } from '../worker/lint.js';
+import { CHECKS, CHECKS_BY_ID, GRADE_RULES, MAX_ACCEPTS_LINTED, grade, lint } from '../worker/lint.js';
 import {
   FIXTURES,
   bazaar,
@@ -80,7 +80,27 @@ describe('the grade ladder', () => {
     assert.equal(grade(warns), 'C');
   });
   test('a non-core error is a D', () => {
-    assert.equal(grade([finding('error', 'V2_BAZAAR_INFO_VALIDATES')]), 'D');
+    // V2_EXTRA_EIP712: payment regime, error, not core. A client throws before
+    // it signs, so the endpoint takes no money — but the envelope itself parses.
+    assert.equal(grade([finding('error', 'V2_EXTRA_EIP712')]), 'D');
+  });
+
+  test('a BAZAAR-regime error does not touch the grade', () => {
+    // The whole point of the split. An info/schema pair that does not agree is
+    // a silent delisting and it is not a payment defect: the endpoint takes
+    // money correctly and simply never appears in the directory. Answering that
+    // with a D told a seller their working endpoint was broken.
+    assert.equal(grade([finding('error', 'V2_BAZAAR_INFO_VALIDATES')]), 'A');
+    assert.equal(grade([finding('error', 'V2_BAZAAR_PRESENT'), finding('warn', 'V2_TAGS')]), 'A');
+  });
+
+  test('a HYGIENE finding is an info by construction, so it cannot grade', () => {
+    // Asserted on the catalogue rather than on a report: the constructor loop in
+    // lint.js refuses to load a hygiene check above info severity, and this is
+    // the readable statement of that rule.
+    for (const check of CHECKS.filter((c) => c.regime === 'hygiene')) {
+      assert.equal(check.severity, 'info', `${check.id} is hygiene at ${check.severity}`);
+    }
   });
   test('a core error is an F, whatever else is true', () => {
     assert.equal(grade([finding('error', 'V2_B64_URLSAFE')]), 'F');
@@ -230,8 +250,10 @@ describe('the report is bounded, because the input is not', () => {
     assert.equal(extra.length, 1, JSON.stringify(report.findings.map((f) => f.code)));
     assert.match(extra[0].message, /also in v1 accepts\[1\], v1 accepts\[2\], v1 accepts\[3\]/);
     assert.match(extra[0].message, /4 of the 4 accepts\[\] entries/);
-    // One warning, so a B — exactly what the same fault in one entry scores.
-    assert.equal(report.grade, 'B');
+    // One error, so a D — exactly what the same fault in ONE entry scores, which
+    // is the whole invariant. (An error rather than a warn because @x402/evm
+    // throws before signing when the EIP-712 domain is absent; see the catalogue.)
+    assert.equal(report.grade, 'D');
   });
 
   test('two DIFFERENT faults under one code stay two findings', () => {
@@ -257,7 +279,7 @@ describe('the report is bounded, because the input is not', () => {
     assert.match(findings[0].message, /accepts\[0\] names no network/);
     assert.match(findings[1].message, /accepts\[1\] uses the v1 network name "base"/);
     assert.match(findings[1].fix, /eip155:8453/, 'the replacement value was lost in the collapse');
-    assert.match(findings[2].message, /accepts\[2\].*is not a CAIP-2 identifier/);
+    assert.match(findings[2].message, /accepts\[2\].*is not a network identifier/);
     // And none of them claims the others are the same fault.
     for (const f of findings) assert.ok(!/The same fault/.test(f.message), f.message);
   });
@@ -327,16 +349,30 @@ describe('the report is bounded, because the input is not', () => {
   });
 
   test('no input can produce more findings than there are checks', () => {
-    // THE REAL BOUND, and it is stronger than the 200-finding cap: once a fault
-    // repeated across accepts[] is one finding, the number of findings cannot
-    // exceed the number of distinct codes, whatever the input looks like. The
-    // cap in Report.emit is the backstop for a future check that emits outside
-    // an accepts group — it is deliberately unreachable today, and this test
-    // says so rather than pretending to exercise it.
+    // THE REAL BOUND, and it is stronger than the 200-finding cap. Two limits
+    // compose to give it: at most MAX_ACCEPTS_LINTED entries are read per
+    // envelope, and identical faults across those entries collapse into one
+    // finding that names them all.
+    //
+    // NOT "each code appears once", which is what this test used to assert and
+    // which was never true — see 'two DIFFERENT faults under one code' above,
+    // where V2_NETWORK_CAIP2 legitimately produces three findings because three
+    // entries are wrong in three different ways. The values quoted out of the
+    // envelope are part of a fault's identity, deliberately: two entries naming
+    // two different unknown schemes are two things for the seller to look at.
+    // The bound is therefore per-envelope-entry, not per code, and the old
+    // assertion passed only because no hostile in this list happened to vary a
+    // quoted value. One that does was added below.
     const hostiles = [
       hostile(),
       response({ v1: { x402Version: 1, accepts: Array.from({ length: 400 }, (_, i) => ({ scheme: `s${i}` })) } }),
       response({ v2: { x402Version: 2, accepts: Array.from({ length: 900 }, () => ({})) } }),
+      // The case the old assertion would have caught nothing about: 400 entries
+      // each naming a DIFFERENT unknown scheme, so every one is its own fault.
+      // Eight are read, eight are reported, and the report stops there.
+      response({
+        v1: { x402Version: 1, accepts: Array.from({ length: 400 }, (_, i) => ({ scheme: `scheme-${i}` })) },
+      }),
     ];
     for (const input of hostiles) {
       const report = lint(input);
@@ -344,13 +380,14 @@ describe('the report is bounded, because the input is not', () => {
         report.findings.length <= CHECKS.length,
         `${report.findings.length} findings from ${CHECKS.length} checks`
       );
-      // Every code appears once. ACCEPTS_TRUNCATED is the sole exception and
-      // legitimately so: the v1 body and the v2 header are two envelopes, and
-      // each says for itself how much of its accepts[] was read.
+      // A code appears at most once per entry actually read, across both
+      // envelopes — eight per envelope, sixteen in total. Anything above that
+      // means the collapse stopped working and the report is about to scale
+      // with the length of an attacker's array again.
       const counts = new Map();
       for (const f of report.findings) counts.set(f.code, (counts.get(f.code) ?? 0) + 1);
       for (const [code, n] of counts) {
-        assert.ok(n === 1 || (code === 'ACCEPTS_TRUNCATED' && n === 2), `${code} appeared ${n} times`);
+        assert.ok(n <= 2 * MAX_ACCEPTS_LINTED, `${code} appeared ${n} times`);
       }
     }
   });

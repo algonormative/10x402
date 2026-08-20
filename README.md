@@ -37,9 +37,11 @@ verify:
   `amount`, finds `undefined`, and has no price to sign against.
 
 10x402 turns those absences into named findings and concrete changes. Its
-64-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
+75-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
 consistency, version hygiene, Bazaar metadata, and two safeguards that disclose
-when the report itself had to stop or truncate work.
+when the report itself had to stop or truncate work. Every check names the
+specification section, client source line or CDP requirement its rule comes
+from — and where the honest answer is a house opinion, it says that instead.
 
 ## The self-lint invariant
 
@@ -91,7 +93,7 @@ already captured from local, staging, or authenticated code.
 | | | |
 |---|---|---|
 | `POST /lint` | **$0.01** | Sends one unauthenticated request to a URL you name and lints the response. |
-| `POST /lint/envelope` | **$0.005** | The same 64-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope` | **$0.005** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
 Both paid endpoints return the same shape:
@@ -103,12 +105,15 @@ Both paid endpoints return the same shape:
     "versions_detected": [1, 2],
     "payTo": "0x…",
     "network": "eip155:8453",
-    "price": "$0.001 (1000 atomic)"
+    "price": "$0.001 (1000 atomic)",
+    "bazaar_ready": false,
+    "blockers": ["V2_BAZAAR_INFO_VALIDATES"]
   },
   "findings": [
     {
       "severity": "error",
       "code": "V2_B64_URLSAFE",
+      "core": true,
       "message": "the PAYMENT-REQUIRED header is not standard base64 …",
       "fix": "Encode the header with STANDARD base64, not base64url. …"
     }
@@ -125,21 +130,86 @@ needs to know the denominator moved.
 and stops has told the seller nothing they did not already know from the
 silence.
 
-## The x402 conformance checklist: 64 published checks
+## Two verdicts, because there are two questions
+
+A 402 can be perfectly payable and completely un-indexable at the same time.
+For a long time this catalogue answered both with one letter, which meant it
+answered neither: a bazaar metadata problem dragged a working endpoint down to a
+D, and a seller reading "D" went looking for a payment bug that was not there.
+
+| field | question | computed from |
+|---|---|---|
+| `grade` | can I be **paid**? | payment-regime findings only |
+| `summary.bazaar_ready` | can I be **found**? | bazaar-regime errors, listed in `summary.blockers` |
+
+`bazaar_ready` is `true`, `false`, or `"n/a"` for a v1-only endpoint, whose CDP
+requirements are a v2 shape.
+
+**Grade A with `bazaar_ready: false` is the commonest interesting report this
+service produces.** It is exactly the situation people describe as "my endpoint
+passes validate but is not indexed", and it is the one a single letter cannot
+say.
+
+## The three regimes
+
+Every check declares which authority it answers to, because a rule is only true
+relative to one.
+
+| regime | checks | authority | effect |
+|---|---|---|---|
+| `payment` | 49 | the specs' MUSTs, and what @x402/core, @x402/evm, x402-fetch and x402@1.2.0 actually parse, throw on or refuse to sign | sets the grade |
+| `bazaar` | 20 | CDP's validator, prober and seller docs | sets `bazaar_ready`; never the grade |
+| `hygiene` | 6 | house opinion and client-quirk defense | info only, always |
+
+Only a payment-regime check can be `core`, and a core failure is the only thing
+that produces an F.
+
+## Provenance: every rule says where it came from
+
+Each check carries a `sources` array, published at `GET /check` and rendered on
+the page under the rule it justifies:
+
+```json
+{
+  "id": "V2_MAX_TIMEOUT",
+  "regime": "payment",
+  "severity": "error",
+  "core": true,
+  "sources": [
+    { "kind": "spec", "ref": "specs/x402-specification-v2.md:129 § 5.1.2 — maxTimeoutSeconds, type number, Required" },
+    { "kind": "client-code", "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js:107 — maxTimeoutSeconds: z.number().positive(), required, no coercion" },
+    { "kind": "client-code", "ref": "@x402/evm@2.23.0 dist/cjs/index.js:539 — validBefore is computed from it; undefined yields BigInt(\"NaN\"), which throws" },
+    { "kind": "cdp-validator", "ref": "cdp-validator-toolshed.json preflight[13] accepts[0].maxTimeoutSeconds (required)" }
+  ]
+}
+```
+
+The kinds are `spec`, `client-code`, `cdp-docs`, `cdp-validator`, `live`,
+`field-report` and `house-opinion`. `house-opinion` is a first-class entry rather
+than an embarrassment: labelling an opinion as one is what makes the other
+citations mean anything. The module refuses to load a check with no sources, so
+an uncited rule cannot ship.
+
+The refs are exact and package-relative, which makes a source moving a greppable
+event rather than a slow rot: when @x402/core changes its network schema,
+`grep -l 'schemas/index.js' worker/lint.js` finds every rule that has to be
+re-argued.
+
+## The x402 conformance checklist: 75 published checks
 
 The catalogue is published in full at `GET /check` and on the page before anyone
-spends anything. Sixty-two checks inspect HTTP and x402 conformance; two report
-safeguards disclose truncated input or findings instead of letting a partial
-report read as clean.
+spends anything. Seventy-three checks inspect HTTP and x402 conformance; two
+report safeguards disclose truncated input or findings instead of letting a
+partial report read as clean.
 
 | area | checks | what it covers |
 |---|---|---|
 | `http` | 6 | 402-for-unauthenticated, free-tier 200s, 5xx, redirects, JSON content-type |
-| `v2` | 30 | the `PAYMENT-REQUIRED` header envelope: base64 encoding, CAIP-2 networks, `amount`, the resource object, the EIP-712 domain, `extensions.bazaar` |
-| `v1` | 19 | the 402 body envelope: `maxAmountRequired`, plain network names, the flat-string resource, `outputSchema.input.discoverable` — and whether there is a v1 envelope at all |
-| `dual` | 5 | when both are published, they must agree on payTo, price, chain, asset and resource |
+| `v2` | 39 | the `PAYMENT-REQUIRED` header envelope: base64 encoding, network identifiers and their address families, `amount`, the resource object, the EIP-712 domain, and `extensions.bazaar` down to its input union and its schema's own content rules |
+| `v1` | 21 | the 402 body envelope: `maxAmountRequired`, the closed plain-name network enum, the `exact`-only scheme enum, the flat-string resource, `outputSchema.input.discoverable` — and whether there is a v1 envelope at all |
+| `dual` | 5 | when both are published, offers are matched on (chain, asset) and then compared on payTo, price and resource |
 | `version` | 2 | a v1 payload in the v2 header, or the reverse |
-| `report` | 2 | what the linter itself did not read: a long `accepts[]`, a capped report |
+| `report` | 2 | what the linter itself did not read: a long `accepts[]`, a clipped body, a capped report |
 
 ### What a report is NOT allowed to do
 
@@ -227,7 +297,7 @@ probably want. **info** — a nit, never affects the grade.
 ```
 worker/
   worker.js            routing, the 402 flow, quotas, D1, telemetry
-  lint.js              THE PRODUCT — 64 checks, pure, no Worker globals
+  lint.js              THE PRODUCT — 75 checks, pure, no Worker globals
   json-schema.js       a JSON Schema subset, for bazaar info-vs-schema
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes

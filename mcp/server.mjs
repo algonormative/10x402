@@ -96,9 +96,11 @@ const TOOLS = [
   {
     name: 'x402_checks',
     description:
-      'Start here. List the complete 64-check x402 catalogue, including code, severity, ' +
-      'one-line summary, prices, and the grade ladder. FREE — no payment. Call this before choosing ' +
-      'a paid lint, or to look up what a finding code means.',
+      'Start here. List the complete x402 check catalogue — code, regime, severity, one-line ' +
+      'summary and the SOURCES each rule is derived from (spec section, client source line, CDP ' +
+      'requirement, or an explicitly labelled house opinion) — plus prices and the grade ladder. ' +
+      'FREE — no payment. Call this before choosing a paid lint, to look up what a finding code ' +
+      'means, or to check where a rule comes from before quoting it to someone.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
 ];
@@ -176,16 +178,28 @@ async function checks() {
     'Grades:',
     ...parsed.grades.map((g) => `  ${g.grade}  ${g.when}`),
     '',
+    'Two verdicts:',
+    '  grade         can I be PAID. From payment-regime findings only.',
+    '  bazaar_ready  can I be FOUND. From bazaar-regime errors, blockers named.',
+    '                "n/a" for a v1-only endpoint. Grade A with bazaar_ready false',
+    '                is a real and common answer: payable, and not catalogued.',
+    '',
+    ...(parsed.regimes ? Object.entries(parsed.regimes).map(([name, what]) => `  ${name}: ${what}`) : []),
+    '',
     `Checks (${parsed.checks_total}). "core" marks the ones whose failure makes the envelope`,
-    'unusable as published — one of those is an F.',
+    'unusable as published — one of those is an F. Only a payment-regime check can be core.',
+    'Each check lists its sources; quote them when you quote the rule.',
     '',
   ];
-  for (const area of ['http', 'v2', 'v1', 'dual', 'version']) {
+  // 'report' included: the two bound-disclosure checks are part of the catalogue
+  // and leaving them out made the printed list disagree with checks_total.
+  for (const area of ['http', 'v2', 'v1', 'dual', 'version', 'report']) {
     const group = parsed.checks.filter((c) => c.area === area);
     if (!group.length) continue;
     lines.push(`## ${area}`);
     for (const c of group) {
-      lines.push(`  ${c.id}  [${c.severity}${c.core ? ', core' : ''}]  ${c.summary}`);
+      lines.push(`  ${c.id}  [${c.regime ?? '?'}, ${c.severity}${c.core ? ', core' : ''}]  ${c.summary}`);
+      for (const src of c.sources ?? []) lines.push(`      ${src.kind}: ${src.ref}`);
     }
     lines.push('');
   }
@@ -227,6 +241,24 @@ function renderReport(body, res) {
     : [
         `Grade ${report.grade} — ${errors.length} error(s), ${warns.length} warning(s), ` +
           `${infos.length} info, from ${report.checks_run} checks that applied.`,
+        // THE SECOND VERDICT GOES IN THE LEAD, not in the JSON below it. A
+        // grade quoted on its own is the failure this split exists to fix:
+        // "grade A" reads as "nothing to do" while the listing this seller
+        // came here about is still blocked.
+        ...(report.summary && 'bazaar_ready' in report.summary
+          ? [
+              report.summary.bazaar_ready === true
+                ? 'Discovery: bazaar_ready — nothing blocks CDP from cataloguing this resource.'
+                : report.summary.bazaar_ready === 'n/a'
+                  ? 'Discovery: n/a — this is a v1-only endpoint, and CDP\'s requirements are a v2 shape. ' +
+                    `Publishing a v2 header envelope is what makes the question apply${
+                      report.summary.blockers?.length ? ` (blocked by: ${report.summary.blockers.join(', ')})` : ''
+                    }.`
+                  : `Discovery: NOT bazaar_ready. Blocked by ${report.summary.blockers?.join(', ') || 'unknown'}. ` +
+                    'These do not affect the grade — the endpoint is payable — but CDP will not ' +
+                    'catalogue it until they are fixed.',
+            ]
+          : []),
       ];
 
   if (partial) {
@@ -241,7 +273,12 @@ function renderReport(body, res) {
       'Work the `error` findings first — those are what a client, a facilitator or the discovery',
       'index will reject or mis-read. Then `warn`: those work, but each one costs the seller',
       'something they probably want (discovery, a listing, a whole generation of clients).',
-      '`info` never affects the grade. Every finding carries a `fix` written to be applied directly.'
+      '`info` never affects the grade. Every finding carries a `fix` written to be applied directly.',
+      '',
+      'Findings are in one of three regimes and they answer to different authorities: `payment`',
+      'sets the grade, `bazaar` sets bazaar_ready, `hygiene` is advisory. A bazaar-regime error is',
+      'not a defect in the 402 — it is a listing that will not happen — so say which kind you are',
+      'reporting rather than merging them into one number.'
     );
   }
 

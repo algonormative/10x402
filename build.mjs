@@ -104,6 +104,17 @@ const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 
 const byArea = (area) => CHECKS.filter((c) => c.area === area);
 
+// EVERY NUMBER ON THE PAGE IS DERIVED. A count typed into copy is a count that
+// disagrees with the catalogue the first time a check is added, and a
+// conformance catalogue whose published total contradicts its published list is
+// the one thing this page may not do.
+const REGIME_COUNTS = Object.fromEntries(
+  ['payment', 'bazaar', 'hygiene'].map((r) => [r, CHECKS.filter((c) => c.regime === r).length])
+);
+for (const check of CHECKS) {
+  if (!(check.regime in REGIME_COUNTS)) throw new Error(`build: check ${check.id} has regime "${check.regime}"`);
+}
+
 const PAGE_TITLE = `x402 endpoint not indexed? Check the published 402 | ${SERVICE_NAME}`;
 const PAGE_DESCRIPTION =
   'Check the published 402 for response-level blockers when a service passes validate but is not indexed or showing up in Bazaar. Get a fix for each finding.';
@@ -380,6 +391,30 @@ td.code { white-space: nowrap; font-family: var(--mono); font-size: .84rem; colo
 .price { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
 .price-free { color: var(--mint); }
 
+/* ---- regimes + provenance ---- */
+td.reg { white-space: nowrap; }
+.regime {
+  display: inline-block; padding: .1rem .45rem; border-radius: 4px; border: 1px solid transparent;
+  font: 700 .64rem/1.6 var(--mono); letter-spacing: .06em; text-transform: uppercase;
+}
+.regime-payment { color: var(--mint); background: rgba(125,211,252,.09); border-color: rgba(125,211,252,.26); }
+.regime-bazaar { color: var(--amber); background: rgba(167,139,250,.09); border-color: rgba(167,139,250,.26); }
+.regime-hygiene { color: var(--dim); background: rgba(125,140,169,.08); border-color: rgba(125,140,169,.2); }
+
+ul.sources { list-style: none; margin: .5rem 0 0; padding: 0; }
+ul.sources li {
+  margin: .18rem 0 0; padding: 0; color: var(--dim);
+  font: .7rem/1.5 var(--mono); overflow-wrap: anywhere;
+}
+.kind {
+  display: inline-block; margin-right: .45rem; padding: 0 .3rem; border-radius: 3px;
+  background: rgba(125,140,169,.1); color: var(--muted);
+  font: 700 .6rem/1.5 var(--mono); letter-spacing: .05em; text-transform: uppercase;
+}
+.kind-spec, .kind-client-code { color: var(--mint); background: rgba(125,211,252,.08); }
+.kind-cdp-docs, .kind-cdp-validator, .kind-live { color: var(--emerald); background: rgba(56,189,248,.08); }
+.kind-house-opinion { color: var(--amber); background: rgba(167,139,250,.08); }
+
 /* ---- grades + severities ---- */
 .pill {
   display: inline-block; padding: .1rem .45rem; border-radius: 999px; border: 1px solid transparent;
@@ -527,19 +562,39 @@ const COPY_JS = `
 })();
 `;
 
+/**
+ * The provenance of one check, rendered under its summary.
+ *
+ * PUBLISHED, NOT KEPT INTERNAL, and that is the point of the whole column. A
+ * conformance rule with no citation is an assertion, and this service's only
+ * asset is being right — so every row says where its rule comes from, including
+ * the rows whose answer is `house-opinion`. Labelling an opinion as one is what
+ * makes the rest of the citations mean something.
+ */
+function sourceList(check) {
+  return (
+    `<ul class="sources">` +
+    check.sources
+      .map((src) => `<li><span class="kind kind-${esc(src.kind)}">${esc(src.kind)}</span>${esc(src.ref)}</li>`)
+      .join('') +
+    `</ul>`
+  );
+}
+
 function checkTable(area) {
   const rows = byArea(area)
     .map(
       (c) => `        <tr>
           <td class="code">${esc(c.id)}</td>
           <td class="sev"><span class="pill pill-${c.severity}">${c.severity}</span>${c.core ? '<span class="core-label">core</span>' : ''}</td>
-          <td>${inline(c.summary)}</td>
+          <td class="reg"><span class="regime regime-${esc(c.regime)}">${esc(c.regime)}</span></td>
+          <td>${inline(c.summary)}${sourceList(c)}</td>
         </tr>`
     )
     .join('\n');
   return `      <table>
         <caption>${esc(AREAS[area])}: ${byArea(area).length} checks</caption>
-        <thead><tr><th scope="col">code</th><th scope="col">severity</th><th scope="col">what it checks</th></tr></thead>
+        <thead><tr><th scope="col">code</th><th scope="col">severity</th><th scope="col">regime</th><th scope="col">what it checks, and where the rule comes from</th></tr></thead>
         <tbody>
 ${rows}
         </tbody>
@@ -777,6 +832,20 @@ ${GRADE_RULES.map((g) => `        <tr><td class="grade grade-${g.grade}">${g.gra
     <p class="muted">Severities: ${Object.entries(SEVERITY_BLURB)
       .map(([k, v]) => `<strong class="sev-${k}">${k}</strong> &mdash; ${esc(v)}`)
       .join('; ')}.</p>
+
+    <h3 id="two-verdicts">Two verdicts, because there are two questions</h3>
+    <p><strong>The grade answers &ldquo;can I be paid&rdquo;, and only that.</strong> It counts
+    <span class="regime regime-payment">payment</span>-regime findings: the specs&rsquo; MUSTs, and
+    what a shipping client parses, throws on, or refuses to sign.</p>
+    <p><strong><code>summary.bazaar_ready</code> answers &ldquo;can I be found&rdquo;</strong>
+    &mdash; <code>true</code>, <code>false</code>, or <code>"n/a"</code> for a v1-only endpoint
+    &mdash; from <span class="regime regime-bazaar">bazaar</span>-regime errors, with the blocking
+    codes listed in <code>summary.blockers</code>.</p>
+    <p>They come apart more often than you would expect, and the case that matters is
+    <strong>grade A with <code>bazaar_ready: false</code></strong>: an endpoint taking payments
+    correctly that CDP will not catalogue. That is the exact shape sellers describe as &ldquo;my
+    endpoint passes validate but is not indexed&rdquo;, and reporting it as a D told them their
+    working endpoint was broken while burying the thing that was actually wrong.</p>
     <p><code>checks_run</code> is the number of catalogue checks that applied, not the total
     available. A v1-only response legitimately skips v2 checks.</p>
   </section>
@@ -804,9 +873,18 @@ ${GRADE_RULES.map((g) => `        <tr><td class="grade grade-${g.grade}">${g.gra
 
   <section aria-labelledby="checklist">
     <h2 id="checklist">The x402 conformance checklist: ${CHECKS.length} published checks</h2>
-    <p>Sixty-two checks inspect HTTP and x402 conformance. Two report safeguards disclose truncated
+    <p>${byArea('report').length === 2 ? CHECKS.length - 2 : CHECKS.length - byArea('report').length} checks
+    inspect HTTP and x402 conformance. ${byArea('report').length} report safeguards disclose truncated
     input or findings, so a partial report cannot read as clean. Every finding includes a code,
     message, severity, and specific <code>fix</code>.</p>
+    <p>Each check also names its <strong>regime</strong> and its <strong>sources</strong>.
+    ${REGIME_COUNTS.payment} checks are <span class="regime regime-payment">payment</span> &mdash; the
+    specs&rsquo; MUSTs and what shipping clients parse or throw on, and the only findings that set the
+    grade. ${REGIME_COUNTS.bazaar} are <span class="regime regime-bazaar">bazaar</span> &mdash; what CDP
+    requires to index you, reported as <code>bazaar_ready</code> instead. ${REGIME_COUNTS.hygiene} are
+    <span class="regime regime-hygiene">hygiene</span>, which are info and never grade. A rule with no
+    citation is an assertion, so every row carries one &mdash; including the ones whose honest answer
+    is <code>house-opinion</code>.</p>
     <ul class="area-nav" aria-label="Checklist areas">
 ${AREA_ORDER.map((area) => `      <li><a href="#checks-${area}">${esc(AREAS[area])} <span class="count">${byArea(area).length}</span></a></li>`).join('\n')}
     </ul>
@@ -863,7 +941,14 @@ const reportSchema = {
   type: 'object',
   required: ['grade', 'summary', 'findings', 'checks_run'],
   properties: {
-    grade: { type: 'string', enum: GRADE_RULES.map((g) => g.grade), description: GRADE_RULES.map((g) => `${g.grade}: ${g.when}`).join('; ') },
+    grade: {
+      type: 'string',
+      enum: GRADE_RULES.map((g) => g.grade),
+      description:
+        'CAN THIS ENDPOINT BE PAID, and only that. Computed from payment-regime findings; ' +
+        'discovery is reported separately as summary.bazaar_ready. ' +
+        GRADE_RULES.map((g) => `${g.grade}: ${g.when}`).join('; '),
+    },
     summary: {
       type: 'object',
       properties: {
@@ -871,6 +956,22 @@ const reportSchema = {
         payTo: { type: ['string', 'null'] },
         network: { type: ['string', 'null'] },
         price: { type: ['string', 'null'] },
+        bazaar_ready: {
+          oneOf: [{ type: 'boolean' }, { type: 'string', enum: ['n/a'] }],
+          description:
+            'CAN THIS ENDPOINT BE FOUND — the second verdict, from bazaar-regime errors. "n/a" ' +
+            'for a v1-only endpoint, whose CDP requirements are a v2 shape. Grade A with ' +
+            'bazaar_ready false is a real and common answer: payable, and not catalogued.',
+        },
+        blockers: {
+          type: 'array',
+          items: { type: 'string', enum: CHECKS.filter((c) => c.regime === 'bazaar').map((c) => c.id) },
+          description: 'the check codes standing between this resource and an index entry',
+        },
+        partial: {
+          type: 'string',
+          description: 'present when the response was not a 402 and carried no envelope, so the envelope checks could not run',
+        },
       },
     },
     findings: {
@@ -883,6 +984,13 @@ const reportSchema = {
           code: { type: 'string', enum: CHECKS.map((c) => c.id) },
           message: { type: 'string', description: 'what is wrong, in this envelope' },
           fix: { type: 'string', description: 'exactly how to fix it' },
+          core: {
+            type: 'boolean',
+            description:
+              'whether THIS finding makes the envelope unusable as published. Resolved per ' +
+              'finding rather than per check: HTTP_STATUS_402 is core on a 401 and not on a 405, ' +
+              'where the linter\'s own choice of verb is as likely an explanation.',
+          },
         },
       },
     },
@@ -1050,7 +1158,8 @@ Ship a correct 402 → remove indexing blockers → publish payable terms. 10x40
 cannot guarantee indexing, demand or settlement. Its ${CHECKS.length}-check catalogue covers the
 HTTP response, v1 body envelope, v2 PAYMENT-REQUIRED header, dual-stack
 consistency, Bazaar discovery metadata and report safeguards. Every finding
-includes a specific fix.
+includes a specific fix, and every check names the specification section,
+client source line or CDP requirement its rule comes from.
 
 ## Endpoints
 
@@ -1075,23 +1184,58 @@ settles nothing, even when the payment verified.
 
 ## The report
 
-{"grade": "A".."F", "summary": {...}, "findings": [{"severity","code","message","fix"}], "checks_run": N}
+{"grade": "A".."F",
+ "summary": {"versions_detected": [...], "payTo", "network", "price",
+             "bazaar_ready": true | false | "n/a", "blockers": [...codes]},
+ "findings": [{"severity","code","message","fix","core"}],
+ "checks_run": N}
 
 checks_run is how many checks APPLIED, not how many exist: a v1-only endpoint
 legitimately skips every v2 check.
+
+## Two verdicts
+
+grade         can I be PAID. Computed from payment-regime findings only.
+bazaar_ready  can I be FOUND. Computed from bazaar-regime errors, with the
+              blocking codes named in summary.blockers. "n/a" for a v1-only
+              endpoint, whose CDP requirements are a v2 shape.
+
+An endpoint can be grade A with bazaar_ready false, and that is the commonest
+interesting report this service produces: it takes payments correctly and CDP
+will not catalogue it. Reporting that as a D said the working endpoint was
+broken and buried the thing that was not.
+
+## Regimes
+
+payment  ${REGIME_COUNTS.payment} checks. The specs' MUSTs and what shipping clients parse, throw
+         on, or refuse to sign. These set the grade.
+bazaar   ${REGIME_COUNTS.bazaar} checks. CDP's validator, prober and seller docs — what it takes
+         to be indexed. These set bazaar_ready, never the grade.
+hygiene  ${REGIME_COUNTS.hygiene} checks. House opinions and client-quirk defenses that break no
+         payment and block no indexing. Info only, always.
 
 ## Grades
 
 ${GRADE_RULES.map((g) => `${g.grade}  ${g.when}`).join('\n')}
 
 Core checks are the ones whose failure makes the envelope unusable as published.
+Only a payment-regime check can be core.
 
 ## Checks
+
+Every check carries its sources, so a rule can be traced rather than trusted.
+Kinds: spec, client-code, cdp-docs, cdp-validator, live, field-report,
+house-opinion. A house opinion is labelled as one — that is what makes the
+other citations mean anything. GET /check returns the full array.
 
 ${AREA_ORDER.map(
   (area) =>
     `### ${AREAS[area]}\n${byArea(area)
-      .map((c) => `${c.id}  [${c.severity}${c.core ? ', core' : ''}]  ${c.summary}`)
+      .map(
+        (c) =>
+          `${c.id}  [${c.regime}, ${c.severity}${c.core ? ', core' : ''}]  ${c.summary}\n` +
+          c.sources.map((src) => `    ${src.kind}: ${src.ref}`).join('\n')
+      )
       .join('\n')}`
 ).join('\n\n')}
 
@@ -1200,9 +1344,35 @@ discovery or a class of buyer. \`info\` never affects the grade.
 check, so a rising \`checks_run\` between two reports means more of the surface
 is now testable, not that the endpoint got worse.
 
+## Two verdicts, not one
+
+**\`grade\` answers "can this endpoint be paid".** It counts payment-regime
+findings only: the specifications' MUSTs, and what a shipping client parses,
+throws on, or refuses to sign.
+
+**\`summary.bazaar_ready\` answers "can this endpoint be found".** \`true\`,
+\`false\`, or \`"n/a"\` for a v1-only endpoint, computed from bazaar-regime
+errors, with the blocking codes in \`summary.blockers\`.
+
+DO NOT REPORT A GRADE WITHOUT THE SECOND VERDICT. **Grade A with
+\`bazaar_ready: false\`** is the commonest interesting result: the endpoint takes
+payments correctly and CDP will not catalogue it. That is exactly the situation
+someone means by "it passes validate but is not indexed", and answering it with
+a single letter either overstates a working endpoint's problems or hides a real
+one.
+
+Each check names its \`regime\` and its \`sources\` in \`GET /check\`. When you
+quote a rule to someone, quote its source with it — \`house-opinion\` is one of
+the kinds, and a rule labelled that way is a judgement call rather than a
+citation.
+
 ## Grades
 
 ${GRADE_RULES.map((g) => `- **${g.grade}** — ${g.when}`).join('\n')}
+
+Every grade above is computed from ${REGIME_COUNTS.payment} payment-regime checks.
+The ${REGIME_COUNTS.bazaar} bazaar-regime checks set \`bazaar_ready\`; the
+${REGIME_COUNTS.hygiene} hygiene checks are info and never grade.
 
 ## What it will not tell you
 

@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { callers, client, TIER_ON_VARS, useWorker } from './harness.mjs';
-import { CHECKS, GRADE_RULES } from '../worker/lint.js';
+import { CHECKS, GRADE_RULES, REGIMES, SOURCE_KINDS } from '../worker/lint.js';
 import { ENDPOINTS } from '../worker/catalog.js';
 
 const ips = callers('check');
@@ -53,12 +53,49 @@ describe('GET /check', () => {
     }
   });
 
-  test('each published check carries its severity, area, core flag and summary', async () => {
+  test('each published check carries its severity, area, regime, core flag and summary', async () => {
     const { body } = await api.check({ ip: ips.next() });
     for (const check of body.checks) {
       assert.ok(['error', 'warn', 'info'].includes(check.severity), check.id);
+      assert.ok(REGIMES.includes(check.regime), `${check.id} regime ${check.regime}`);
       assert.ok(typeof check.core === 'boolean', check.id);
       assert.ok(check.summary.length > 8, check.id);
+    }
+  });
+
+  test('every published check cites where its rule comes from', async () => {
+    // THE PROVENANCE SHIPS WITH THE RULE, and it ships to the caller rather
+    // than living in a comment. A conformance claim a buyer cannot trace is a
+    // conformance claim they have to take on faith, and this service's only
+    // asset is being right about things like this.
+    const { body } = await api.check({ ip: ips.next() });
+    for (const check of body.checks) {
+      assert.ok(Array.isArray(check.sources) && check.sources.length, `${check.id} has no sources`);
+      for (const src of check.sources) {
+        assert.ok(SOURCE_KINDS.includes(src.kind), `${check.id} cites kind "${src.kind}"`);
+        // Not merely non-empty: a ref has to name a document, a section or a
+        // line. "the spec" is not a citation.
+        assert.ok(src.ref.length > 12, `${check.id} ref is too vague: ${src.ref}`);
+      }
+    }
+  });
+
+  test('publishes what each regime means, and which one sets the grade', async () => {
+    const { body } = await api.check({ ip: ips.next() });
+    for (const regime of REGIMES) {
+      assert.ok(typeof body.regimes?.[regime] === 'string', `no description for regime ${regime}`);
+    }
+    assert.match(body.regimes.payment, /grade/i);
+    assert.match(body.regimes.bazaar, /bazaar_ready|index/i);
+    assert.deepEqual(body.source_kinds, SOURCE_KINDS);
+  });
+
+  test('only a payment-regime check is ever core', async () => {
+    // Stated here as well as asserted at module load, because /check is where a
+    // caller learns the rule and a caller should be able to verify it.
+    const { body } = await api.check({ ip: ips.next() });
+    for (const check of body.checks.filter((c) => c.core)) {
+      assert.equal(check.regime, 'payment', `${check.id} is core outside the payment regime`);
     }
   });
 

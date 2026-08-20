@@ -65,8 +65,13 @@ const CANNOT_APPLY = [
   // Both only run in v2-only mode. We publish both envelopes.
   'V1_ABSENT',
   'V1_BODY_NOT_ENVELOPE',
-  // Only runs when a report is long enough to be capped. Ours has no findings.
-  'FINDINGS_TRUNCATED',
+  // FINDINGS_TRUNCATED is NOT on this list any more, and its absence is the
+  // point of the change that removed it. It used to fire only when the
+  // 200-finding cap was hit — a cap the accepts limit and the fault-collapsing
+  // made effectively unreachable, so the check was dead weight advertising a
+  // guarantee nothing exercised. It now evaluates on every report and passes
+  // when no bound clipped anything, which is a statement worth making: this
+  // report is complete.
 ];
 
 before(async () => {

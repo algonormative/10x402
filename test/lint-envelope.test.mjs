@@ -34,7 +34,16 @@ describe('the endpoint agrees with the engine', () => {
   for (const fixture of FIXTURES) {
     test(fixture.name, async () => {
       const input = fixture.response();
-      const res = await send({ status: input.status, headers: input.headers, body: input.body });
+      // `method` goes over the wire too. A pasted response was not fetched with
+      // anything, so the route only cross-checks the declared bazaar verb when
+      // the caller says which one they used — and the fixture that is ABOUT
+      // that comparison has to be able to say it.
+      const res = await send({
+        status: input.status,
+        headers: input.headers,
+        body: input.body,
+        ...(input.method ? { method: input.method } : {}),
+      });
       assert.equal(res.status, 200, res.text);
       assert.equal(res.body.grade, fixture.expect.grade);
       assert.deepEqual(

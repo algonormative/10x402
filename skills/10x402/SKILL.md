@@ -1,6 +1,6 @@
 ---
 name: 10x402
-description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs a 64-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
+description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs a 75-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix and cites the spec section, client source line or CDP requirement its rule comes from. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
 ---
 
 # 10x402 — identify blockers to indexing and payment
@@ -104,9 +104,33 @@ paraphrase it into something vaguer.
 endpoint skips every v2 check, so a *rising* `checks_run` between two reports
 means more of the surface became testable — not that the endpoint got worse.
 
-**Grades:** A = zero errors and zero warnings · B = zero errors, 1–2 warnings ·
-C = zero errors, 3+ warnings · D = errors, none core · F = any *core* error,
-meaning the envelope is not usable as published.
+### Report both verdicts. Never the grade alone.
+
+A report answers two questions and they come apart constantly:
+
+| field | question | from |
+|---|---|---|
+| `grade` | can this endpoint be **paid**? | payment-regime findings |
+| `summary.bazaar_ready` | can it be **found**? | bazaar-regime errors, named in `summary.blockers` |
+
+`bazaar_ready` is `true`, `false`, or `"n/a"` for a v1-only endpoint.
+
+**Grade A with `bazaar_ready: false` is a real and common answer**: the endpoint
+takes payments correctly and CDP will not catalogue it. That is precisely what
+someone means by "it passes validate but is not indexed". Summarising such a
+report as "grade A" tells them there is nothing to do, and summarising it as a
+failing grade sends them hunting a payment bug that does not exist. Say both.
+
+**Grades:** A = zero payment-regime errors and warnings · B = zero errors, 1–2
+warnings · C = zero errors, 3+ warnings · D = payment errors, none core · F =
+any *core* error, meaning the envelope is not usable as published. Only a
+payment-regime check can be core.
+
+Findings sit in three regimes — `payment` (49 checks, sets the grade), `bazaar`
+(20, sets `bazaar_ready`), `hygiene` (6, info only) — and each check publishes
+its `sources` at `GET /check`. When you quote a rule to someone, quote its
+source with it; `house-opinion` is one of the kinds, and a rule labelled that
+way is a judgement call rather than a citation.
 
 ## x402 v1 vs v2 migration failures worth knowing
 
@@ -120,7 +144,12 @@ meaning the envelope is not usable as published.
 | `V2_RESOURCE_OBJECT` / `V1_RESOURCE_STRING` | the wrong version's resource form. v2 is a top-level object; v1 is a flat string on the accepts entry. |
 | `HTTP_FREE_TIER_200` | a free tier serving 200s to unauthenticated callers. A discovery prober expecting a 402 sees a free response instead. Gate a trial behind a key the prober does not send. |
 | `DUAL_*` | the two envelopes disagree on payTo, price, chain or asset. Build the v2 entry as a *projection* of the v1 object rather than assembling it twice. |
-| `V1_DISCOVERABLE` | `discoverable` at the wrong level. It lives **inside** `outputSchema.input`, not one level up. |
+| `V1_DISCOVERABLE` | an *opt-OUT*, not an opt-in. The reference v1→v2 extractor defaults `discoverable` to true when absent, so this fires on an explicit `false` or a flag placed outside `outputSchema.input` where it does nothing — never on its absence. |
+| `V2_MAX_TIMEOUT` / `V1_MAX_TIMEOUT` | a missing or string-typed `maxTimeoutSeconds`. It is a required JSON **number**: `60`, never `"60"`. The client schema applies no coercion, and the signer computes `validBefore` from it. |
+| `V2_BAZAAR_INPUT_TYPE` | `bazaar.info.input` with no `type` discriminator (`"http"` or `"mcp"`). It is what a facilitator reads first to decide which validation rules apply, and its absence is the longest-running Bazaar indexing failure on record. |
+| `V2_BAZAAR_SCHEMA_CONTENT` | the bazaar schema must define an `input` property and keep every `$ref`/`$id` a same-document `#` fragment. An external reference is not merely unfetched — facilitators are forbidden from resolving one, so nothing can validate the schema. |
+| `V1_SCHEME_KNOWN` / `V1_NETWORK_KNOWN` | v1's scheme and network enums are **closed**. `exact` is the only scheme, and the network must be one of seventeen plain names; anything else is a hard parse error for the whole envelope, not a skipped entry. v2 is open on both by design. |
+| `V2_AMOUNT_MINIMUM` | under CDP's 1000-atomic-unit ($0.001) indexing floor. Legal x402, perfectly payable, and not catalogued. |
 
 ## What it will not tell you
 

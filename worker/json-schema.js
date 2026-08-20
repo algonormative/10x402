@@ -148,12 +148,38 @@ function validate(value, schema, { root, path, depth, budget }) {
   if (schema === false) return [`${path} is not allowed by the schema (schema is \`false\`)`];
   if (!isObject(schema)) return problems;
 
+  // A $ref THIS VALIDATOR CANNOT FOLLOW IS REPORTED, NOT SKIPPED.
+  //
+  // It used to be skipped, on the reasoning that an unresolvable $ref is the
+  // schema's bug rather than the info's — which is true, and which was
+  // nonetheless the wrong conclusion. Skipping it meant the subschema behind
+  // the reference was never applied, so `info` was declared valid against a
+  // schema half of which had not been read, and the report said so by saying
+  // nothing. That is the same silent pass CDP's facilitator gives, and
+  // reproducing it is the one thing this file must not do.
+  //
+  // The external case is worse than merely unresolvable. bazaar.md:321-323 is
+  // explicit: "$ref and $id values must be same-document JSON Pointer fragments
+  // (starting with #)", and facilitators MUST NOT resolve external references
+  // when validating an untrusted schema. So a schema behind an external $ref is
+  // not "not yet fetched", it is unvalidatable by anything that will catalogue
+  // it — which is x402#3045's fifth production bug, verbatim.
   if (schema.$ref !== undefined) {
-    const target = resolveRef(root, schema.$ref);
-    // An unresolvable $ref is the SCHEMA's bug, not the info's, and reporting it
-    // as an info problem would point the seller at the wrong file.
+    const ref = schema.$ref;
+    const target = typeof ref === 'string' && ref.startsWith('#') ? resolveRef(root, ref) : undefined;
     if (target !== undefined) {
       problems.push(...validate(value, target, { root, path, depth: depth + 1, budget }));
+    } else if (typeof ref !== 'string') {
+      problems.push(`${path}: the schema's $ref is ${short(ref)}, which is not a JSON pointer string`);
+    } else if (!ref.startsWith('#')) {
+      problems.push(
+        `${path}: unable to validate — the schema's $ref "${ref}" points outside this document. ` +
+          'Same-document "#/..." fragments only; a facilitator must not resolve external references'
+      );
+    } else {
+      problems.push(
+        `${path}: unable to validate — the schema's $ref "${ref}" resolves to nothing in this document`
+      );
     }
   }
 

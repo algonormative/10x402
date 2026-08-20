@@ -42,6 +42,10 @@ const PHASES = [
     files: [
       'test/json-schema.test.mjs',
       'test/lint-engine.test.mjs',
+      // The calibration invariants run beside the positive control on purpose:
+      // both are the "does it stay quiet on something correct" half of the
+      // argument, and both are documents this repo did not write.
+      'test/calibration.test.mjs',
       'test/positive-control.test.mjs',
       'test/ssrf-rules.test.mjs',
     ],

@@ -166,7 +166,7 @@ export const FREE_ENDPOINT = {
   path: '/check',
   method: 'GET',
   price_usd: 0,
-  description: 'Start here: service info, the full 64-check catalogue, prices and grades. Free.',
+  description: 'Start here: service info, the full check catalogue with sources, prices and grades. Free.',
 };
 
 export const priceLabel = (usd) =>
