@@ -57,7 +57,7 @@ describe('the endpoint agrees with the engine', () => {
   test('a hostile envelope cannot make the Worker answer with megabytes', async () => {
     // THE AMPLIFIER. This endpoint takes a pasted response and returns a report
     // computed from it, so an input whose report is orders of magnitude larger
-    // than itself is an out-of-memory for the price of half a cent. Measured
+    // than itself is an out-of-memory for the price of one pasted lint. Measured
     // before the bounds existed: 60 KB in, 56 MB out — 945x — inside an isolate
     // with a 128 MB ceiling.
     //

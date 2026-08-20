@@ -111,7 +111,7 @@ describe('the v1 envelope, in the body', () => {
     const accept = res.body.accepts[0];
     assert.equal(accept.scheme, 'exact');
     assert.equal(accept.network, 'base', 'v1 uses the plain name, never CAIP-2');
-    assert.equal(accept.maxAmountRequired, '10000', '$0.01 in 6-decimal atomic units');
+    assert.equal(accept.maxAmountRequired, '100000', '$0.10 in 6-decimal atomic units');
     assert.equal(typeof accept.resource, 'string', 'v1 resource is a flat string');
     assert.equal(accept.payTo, PAYTO_TEST);
     assert.equal(accept.asset, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
@@ -128,11 +128,21 @@ describe('the v1 envelope, in the body', () => {
     assert.equal(res.body.accepts[0].outputSchema.input.discoverable, true);
   });
 
-  test('prices each endpoint differently', async () => {
-    const lint = await unpaid(ENDPOINTS.find((e) => e.id === 'lint'));
-    const envelope = await unpaid(ENDPOINTS.find((e) => e.id === 'lint-envelope'));
-    assert.equal(lint.body.accepts[0].maxAmountRequired, '10000');
-    assert.equal(envelope.body.accepts[0].maxAmountRequired, '5000');
+  test('prices each endpoint differently, and the atomic math is the sheet', async () => {
+    // THE LITERALS ARE THE POINT. USDC on Base has 6 decimals, so $0.10 is
+    // 100000 atomic units and not 10000 — an off-by-one-zero here is a tenfold
+    // over- or under-charge that every derived assertion in the suite would
+    // agree with. This is the one place the conversion is written out.
+    const atomic = {};
+    for (const endpoint of ENDPOINTS) {
+      atomic[endpoint.path] = (await unpaid(endpoint)).body.accepts[0].maxAmountRequired;
+    }
+    assert.deepEqual(atomic, {
+      '/lint': '100000',            // $0.10
+      '/lint/one': '20000',         // $0.02
+      '/lint/envelope': '50000',    // $0.05
+      '/lint/envelope/one': '10000', // $0.01
+    });
   });
 });
 
@@ -156,7 +166,7 @@ describe('the v2 envelope, in the PAYMENT-REQUIRED header', () => {
     const env = decodeV2((await unpaid(ENDPOINTS[0])).headers.get('payment-required'));
     assert.equal(env.x402Version, 2);
     assert.equal(env.accepts[0].network, 'eip155:8453');
-    assert.equal(env.accepts[0].amount, '10000');
+    assert.equal(env.accepts[0].amount, '100000');
     assert.equal(env.accepts[0].maxAmountRequired, undefined);
   });
 

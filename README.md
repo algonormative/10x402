@@ -357,7 +357,7 @@ worker/
 build.mjs              generates dist/ and runs the self-lint
 mcp/server.mjs         MCP server; a 402 is a price quote, never isError
 skills/10x402/         a drop-in agent skill
-test/                  six phases, 416 tests, no live or billed calls
+test/                  six phases, 544 tests, no live or billed calls
 ```
 
 **The Worker has no production npm dependencies.** The lint engine, the JSON
@@ -372,18 +372,18 @@ npm install
 npm test
 ```
 
-416 tests in six phases. **No live network calls and no billed calls, ever** —
+544 tests in six phases. **No live network calls and no billed calls, ever** —
 the facilitator, Telegram and the lint targets are all http servers the suite
 runs on 127.0.0.1, and the CDP credentials are generated per run and worth
 nothing.
 
 | phase | tests | what |
 |---|---|---|
-| engine | 180 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
-| served calls | 91 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
-| outbound lint | 48 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
-| production default | 40 | the 402 front door, and **the self-lint invariant** |
-| settlement | 26 | verify/settle against a strict per-version mock facilitator |
+| engine | 236 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
+| served calls | 128 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
+| outbound lint | 65 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
+| production default | 55 | the 402 front door, and **the self-lint invariant** |
+| settlement | 29 | verify/settle against a strict per-version mock facilitator |
 | alerts | 31 | mock facilitator + mock Telegram, and the RFC 5322 message |
 
 The mock facilitator is **strict about version shape**: v1 and v2 send the same

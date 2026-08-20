@@ -42,6 +42,10 @@ const PHASES = [
     files: [
       'test/json-schema.test.mjs',
       'test/lint-engine.test.mjs',
+      // The single-check engine and the price sheet it was built for. Pure on
+      // both halves: lintOne() takes a response and a check id, and the pricing
+      // invariants are arithmetic over the catalogue.
+      'test/single-check.test.mjs',
       // The calibration invariants run beside the positive control on purpose:
       // both are the "does it stay quiet on something correct" half of the
       // argument, and both are documents this repo did not write.
@@ -59,7 +63,12 @@ const PHASES = [
     // asserted against the SHIPPED guard, so those assertions mean something.
     name: `served calls (FREE_TIER_DAILY=${TIER_ON_VARS.FREE_TIER_DAILY}, production SSRF guard)`,
     vars: TIER_ON_VARS,
-    files: ['test/check.test.mjs', 'test/lint-envelope.test.mjs', 'test/ssrf-worker.test.mjs'],
+    files: [
+      'test/check.test.mjs',
+      'test/lint-envelope.test.mjs',
+      'test/lint-one.test.mjs',
+      'test/ssrf-worker.test.mjs',
+    ],
   },
   {
     // The only phase where the guard is relaxed, and the only one that makes an

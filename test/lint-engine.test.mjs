@@ -51,7 +51,7 @@ describe('the check catalogue', () => {
     }
   });
 
-  test('the catalogue is big enough to be worth a cent', () => {
+  test('the catalogue is big enough to be worth paying for', () => {
     // Not a vanity number: the marketing copy and GET /check both quote it, and
     // a catalogue that quietly shrank would make both of them wrong.
     assert.ok(CHECKS.length >= 30, `only ${CHECKS.length} checks`);
@@ -198,7 +198,7 @@ describe('checks_run', () => {
 describe('the report is bounded, because the input is not', () => {
   // A lint report is a function of attacker-controlled input, and every one of
   // these bounds was missing: a 60 KB envelope produced a 56 MB report, which
-  // is an out-of-memory for the price of one cent. The bounds report
+  // is an out-of-memory for the price of one call. The bounds report
   // themselves, because a truncated report read as a clean one would be worse
   // than the amplification.
 

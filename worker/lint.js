@@ -278,7 +278,7 @@ const PAYMENT_REQUIRED_HEADER = 'payment-required';
 // and gets back a response orders of magnitude larger, computed at our expense
 // and rendered into an isolate's memory. Measured before these existed: a 60 KB
 // envelope with a long accepts[] produced a 56 MB report — 945x — which is an
-// out-of-memory for the price of one cent.
+// out-of-memory for the price of one call.
 //
 // Each bound reports itself. A silent truncation would be worse than the
 // amplification, because the seller would read a short report as a clean one.

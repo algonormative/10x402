@@ -81,7 +81,7 @@ const short = (v) => {
  * containing a `$ref` back to its own parent, describes n^depth distinct paths
  * in a document whose SIZE is linear — so the depth cap of 24 stopped it going
  * deeper while doing nothing about how wide it got on the way. Measured against
- * the bazaar schema field, which is entirely caller-supplied on a $0.005
+ * the bazaar schema field, which is entirely caller-supplied on a one-cent
  * endpoint:
  *
  *     352 bytes  ->   932 ms of CPU

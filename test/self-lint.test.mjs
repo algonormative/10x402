@@ -82,13 +82,17 @@ after(async () => {
   await worker?.stop();
 });
 
-/** Fetch this service's real 402 for an endpoint and normalise it for lint(). */
+/**
+ * Fetch this service's real 402 for an endpoint and normalise it for lint().
+ *
+ * The body sent is the endpoint's OWN published sample — the one /check hands a
+ * caller — rather than a hand-written stand-in per route. The 402 fast path
+ * answers before the body is read either way, so this changes no outcome; what
+ * it changes is that adding a route cannot make this helper send a body that
+ * route would reject if the fast path ever moved.
+ */
 async function own402(endpoint) {
-  const res = await api.post(
-    endpoint.path,
-    endpoint.id === 'lint' ? { url: 'https://example.com/x' } : { status: 402 },
-    { ip: ips.next() }
-  );
+  const res = await api.post(endpoint.path, endpoint.sample, { ip: ips.next() });
   assert.equal(res.status, 402, `${endpoint.path} did not answer its own front door: ${res.text}`);
 
   const headers = {};
@@ -97,6 +101,18 @@ async function own402(endpoint) {
 }
 
 describe('10x402 lints itself', () => {
+  test('all four paid endpoints are under this invariant, not just the two it started with', () => {
+    // THE INVARIANT IS PER ROUTE, and each route publishes its own envelope
+    // with its own price, resource, bazaar sample and computed output example.
+    // A fifth route that quietly escaped this loop would be the one endpoint
+    // whose 402 nobody ever linted, which is precisely the shop-with-a-broken-
+    // sign case. `node build.mjs` gates on the same list.
+    assert.deepEqual(
+      ENDPOINTS.map((e) => e.path),
+      ['/lint', '/lint/one', '/lint/envelope', '/lint/envelope/one']
+    );
+  });
+
   for (const endpoint of ENDPOINTS) {
     test(`${endpoint.path} grades A with ZERO findings`, async () => {
       const report = lint(await own402(endpoint));

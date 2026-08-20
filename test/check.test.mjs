@@ -110,13 +110,67 @@ describe('GET /check', () => {
     const { body } = await api.check({ ip: ips.next() });
     const byPath = Object.fromEntries(body.endpoints.map((e) => [e.path, e]));
     assert.equal(byPath['/check'].price, 'free');
-    assert.equal(byPath['/lint'].price, '$0.01');
-    assert.equal(byPath['/lint/envelope'].price, '$0.005');
+    // Written out rather than derived: this is the sheet a buyer reads, and a
+    // test that computed it from the same constant the Worker did would agree
+    // with any re-price, including an accidental one.
+    assert.equal(byPath['/lint'].price, '$0.10');
+    assert.equal(byPath['/lint/one'].price, '$0.02');
+    assert.equal(byPath['/lint/envelope'].price, '$0.05');
+    assert.equal(byPath['/lint/envelope/one'].price, '$0.01');
     for (const endpoint of ENDPOINTS) {
       assert.ok(byPath[endpoint.path], `${endpoint.path} is not listed`);
       assert.ok(byPath[endpoint.path].input, `${endpoint.path} does not say what it takes`);
       assert.ok(byPath[endpoint.path].sample, `${endpoint.path} publishes no sample call`);
     }
+  });
+
+  test('says which routes need a check id, which fetch, and what each one covers', async () => {
+    // A caller decides between four routes from this response alone. Leaving
+    // them to infer "the one with /one in the path wants a `check`" is the kind
+    // of inference that is right until it is not.
+    const { body } = await api.check({ ip: ips.next() });
+    const byPath = Object.fromEntries(body.endpoints.map((e) => [e.path, e]));
+
+    assert.equal(byPath['/lint'].check_required, false);
+    assert.equal(byPath['/lint/one'].check_required, true);
+    assert.equal(byPath['/lint/envelope/one'].check_required, true);
+
+    assert.equal(byPath['/lint'].fetches, true);
+    assert.equal(byPath['/lint/one'].fetches, true);
+    assert.equal(byPath['/lint/envelope'].fetches, false);
+    assert.equal(byPath['/lint/envelope/one'].fetches, false);
+
+    assert.equal(byPath['/lint'].scope, `all ${CHECKS.length} checks`);
+    assert.equal(byPath['/lint/one'].scope, 'one named check');
+    assert.equal(byPath['/lint/one'].paired_with, '/lint');
+    assert.equal(byPath['/lint/envelope'].paired_with, '/lint/envelope/one');
+
+    // The sample a caller is shown must be one they could send verbatim, which
+    // for these two means it names a real check id.
+    for (const path of ['/lint/one', '/lint/envelope/one']) {
+      const named = byPath[path].sample.check;
+      assert.ok(named, `${path} publishes a sample with no check`);
+      assert.ok(CHECKS.some((c) => c.id === named), `${path} names a check that does not exist: ${named}`);
+    }
+  });
+
+  test('publishes the arithmetic of the sheet, not just the numbers', async () => {
+    // A caller with three questions should be able to work out, before paying
+    // for any of them, that the full report is the cheaper buy.
+    const { body } = await api.check({ ip: ips.next() });
+    assert.equal(body.pricing.batch_multiple, 5);
+    assert.equal(body.pricing.per_check_advantage, CHECKS.length / 5);
+    assert.match(body.pricing.note, /5x/);
+    assert.match(body.pricing.note, new RegExp(`${CHECKS.length}`));
+    assert.match(body.pricing.per, /served/i);
+  });
+
+  test('the published single-check sample is a body a caller could send verbatim', async () => {
+    const { body } = await api.check({ ip: ips.next() });
+    const sample = body.endpoints.find((e) => e.path === '/lint/envelope/one').sample;
+    const res = await api.post('/lint/envelope/one', sample, { ip: ips.next() });
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.check, sample.check);
   });
 
   test('the published sample is a body a caller could send verbatim', async () => {

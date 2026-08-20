@@ -79,6 +79,7 @@ const STOP_GRACE_MS = 8_000;
 const SUITE_OCTET = {
   check: 11,
   'lint-envelope': 12,
+  'lint-one': 19,
   'lint-http': 13,
   ssrf: 14,
   x402: 15,

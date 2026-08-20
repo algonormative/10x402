@@ -2,7 +2,7 @@
 // request on a stranger's behalf.
 //
 // THAT IS THE WHOLE THREAT MODEL. A caller who can name a URL and see the
-// response has, for one dollar-cent, rented our network position. Everything
+// response has, for a couple of dollar-cents, rented our network position. Everything
 // below exists so the position is worth nothing:
 //
 //   https only          plain http would let a caller probe unencrypted
@@ -49,8 +49,8 @@ const BLOCKED_NAMES = ['localhost'];
  * The ports a public x402 endpoint may be on.
  *
  * WITHOUT THIS THE SERVICE IS A PORT SCANNER. A caller who can name
- * `https://<any-host>:<any-port>/` and read the answer learns, one cent at a
- * time, which ports are open on a host they do not control — the response text
+ * `https://<any-host>:<any-port>/` and read the answer learns, one paid call at
+ * a time, which ports are open on a host they do not control — the response text
  * distinguishes a refused connection from a timeout, and that difference IS the
  * scan result. Restricting to the two ports HTTPS is actually served on removes
  * the oracle rather than trying to make its output uninformative; not quoting

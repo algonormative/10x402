@@ -17,8 +17,8 @@ const rejects = (url, match) => {
   const result = checkTargetUrl(url);
   assert.ok(result.error, `expected ${url} to be refused, got ${JSON.stringify(result.url?.href)}`);
   if (match) assert.match(result.error, match);
-  // Every refusal must say what to do instead, or the caller has paid a cent
-  // for the word "no".
+  // Every refusal must say what to do instead, or the caller has paid for the
+  // word "no".
   assert.ok(result.fix && result.fix.length > 40, `refusal of ${url} carries no usable fix`);
   return result;
 };

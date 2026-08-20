@@ -377,3 +377,76 @@ describe('the report describes the call that was made', () => {
     assert.equal(res.body.grade, 'A');
   });
 });
+
+describe('POST /lint/one: the same fetch, one named check', () => {
+  const lintOneTarget = (check, path = '/api') =>
+    api.post('/lint/one', { url: target.url(path), check }, { ip: ips.next() });
+
+  test('a check that passes on a fetched response', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    const res = await lintOneTarget('V2_B64_URLSAFE');
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.check, 'V2_B64_URLSAFE');
+    assert.equal(res.body.passed, true);
+    assert.equal(res.body.checks_run, 1);
+    // The fetch half is still reported: which URL was called, with what verb,
+    // and what came back. A single-check answer is still an answer about a
+    // request this service made on the caller's behalf.
+    assert.equal(res.body.target.url, target.url('/api'));
+    assert.equal(res.body.target.status, 402);
+    assert.equal(target.hits.length, 1, 'the outbound request was not made exactly once');
+  });
+
+  test('a check that fails on a fetched response carries the same finding /lint would', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope() }));
+    const one = await lintOneTarget('V2_HEADER_PRESENT');
+    assert.equal(one.status, 200, one.text);
+    assert.equal(one.passed, undefined);
+    assert.equal(one.body.passed, false);
+
+    target.reset();
+    target.serve(response({ v1: v1Envelope() }));
+    const full = await lintTarget();
+    assert.deepEqual(
+      one.body.finding,
+      full.body.findings.find((f) => f.code === 'V2_HEADER_PRESENT'),
+      'the cheap answer is a different answer'
+    );
+  });
+
+  test('an unknown check id costs NO outbound request', async () => {
+    // The validation order is the point. /lint/one rents this service's network
+    // position, and a typo must not spend it — so the check id is resolved
+    // before fetchTarget is ever called. Asserted on the target's own record of
+    // what it was asked for, which is the only evidence that cannot be inferred.
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    const res = await lintOneTarget('V2_B64_URLSAF');
+    assert.equal(res.status, 400, res.text);
+    assert.match(res.body.error, /no check/);
+    assert.equal(target.hits.length, 0, 'a mistyped check id still sent a request to the target');
+  });
+
+  test('a missing check id costs no outbound request either', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    const res = await api.post('/lint/one', { url: target.url() }, { ip: ips.next() });
+    assert.equal(res.status, 400, res.text);
+    assert.match(res.body.error, /`check` is required/);
+    assert.equal(target.hits.length, 0);
+  });
+
+  test('a URL the guard refuses is refused before the check is even relevant', async () => {
+    // Both refusals are 400s that lint nothing; what matters is that naming a
+    // real check does not talk anyone past the SSRF guard.
+    const res = await api.post(
+      '/lint/one',
+      { url: 'https://10x402-one-probe.invalid/x', check: 'V2_B64_URLSAFE' },
+      { ip: ips.next() }
+    );
+    assert.equal(res.status, 400, res.text);
+    assert.equal(res.body.check, undefined, 'a refused fetch answered with a lint result');
+  });
+});

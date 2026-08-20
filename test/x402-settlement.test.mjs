@@ -40,8 +40,19 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { bootWorker, callers, client, fakeCdpCredentials, isSqlNull, PAYTO_TEST } from './harness.mjs';
+import { ENDPOINTS_BY_ID } from '../worker/catalog.js';
+import { atomicAmount } from '../worker/envelope.js';
 
 const ips = callers('settlement');
+
+// The prices a payer signs against, taken from the catalogue rather than typed:
+// what a payment authorises and what the ledger records must both be whatever
+// the 402 quoted, and a literal here would keep passing after a re-price while
+// the Worker quoted something else. The literal atomic values are asserted once,
+// on purpose, in test/single-check.test.mjs.
+const LINT_PRICE = atomicAmount(ENDPOINTS_BY_ID.get('lint').price_usd);
+const ENVELOPE_PRICE = atomicAmount(ENDPOINTS_BY_ID.get('lint-envelope').price_usd);
+const ENVELOPE_ONE_PRICE = atomicAmount(ENDPOINTS_BY_ID.get('lint-envelope-one').price_usd);
 
 // A payer address and a settlement hash the mock hands back, so the ledger
 // assertions can prove the values came from the FACILITATOR rather than from
@@ -219,7 +230,7 @@ const freshNonce = () => `0x${randomBytes(32).toString('hex')}`;
  * one would prove nothing and would need a funded key. The SHAPE is real,
  * because the Worker reads `payload.authorization.from` out of it.
  */
-function paymentHeaderV1({ from = CLAIMED_PAYER, value = '5000' } = {}) {
+function paymentHeaderV1({ from = CLAIMED_PAYER, value = ENVELOPE_PRICE } = {}) {
   const now = Math.floor(Date.now() / 1000);
   return Buffer.from(
     JSON.stringify({
@@ -386,12 +397,12 @@ describe('x402 v1: a verified payment', () => {
     const verify = mock.hitsOn('verify');
     assert.equal(verify.length, 1);
     assert.equal(verify[0].version, 1);
-    assert.equal(verify[0].body.paymentRequirements.maxAmountRequired, '5000');
+    assert.equal(verify[0].body.paymentRequirements.maxAmountRequired, ENVELOPE_PRICE);
     assert.equal(verify[0].body.paymentRequirements.network, 'base');
 
     const row = await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settled v1 payment');
     assert.equal(row.endpoint, 'lint-envelope');
-    assert.equal(row.amount, '5000');
+    assert.equal(row.amount, ENVELOPE_PRICE);
     assert.equal(Number(row.verify_ok), 1);
     assert.equal(row.tx_hash, TX_HASH);
     // The payer recorded is the FACILITATOR's, not the one the caller claimed.
@@ -449,7 +460,7 @@ describe('x402 v2: a verified payment', () => {
     const verify = mock.hitsOn('verify')[0];
     assert.equal(verify.version, 2);
     assert.equal(verify.body.paymentRequirements.network, 'eip155:8453');
-    assert.equal(verify.body.paymentRequirements.amount, '5000');
+    assert.equal(verify.body.paymentRequirements.amount, ENVELOPE_PRICE);
     assert.equal(verify.body.paymentRequirements.maxAmountRequired, undefined);
     assert.equal(verify.body.paymentRequirements.resource, undefined);
 
@@ -549,7 +560,7 @@ describe('a rejected payment', () => {
 
 describe('the facilitator being down', () => {
   test('serves the report anyway, says nothing was checked, and records it', async () => {
-    // Availability-first, on purpose: at a cent a call the price is a signal,
+    // Availability-first, on purpose: at these prices the number is a signal,
     // and turning paying callers away for OUR dependency's outage is the worse
     // failure. What must never happen is claiming a payment was verified.
     mock.state.verify = { status: 503, body: { error: 'down' } };
@@ -582,7 +593,7 @@ describe('the facilitator being down', () => {
 
 describe('settlement failing after a verified payment', () => {
   test('the caller keeps the report; the ledger records the loss', async () => {
-    // The accepted exposure: one report served for a cent that never arrived.
+    // The accepted exposure: one report served for a payment that never arrived.
     // It is recorded rather than hidden, because a run of these is the alarm.
     mock.state.settle = { status: 200, body: { success: false, errorReason: 'nonce_already_used' } };
 
@@ -622,7 +633,7 @@ describe('payment fairness: nobody is charged for work that was not served', () 
     const res = await paid(
       '/lint',
       { url: 'https://x402-settlement-probe.invalid/x' },
-      { 'x-payment': paymentHeaderV1({ value: '10000' }) },
+      { 'x-payment': paymentHeaderV1({ value: LINT_PRICE }) },
       ips.next()
     );
     assert.equal(res.status, 400, res.text);
@@ -635,6 +646,82 @@ describe('payment fairness: nobody is charged for work that was not served', () 
     assert.equal(res.status, 200);
     await awaitSettlement((r) => Number(r.settle_ok) === 1, 'the control settlement');
   });
+
+  test('an unknown check id settles nothing and gives the payment back', async () => {
+    // THE NEW WAY TO SPEND MONEY ON NOTHING, and the reason the validation
+    // happens before any work: a caller who mistypes a check id has bought no
+    // answer, so the authorization must survive to buy a real one. Asserted as
+    // a retry with the SAME header, which is the only proof that means anything
+    // — a released claim that cannot be re-spent is not released.
+    const header = paymentHeaderV1({ value: ENVELOPE_ONE_PRICE });
+    const settledBefore = (await settlements()).filter((r) => Number(r.settle_ok) === 1).length;
+
+    const typo = await paid(
+      '/lint/envelope/one',
+      { status: 402, check: 'V2_B64_URLSAF' },
+      { 'x-payment': header },
+      ips.next()
+    );
+    assert.equal(typo.status, 400, typo.text);
+    assert.match(typo.body.error, /no check "V2_B64_URLSAF"/);
+
+    await new Promise((r) => setTimeout(r, 1500));
+    const settledAfter = (await settlements()).filter((r) => Number(r.settle_ok) === 1).length;
+    assert.equal(settledAfter, settledBefore, 'a typo in a check id settled a payment');
+
+    const retry = await paid(
+      '/lint/envelope/one',
+      { status: 402, check: 'V2_HEADER_PRESENT' },
+      { 'x-payment': header },
+      ips.next()
+    );
+    assert.equal(retry.status, 200, `the payment was burned by an unknown check id: ${retry.text}`);
+    assert.equal(retry.body.check, 'V2_HEADER_PRESENT');
+  });
+});
+
+describe('the single-check routes settle their own price', () => {
+  test('a served single check settles the single-check amount, under its own endpoint id', async () => {
+    // The ledger has to be able to tell a $0.01 answer from a $0.05 report:
+    // `endpoint` and `amount` are what the revenue queries in the README group
+    // by, and four routes at four prices through one settle path is exactly
+    // where those two could quietly come from the wrong endpoint.
+    const res = await paid(
+      '/lint/envelope/one',
+      { status: 402, check: 'V2_HEADER_PRESENT' },
+      { 'x-payment': paymentHeaderV1({ value: ENVELOPE_ONE_PRICE }) },
+      ips.next()
+    );
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.headers.get('x-payment-verified'), 'true');
+    assert.equal(res.body.check, 'V2_HEADER_PRESENT');
+    assert.equal(res.body.grade, undefined, 'a single-check answer must not carry a whole-report grade');
+
+    const verify = mock.hitsOn('verify').at(-1);
+    assert.equal(verify.body.paymentRequirements.maxAmountRequired, ENVELOPE_ONE_PRICE);
+
+    const row = await awaitSettlement(
+      (r) => r.endpoint === 'lint-envelope-one' && Number(r.settle_ok) === 1,
+      'a settled single-check payment'
+    );
+    assert.equal(row.amount, ENVELOPE_ONE_PRICE);
+    assert.equal(row.amount, '10000', '$0.01 of a 6-decimal USDC');
+  });
+
+  test('the four routes quote four different amounts in their own 402s', async () => {
+    for (const [path, atomic] of [
+      ['/lint', '100000'],
+      ['/lint/one', '20000'],
+      ['/lint/envelope', '50000'],
+      ['/lint/envelope/one', '10000'],
+    ]) {
+      const quote = await paid(path, {}, {}, ips.next());
+      assert.equal(quote.status, 402, `${path}: ${quote.text}`);
+      assert.equal(quote.body.accepts[0].maxAmountRequired, atomic, `${path} v1 amount`);
+      const v2 = JSON.parse(Buffer.from(quote.headers.get('payment-required'), 'base64').toString('utf8'));
+      assert.equal(v2.accepts[0].amount, atomic, `${path} v2 amount`);
+    }
+  });
 });
 
 describe('one payment buys one report', () => {
@@ -642,7 +729,7 @@ describe('one payment buys one report', () => {
     // VERIFYING A PAYMENT IS A READ. The facilitator says the signature is good
     // and the funds are there, and says the same thing every time it is asked;
     // nothing moves until settle, and settle runs after the response. So one
-    // $0.01 header replayed bought a report every time, bounded only by the
+    // paid header replayed bought a report every time, bounded only by the
     // per-caller ceiling — which is per IP, and therefore not a bound at all
     // for anyone with more than one address.
     const header = paymentHeaderV1();
@@ -707,7 +794,7 @@ describe('one payment buys one report', () => {
   test('an unreachable lint target gives the payment back too', async () => {
     // The same rule on the other endpoint, where the failure happens after the
     // outbound fetch rather than during input validation.
-    const header = paymentHeaderV1({ value: '10000' });
+    const header = paymentHeaderV1({ value: LINT_PRICE });
 
     const dead = await paid(
       '/lint',

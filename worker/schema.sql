@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS call_quota (
 -- A verified x402 payment is a signed authorization, and verifying it is a
 -- READ: the facilitator says the signature is good and the funds are there, and
 -- says the same thing however many times it is asked. Nothing moves until
--- settle, and settle runs AFTER the response. So one $0.01 header replayed
+-- settle, and settle runs AFTER the response. So one paid header replayed
 -- concurrently verified over and over and bought a lint each time — the
 -- per-caller ceiling was the only thing bounding it, and that is per IP.
 --
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS payment_seen (
 --
 --   verify_ok = 1, settle_ok = 1  the money moved; tx_hash is the chain hash
 --   verify_ok = 1, settle_ok = 0  the report was served and settlement then
---                                 failed. The accepted exposure, a cent a row.
+--                                 failed. The accepted exposure, one price a row.
 --   verify_ok = 0, settle_ok = 0  either the facilitator REJECTED the payment
 --                                 (error = its invalidReason, and nothing was
 --                                 served) or it could not be reached (error =

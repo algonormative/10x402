@@ -323,7 +323,7 @@ describe('the work budget, because the schema is the caller’s', () => {
   //     352 bytes -> 932 ms   403 bytes -> 3132 ms   454 bytes -> 8896 ms
   //
   // Two more branches exceed any Workers CPU limit, from half a kilobyte of
-  // request body on a $0.005 endpoint. Bounding the report to 256 KB is not
+  // request body on the cheapest endpoint here. Bounding the report to 256 KB is not
   // much use if producing it can be made to cost ten seconds of isolate.
   const exponential = (branches) => ({
     $defs: {
