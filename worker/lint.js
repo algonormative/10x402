@@ -726,6 +726,7 @@ export const CHECKS = [
     sources: [
       client('x402-fetch@1.2.0 dist/esm/index.mjs:22 — the v1 client reads the body and never looks at PAYMENT-REQUIRED'),
       field('x402-foundation/x402#3091 — the pre-header buyer population is real and shrinking'),
+      validator('cdp-validator-toolshed.json preflight[4] valid_json (required) — an EMPTY 402 body fails it, so serve at least `{}`'),
     ] },
   { id: 'V1_BODY_NOT_ENVELOPE', area: 'v1', severity: 'info', regime: 'payment',
     summary: 'the 402 body is a v1 envelope or is empty, not something a v1 client will misread',
@@ -1345,11 +1346,14 @@ function lintV2(report, headers, requestUrl, probedMethod) {
       'V2_HEADER_PRESENT',
       false,
       'no PAYMENT-REQUIRED response header — this endpoint publishes no x402 v2 envelope.',
-      'Add a PAYMENT-REQUIRED response header to the 402 carrying the standard-base64 ' +
-        'JSON v2 envelope. A v2 client reads that header FIRST and never falls back to the ' +
-        'body, so a v1-only endpoint is invisible to every current client, and CDP Bazaar ' +
-        'answers v1-only sellers with "upgrade to x402 v2 to be discoverable". Keep the v1 ' +
-        'body exactly as it is — the two versions share a 402 without either noticing the other.'
+      'Add a PAYMENT-REQUIRED response header to the 402 carrying the standard-base64 JSON v2 ' +
+        'envelope. This costs you DISCOVERY rather than payment, and the distinction is worth ' +
+        'being precise about: @x402/core reads the header first but DOES fall back to a v1 body ' +
+        'when there is none, so the current client generation can still pay you. What it cannot ' +
+        'do is find you — CDP marks the PAYMENT-REQUIRED header a required indexing check, so a ' +
+        'v1-only 402 is not catalogued at all, and a strictly-v2 client cannot pay it either. ' +
+        'Keep the v1 body exactly as it is; the two versions share a 402 without either noticing ' +
+        'the other.'
     );
     return null;
   }
@@ -2342,7 +2346,9 @@ function lintV1(report, body, contentType, v2Published) {
           'PAYMENT-REQUIRED header, so it cannot pay this endpoint at all. Serving both from one ' +
           '402 costs one JSON body: { "x402Version": 1, "accepts": [ … ] }, with the v1 spellings ' +
           '(maxAmountRequired, a plain network name, a flat resource string). Everything else ' +
-          'here is already right.'
+          'here is already right. If you publish no v1 envelope at all, serve at least `{}`: ' +
+          "CDP's validator lists valid_json as a REQUIRED preflight, so a completely empty 402 " +
+          'body may cost you the listing on its own.'
       );
       // AN INFO, AND THE DOWNGRADE IS THE SPECIFICATION'S. transports-v2 puts
       // the response body outside the protocol entirely — "Response bodies are
@@ -2935,10 +2941,13 @@ export function lint(response) {
     is3xx
       ? `the endpoint answered ${status}${redirectedTo ? ` to ${clip(redirectedTo)}` : ''} instead of a 402.`
       : `the 402 was reached through a redirect to ${clip(redirectedTo)}.`,
-    'Serve the 402 directly at the advertised URL. x402 clients do not follow redirects ' +
-      'before reading the envelope — the paid request is a POST with a payment header, and ' +
-      'redirecting it drops the header — so a 402 behind a redirect is a 402 the buyer never ' +
-      'sees. Advertise the final URL in resource.url instead.' +
+    'Serve the 402 directly at the advertised URL, and advertise that final URL in ' +
+      'resource.url. Buyer clients DO follow redirects — @x402/fetch uses ordinary fetch, whose ' +
+      'default is to follow one — so the cost is not usually a lost envelope but three narrower ' +
+      'things: a 301 or 302 rewrites your POST into a GET (307 and 308 preserve it), CDP probes ' +
+      'the URL you advertised rather than the one you end up at, and a cross-origin hop is where ' +
+      'a payment header stops travelling. The common causes are apex-versus-www and a trailing ' +
+      'slash.' +
       (redirectedTo
         ? ` This report is about the redirect itself: to lint the envelope, run this again ` +
           `against ${clip(redirectedTo)} directly.`

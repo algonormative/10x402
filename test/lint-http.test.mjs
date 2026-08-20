@@ -261,7 +261,17 @@ describe('redirects are reported, not followed', () => {
     const redirect = res.body.findings.find((f) => f.code === 'HTTP_REDIRECT');
     assert.ok(redirect, JSON.stringify(res.body.findings));
     assert.match(redirect.message, /302/);
-    assert.match(redirect.fix, /drops the header|do not follow redirects/i);
+    // The fix text used to claim x402 clients do not follow redirects and that
+    // a redirect drops the payment header. Both are false: @x402/fetch calls
+    // ordinary fetch, whose default is to follow. What is TRUE about a 302 in
+    // particular is that it rewrites a POST into a GET, and that is what the
+    // seller needs to hear — a 307 would not have this problem.
+    assert.match(redirect.fix, /301 or 302 rewrites your POST into a GET/i);
+    assert.match(redirect.fix, /advertise that final URL in resource\.url/i);
+    assert.ok(
+      !/do not follow redirects|drops the header/i.test(redirect.fix),
+      'the fix text has regained a claim the audit disproved'
+    );
   });
 
   test('a redirect to a private address is still not followed', async () => {
