@@ -201,8 +201,25 @@ describe('leniency, which is a deliberate design choice', () => {
     invalid({}, false, 'is not allowed');
   });
 
-  test('an unresolvable $ref is ignored rather than blamed on the value', () => {
-    valid('x', { $ref: '#/definitions/nope' });
+  test('an unresolvable $ref is REPORTED — leniency stops here', () => {
+    // It used to be skipped, on the reasoning that a dangling pointer is the
+    // schema's fault rather than the value's. True, and beside the point: the
+    // subschema behind it never got applied, so `info` came back "valid"
+    // against a schema half of which had not been read. Returning an empty
+    // problem list for a validation that did not happen is the same silence
+    // this whole file exists to break.
+    invalid('x', { $ref: '#/definitions/nope' }, 'unable to validate');
+    invalid('x', { $ref: '#/definitions/nope' }, 'resolves to nothing in this document');
+  });
+
+  test('an EXTERNAL $ref is reported as unvalidatable, naming the rule', () => {
+    // extensions/bazaar.md:321-323 — "$ref and $id values must be same-document
+    // JSON Pointer fragments (starting with #)", and facilitators MUST NOT
+    // resolve external references when validating an untrusted schema. So this
+    // is not "not fetched yet", it is a schema nothing that catalogues can
+    // validate — x402#3045's fifth production bug, verbatim.
+    invalid('x', { $ref: 'https://internal.corp/schema.json' }, 'points outside this document');
+    invalid('x', { $ref: './local.json' }, 'points outside this document');
   });
 
   test('a resolvable local $ref is followed', () => {

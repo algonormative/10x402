@@ -87,10 +87,16 @@ describe('calibration 1: the v2 spec’s own canonical 402', () => {
     assert.equal(report.grade, 'A', `the specification's own example is not an A:\n${show(report)}`);
   });
 
-  test('produces no error and no warning in any regime', () => {
+  test('produces no payment-regime error and no payment-regime warning', () => {
+    // The bazaar regime is allowed to speak here and does: the spec's example
+    // publishes no extensions.bazaar, so it is genuinely not discoverable. That
+    // is a true statement about the envelope and it is why the two verdicts are
+    // separate — it must not cost a grade.
     const report = lint(specV2Response());
-    const loud = report.findings.filter((f) => f.severity !== 'info');
+    const loud = inRegime(report, 'payment').filter((f) => f.severity !== 'info');
     assert.deepEqual(loud.map((f) => f.code), [], show(report));
+    assert.equal(report.summary.bazaar_ready, false, 'no bazaar extension, so not indexable');
+    assert.deepEqual(report.summary.blockers, ['V2_BAZAAR_PRESENT'], 'and the report names why');
   });
 
   test('a body of `{}` next to a valid v2 header is at most an info', () => {
