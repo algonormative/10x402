@@ -5,11 +5,24 @@
 // {BASE}, and the reply is handed back as text. The HTTP surface stays the
 // source of truth, so this file never needs to know the check catalogue.
 //
-//   lint_x402           {url, method?}                POST {BASE}/lint
-//   lint_x402_envelope  {status, headers?, body?}     POST {BASE}/lint/envelope
-//   x402_checks         {}                            GET  {BASE}/check
+//   lint_x402                    {url, method?}             POST {BASE}/lint
+//   lint_x402_one_check          {url, check, method?}      POST {BASE}/lint/one
+//   lint_x402_envelope           {status, headers?, body?}  POST {BASE}/lint/envelope
+//   lint_x402_envelope_one_check {status, check, …}         POST {BASE}/lint/envelope/one
+//   x402_checks                  {}                         GET  {BASE}/check
 //
 // BASE comes from TENX402_URL, defaulting to production.
+//
+// ------------------------------------------------------------------ four tools, not two with a flag
+//
+// The single-check routes are separate TOOLS rather than an optional `check`
+// parameter on the existing two, and the reason is the convention below: on this
+// server a tool is a thing with A PRICE. A tool whose cost is $0.10 or $0.02
+// depending on whether an argument is present cannot state its price in its own
+// description, and an agent chooses between tools by reading exactly that. The
+// schema does the rest of the work — `check` is REQUIRED here and absent there,
+// so a client cannot half-use either shape — and an agent that only wants one
+// answer finds a tool that only gives one answer, at the price of one answer.
 //
 // Run it:
 //   npx -y github:chronick/10x402
@@ -49,9 +62,10 @@ const TOOLS = [
       'request to the live URL and checks the HTTP response, v1 body envelope, v2 PAYMENT-REQUIRED ' +
       'header envelope, dual-stack consistency, and Bazaar discovery metadata. Each finding includes ' +
       'a specific fix. This identifies technical blockers; it does not guarantee indexing, demand, or ' +
-      'successful settlement. Costs $0.01 per call, paid over x402; the first call answers 402 with ' +
+      'successful settlement. Costs $0.10 per call, paid over x402; the first call answers 402 with ' +
       'the terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
-      'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope.',
+      'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope. ' +
+      'For a single question, lint_x402_one_check is a fifth of the price.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -72,7 +86,7 @@ const TOOLS = [
       'Check a 402 response you already have for the same conformance and discovery blockers. Paste ' +
       'its status, headers and body; each finding includes a specific fix. Nothing is fetched, so ' +
       'this works during an x402 v1 vs v2 migration, on staging, on localhost, behind auth, and on ' +
-      'an endpoint that is not deployed yet. Costs $0.005, less than lint_x402 because there is no ' +
+      'an endpoint that is not deployed yet. Costs $0.05, half of lint_x402 because there is no ' +
       'outbound request. Use it whenever you can already see the response — from a curl, a test, or ' +
       'the code that builds it.',
     inputSchema: {
@@ -90,6 +104,68 @@ const TOOLS = [
         url: { type: 'string', description: 'optional: the URL it came from, so resource.url can be cross-checked' },
       },
       required: ['status'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'lint_x402_one_check',
+    description:
+      'Answer ONE named conformance check about a live x402 endpoint, for a fifth of the price of ' +
+      'the full report. Use it when there is exactly one question — "is my v2 PAYMENT-REQUIRED ' +
+      'header base64url", "does my bazaar info validate against its own schema" — and you already ' +
+      'know which check answers it. Costs $0.02, paid over x402; the first call answers 402 with ' +
+      'the terms, which is a price quote and not an error. Call x402_checks first (free) to get the ' +
+      'exact check id. THE ANSWER HAS THREE OUTCOMES: passed, failed with a fix, or DID NOT APPLY ' +
+      '— the last is not a pass and must never be reported as one. Past two questions, lint_x402 ' +
+      'is cheaper and tells you what you did not think to ask.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'the https URL of the paid endpoint to lint' },
+        check: {
+          type: 'string',
+          description:
+            'exactly one check id from x402_checks, e.g. V2_B64_URLSAFE. An unknown id costs nothing.',
+        },
+        method: {
+          type: 'string',
+          enum: ['POST', 'GET'],
+          description: 'how the endpoint is called. Defaults to POST, which is what most paid x402 endpoints take.',
+        },
+      },
+      required: ['url', 'check'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'lint_x402_envelope_one_check',
+    description:
+      'Answer ONE named conformance check about a 402 response you already have. At $0.01 it is ' +
+      'the cheapest answer this service sells, and nothing is fetched, so it works on staging, on ' +
+      'localhost, behind auth, and on an endpoint that is not deployed yet. Ideal in a ' +
+      'test or a CI step asserting a single property of a 402 that was just built. Call ' +
+      'x402_checks first (free) for the exact check id. THE ANSWER HAS THREE OUTCOMES: passed, ' +
+      'failed with a fix, or DID NOT APPLY to this response — the last is not a pass.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'integer', description: 'the HTTP status the endpoint answered with, e.g. 402' },
+        check: {
+          type: 'string',
+          description:
+            'exactly one check id from x402_checks, e.g. V2_B64_URLSAFE. An unknown id costs nothing.',
+        },
+        headers: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+          description:
+            'the response headers. Names are matched case-insensitively, so copy them however ' +
+            'your client printed them. The one that matters most is PAYMENT-REQUIRED.',
+        },
+        body: { type: 'string', description: 'the response body as raw text, exactly as it came back' },
+        url: { type: 'string', description: 'optional: the URL it came from, so resource.url can be cross-checked' },
+      },
+      required: ['status', 'check'],
       additionalProperties: false,
     },
   },
@@ -157,6 +233,35 @@ async function lintEnvelope(args) {
   return post('/lint/envelope', payload);
 }
 
+// The single-check pair. The missing-`check` refusal happens HERE, before the
+// request: the service would answer the same 400 for free, but a round trip to
+// be told a required field is missing is a round trip nobody needed.
+const NEED_CHECK =
+  '`check` is required — these tools answer about exactly one check. Call x402_checks (free) for ' +
+  'the catalogue, e.g. {"check": "V2_B64_URLSAFE"}. To check everything at once, use lint_x402 ' +
+  'or lint_x402_envelope instead.';
+
+async function lintOneCheck(args) {
+  const url = String(args.url || '').trim();
+  if (!url) return fail('`url` is required — the https URL of the endpoint to lint.');
+  if (!String(args.check || '').trim()) return fail(NEED_CHECK);
+  const payload = { url, check: String(args.check).trim() };
+  if (args.method) payload.method = String(args.method).toUpperCase();
+  return post('/lint/one', payload);
+}
+
+async function lintEnvelopeOneCheck(args) {
+  if (args.status === undefined) {
+    return fail('`status` is required — the HTTP status the endpoint answered with (402 for a normal x402 challenge).');
+  }
+  if (!String(args.check || '').trim()) return fail(NEED_CHECK);
+  const payload = { status: Number(args.status), check: String(args.check).trim() };
+  if (args.headers) payload.headers = args.headers;
+  if (args.body !== undefined) payload.body = args.body;
+  if (args.url) payload.url = args.url;
+  return post('/lint/envelope/one', payload);
+}
+
 async function checks() {
   const res = await request(`${BASE}/check`);
   const body = await res.text();
@@ -173,7 +278,10 @@ async function checks() {
     `${parsed.service} — ${parsed.tagline}`,
     '',
     'Endpoints:',
-    ...parsed.endpoints.map((e) => `  ${e.method} ${e.path}  ${e.price}  ${e.description}`),
+    ...parsed.endpoints.map(
+      (e) => `  ${e.method} ${e.path}  ${e.price}  ${e.scope ? `[${e.scope}]  ` : ''}${e.description}`
+    ),
+    ...(parsed.pricing?.note ? ['', `  ${parsed.pricing.note}`] : []),
     '',
     'Grades:',
     ...parsed.grades.map((g) => `  ${g.grade}  ${g.when}`),
@@ -220,6 +328,8 @@ function renderReport(body, res) {
   } catch {
     return body.trim();
   }
+
+  if (report.check) return renderSingle(report, res);
 
   const errors = report.findings.filter((f) => f.severity === 'error');
   const warns = report.findings.filter((f) => f.severity === 'warn');
@@ -286,6 +396,76 @@ function renderReport(body, res) {
   if (report.note) lines.push('', `Note: ${report.note}`);
 
   lines.push('', JSON.stringify(report, null, 2));
+  if (res.headers.get('x-payment-verified') === 'true') {
+    lines.push('', '[10x402: payment verified and settling — you were charged for this call.]');
+  } else if (res.headers.get('x-pricing') === 'pending') {
+    lines.push(
+      '',
+      `[10x402: served WITHOUT the payment being verified (x-payment-error: ` +
+        `${res.headers.get('x-payment-error') || 'unknown'}). The payment service could not be ` +
+        'reached, so no money moved and you have not been charged. Nothing is owed.]'
+    );
+  }
+  return lines.join('\n');
+}
+
+/**
+ * One check's answer, and the lead line is the whole job.
+ *
+ * DID-NOT-APPLY GOES FIRST AND LOUDEST. An agent summarising this for a person
+ * will keep the first line and drop the rest, and "V2_B64_URLSAFE — nothing
+ * found" about a response with no v2 header is a sentence that would send a
+ * seller to look somewhere else for a week. So the not-applied case never gets
+ * to say "pass" anywhere near the top, and the JSON below it says `passed:
+ * null` for a reader that goes looking.
+ */
+function renderSingle(report, res) {
+  const lines = [];
+
+  if (report.applied === false) {
+    lines.push(
+      `${report.check} DID NOT APPLY to this response. NOTHING about it was checked, and this is`,
+      'NOT a pass — do not report it as one.',
+      '',
+      report.note || 'Its precondition was not met by this response.',
+      '',
+      'To find out what IS wrong with this response, buy the full report: lint_x402 for a live',
+      'URL, lint_x402_envelope for a pasted one.'
+    );
+  } else if (report.passed) {
+    lines.push(
+      `${report.check} PASSED — this response is conformant on that one rule.`,
+      '',
+      `It is a ${report.regime}-regime check${report.core ? ', and a core one' : ''}, so a failure would have been ` +
+        `${report.regime === 'payment' ? 'a payment or grade problem' : report.regime === 'bazaar' ? 'a listing blocker rather than a payment fault' : 'advisory only'}.`,
+      'This says nothing about any other check. If the endpoint still misbehaves, the full report',
+      'is the next call rather than a second single check.'
+    );
+  } else {
+    const finding = report.finding || {};
+    lines.push(
+      `${report.check} FAILED — severity ${finding.severity || report.severity}, ${report.regime} regime` +
+        `${finding.core ? ', CORE (the envelope is not usable as published)' : ''}.`,
+      '',
+      finding.message || 'the check emitted a finding',
+      '',
+      `Fix: ${finding.fix || 'see the finding below'}`
+    );
+    if (Array.isArray(report.findings) && report.findings.length > 1) {
+      lines.push('', `This check emitted ${report.findings.length} findings; each carries its own fix. See the JSON below.`);
+    }
+  }
+
+  if (report.note && report.applied !== false) lines.push('', `Note: ${report.note}`);
+
+  lines.push(
+    '',
+    'This is ONE check out of the catalogue, bought at the single-check price. `grade` and',
+    '`bazaar_ready` are whole-report verdicts and are deliberately not in this answer.',
+    '',
+    JSON.stringify(report, null, 2)
+  );
+
   if (res.headers.get('x-payment-verified') === 'true') {
     lines.push('', '[10x402: payment verified and settling — you were charged for this call.]');
   } else if (res.headers.get('x-pricing') === 'pending') {
@@ -418,10 +598,12 @@ function explainRefusal(path, body, res) {
   return lines.join('\n');
 }
 
+// Never fewer than two decimals: "$0.1 USDC" beside "$0.02 USDC" is a 10x
+// misread, and this string is the price an agent decides on.
 function formatAmount(atomic) {
   const n = Number(atomic);
   if (!Number.isFinite(n)) return 'an unreadable amount';
-  return `$${(n / 10 ** USDC_DECIMALS).toFixed(USDC_DECIMALS).replace(/0+$/, '').replace(/\.$/, '')} USDC`;
+  return `$${(n / 10 ** USDC_DECIMALS).toFixed(USDC_DECIMALS).replace(/(\.\d\d\d*?)0+$/, '$1')} USDC`;
 }
 
 function formatDuration(seconds) {
@@ -432,7 +614,9 @@ function formatDuration(seconds) {
 
 const HANDLERS = {
   lint_x402: lint,
+  lint_x402_one_check: lintOneCheck,
   lint_x402_envelope: lintEnvelope,
+  lint_x402_envelope_one_check: lintEnvelopeOneCheck,
   x402_checks: checks,
 };
 

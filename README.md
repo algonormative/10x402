@@ -46,14 +46,14 @@ from — and where the honest answer is a house opinion, it says that instead.
 ## The self-lint invariant
 
 **The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints both paid endpoint envelopes and fails on any finding.**
+self-lints all four paid endpoint envelopes and fails on any finding.**
 
-`test/self-lint.test.mjs` takes 10x402's *own* 402 — for both paid endpoints, in
-the production configuration, off the wire through wrangler and workerd — and
-runs it through 10x402's *own* lint engine. It must grade **A with zero
-findings**, info included. Separately, `node build.mjs` constructs the production
-envelopes, runs the same engine, and refuses to emit `dist/` if either has a
-finding.
+`test/self-lint.test.mjs` takes 10x402's *own* 402 — for all four paid
+endpoints, in the production configuration, off the wire through wrangler and
+workerd — and runs it through 10x402's *own* lint engine. It must grade **A with
+zero findings**, info included. Separately, `node build.mjs` constructs all four
+production envelopes, runs the same engine, and refuses to emit `dist/` if any
+of them has a finding.
 
 A conformance linter that does not pass its own lint is a shop with a broken
 sign. When this fails, the honest question is which half is wrong: if the check
@@ -70,9 +70,10 @@ known-good before trusting any negative verdict.
 ## What you lint is your business
 
 The application store keeps no linted URLs, no pasted envelopes, and no reports.
-It retains the endpoint id (`lint` or `lint-envelope`), grade, and error/warning
-counts as aggregate product telemetry, plus the quota and payment records needed
-to operate the service. It does not persist the material being linted.
+It retains the endpoint id (`lint`, `lint-one`, `lint-envelope` or
+`lint-envelope-one`), grade, and error/warning counts as aggregate product
+telemetry, plus the quota and payment records needed to operate the service. It
+does not persist the material being linted.
 
 ## Start here
 
@@ -86,17 +87,28 @@ curl -sS https://10x402.com/check
 An agent should read [`skills/10x402/SKILL.md`](skills/10x402/SKILL.md) or the
 generated `/skill.md`, then call the free `x402_checks` tool before choosing a
 paid lint. Use `/lint` for a public URL and `/lint/envelope` for a response you
-already captured from local, staging, or authenticated code.
+already captured from local, staging, or authenticated code — and the `/one`
+form of either when there is exactly one check you want the answer to.
 
 ## What it does
 
-| | | |
+| route | price | what it does |
 |---|---|---|
-| `POST /lint` | **$0.01** | Sends one unauthenticated request to a URL you name and lints the response. |
-| `POST /lint/envelope` | **$0.005** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint` | **$0.10** | Sends one unauthenticated request to a URL you name and lints the response against all 75 checks. |
+| `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
+| `POST /lint/envelope` | **$0.05** | The same 75-check catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
-Both paid endpoints return the same shape:
+**Two questions, two rails, and the arithmetic is deliberate.** The full suite
+costs 5x a single check and runs 75 of them — a 15x per-check advantage, so one
+question is worth buying alone and three are not. The pasted rail is half the
+live rail at both scopes, because there is no outbound probe to make on the
+caller's behalf. Every price is per **served** report: a bad URL, an unreachable
+target, a malformed paste or an unknown check id settles nothing, even when the
+payment verified.
+
+The two full-report endpoints return the same shape:
 
 ```json
 {
@@ -129,6 +141,39 @@ needs to know the denominator moved.
 **The `fix` strings are the product.** A linter that reports "invalid envelope"
 and stops has told the seller nothing they did not already know from the
 silence.
+
+### One check, and the third outcome
+
+The two `/one` routes take the same body plus a required `check` — exactly one
+id from `GET /check` — and answer about that check alone:
+
+```json
+{
+  "check": "V2_B64_URLSAFE",
+  "applied": true,
+  "passed": false,
+  "finding": { "severity": "error", "code": "V2_B64_URLSAFE", "message": "…", "fix": "…" },
+  "regime": "payment",
+  "sources": [ { "kind": "client-code", "ref": "…" } ],
+  "summary": { "versions_detected": [1, 2], "payTo": "0x…", "network": "eip155:8453", "price": "…" },
+  "checks_run": 1
+}
+```
+
+**`passed: null` with `applied: false` is not a pass.** A v2 check against a
+v1-only endpoint did not run at all, and saying "V2_B64_URLSAFE passed" about a
+response with no v2 header is the most expensive false negative this service
+could sell — so it says what did not happen instead, in `note`. `checks_run` is
+1 or 0 on the same rule the full report uses: how many checks *applied*.
+
+A single-check answer deliberately carries **no `bazaar_ready`**. That verdict
+is computed over every bazaar-regime check, and this caller bought one check;
+the envelope description stays because it is context for the answer rather than
+a second answer.
+
+An unknown or missing `check` is a 400 naming the free catalogue. It lints
+nothing, settles nothing, and hands back the single-use claim on the payment —
+the caller can retry with a real id against the same authorization.
 
 ## Two verdicts, because there are two questions
 
@@ -358,13 +403,13 @@ node --test test/lint-engine.test.mjs
 
 ## Safety
 
-`POST /lint` makes a request on a stranger's behalf, which is the whole threat
-model: a caller who can name a URL and see the response has, for one cent,
-rented our network position. So:
+`POST /lint` and `POST /lint/one` make a request on a stranger's behalf, which
+is the whole threat model: a caller who can name a URL and see the response has,
+for two cents, rented our network position. So:
 
 - **https only**, no credentials in the authority
 - **ports 443 and 8443 only** — anything else and the service is a port scanner
-  rented by the cent: the difference between "connection refused" and "timed
+  rented by the call: the difference between "connection refused" and "timed
   out" *is* the scan result. For the same reason the underlying transport error
   is never quoted back, only "could not reach `<host>`"
 - **no private or reserved targets** — loopback, RFC 1918, link-local

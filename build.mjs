@@ -50,6 +50,7 @@ import {
   SITE_HOST as CANONICAL_HOST,
   SUPPORT_EMAIL,
   USDC_BASE,
+  batchAdvantageLine,
   priceLabel,
 } from './worker/catalog.js';
 import { CHECKS, GRADE_RULES } from './worker/lint.js';
@@ -104,6 +105,26 @@ const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 
 const byArea = (area) => CHECKS.filter((c) => c.area === area);
 
+// The two axes of the price sheet, said the same way everywhere they appear.
+// Read off the endpoint's own flags rather than its id, so a fifth route
+// describes itself.
+/**
+ * One endpoint by id, for the copy that names a specific route.
+ *
+ * NOT `ENDPOINTS[1]`, which is what the skill.md copy used to do: adding the
+ * two single-check routes moved every index by one, and a positional reference
+ * would have silently re-priced two paragraphs rather than failing.
+ */
+const byId = (id) => {
+  const found = ENDPOINTS.find((e) => e.id === id);
+  if (!found) throw new Error(`build: no endpoint "${id}" in the catalogue`);
+  return found;
+};
+
+const rail = (endpoint) =>
+  endpoint.fetches ? 'A live public endpoint' : 'A captured or local 402 response';
+const scopeOf = (endpoint) => (endpoint.single ? 'One named check' : `All ${CHECKS.length} checks`);
+
 // EVERY NUMBER ON THE PAGE IS DERIVED. A count typed into copy is a count that
 // disagrees with the catalogue the first time a check is added, and a
 // conformance catalogue whose published total contradicts its published list is
@@ -143,6 +164,10 @@ const FAQS = [
     question: 'Why is my x402 endpoint not discoverable?',
     answer:
       'Discoverability depends on more than returning status 402. The response must publish readable payment terms and the discovery fields expected by the indexer. 10x402 can identify response-level blockers; it cannot measure demand or inspect the index itself.',
+  },
+  {
+    question: 'Can I check just one thing instead of buying the whole report?',
+    answer: `Yes. POST /lint/one and POST /lint/envelope/one answer about exactly one check id you name — for settling a single question like "is my v2 header base64url" without buying the catalogue. ${batchAdvantageLine(CHECKS.length)} A single-check answer distinguishes three outcomes: it passed, it failed with the fix attached, or it did not apply to this response at all — which is not a pass and is never reported as one.`,
   },
   {
     question: 'Does 10x402 store my URL, envelope, or report?',
@@ -765,13 +790,20 @@ ${FONT_FILES.filter((f) => f.preload)
         for a report that is served.</p></li>
     </ol>
     <div class="scroll tablewrap" role="region" aria-label="10x402 prices" tabindex="0"><table class="pricing">
-      <caption>One route for each stage of the job</caption>
-      <thead><tr><th scope="col">route</th><th scope="col">use it for</th><th scope="col">price</th></tr></thead>
+      <caption>Two questions, two rails</caption>
+      <thead><tr><th scope="col">route</th><th scope="col">what it reads</th><th scope="col">how much of the catalogue</th><th scope="col">price</th></tr></thead>
       <tbody>
-        <tr><td><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code></td><td>Catalogue, prices, and grade rules</td><td class="price price-free">free</td></tr>
-${ENDPOINTS.map((e) => `        <tr><td><code>${e.method} ${esc(e.path)}</code></td><td>${e.id === 'lint' ? 'A live public endpoint' : 'A captured or local 402 response'}</td><td class="price">${priceLabel(e.price_usd)} per report</td></tr>`).join('\n')}
+        <tr><td><code>${FREE_ENDPOINT.method} ${esc(FREE_ENDPOINT.path)}</code></td><td>Catalogue, prices, and grade rules</td><td>&mdash;</td><td class="price price-free">free</td></tr>
+${ENDPOINTS.map(
+  (e) =>
+    `        <tr><td><code>${e.method} ${esc(e.path)}</code></td><td>${rail(e)}</td><td>${scopeOf(e)}</td><td class="price">${priceLabel(e.price_usd)} per report</td></tr>`
+).join('\n')}
       </tbody>
     </table></div>
+    <p class="small">${esc(batchAdvantageLine(CHECKS.length))} A pasted response is half the price
+    of a live one at both scopes, because there is no outbound request to make on your behalf.
+    Every price is per <strong>served</strong> report: a bad URL, an unreachable target, a malformed
+    paste or an unknown check id settles nothing, even when the payment verified.</p>
   </section>
 
   <section aria-labelledby="outcome-path">
@@ -856,7 +888,7 @@ ${GRADE_RULES.map((g) => `        <tr><td class="grade grade-${g.grade}">${g.gra
       <article class="card trust">
         <h3>It has to pass its own lint</h3>
         <p>The test suite runs the production-configured Worker under workerd, takes the 402 it
-        actually serves for both paid endpoints, and requires grade A with zero findings. Every
+        actually serves for every paid endpoint, and requires grade A with zero findings. Every
         build also constructs both paid envelopes, self-lints them, and fails on any finding before
         writing <code>dist/</code>.</p>
       </article>
@@ -1003,6 +1035,79 @@ const reportSchema = {
   },
 };
 
+// The answer the two /one routes give: one check, and never a fabricated pass.
+const singleReportSchema = {
+  type: 'object',
+  required: ['check', 'applied', 'passed', 'finding', 'regime', 'sources', 'summary', 'checks_run'],
+  properties: {
+    check: { type: 'string', enum: CHECKS.map((c) => c.id), description: 'the check id that was asked about' },
+    applied: {
+      type: 'boolean',
+      description:
+        'whether the check RAN against this response. False means its precondition was not met — ' +
+        'a v2 check against a v1-only endpoint, say — and `note` says which.',
+    },
+    passed: {
+      type: ['boolean', 'null'],
+      description:
+        'true: the check ran and found nothing. false: it ran and emitted, and `finding` carries ' +
+        'the fix. NULL: it did not apply, and NOTHING WAS ASSERTED. A null is not a pass and must ' +
+        'not be reported as one.',
+    },
+    finding: {
+      oneOf: [reportSchema.properties.findings.items, { type: 'null' }],
+      description: 'the finding this check emitted, with its fix — or null when it emitted none',
+    },
+    findings: {
+      type: 'array',
+      items: reportSchema.properties.findings.items,
+      description:
+        'present only when one check emitted more than once — several checks reach a single code ' +
+        'from branches that diagnose different things, and each carries its own fix',
+    },
+    note: { type: 'string', description: 'present when the check did not apply: what did not happen, and why' },
+    regime: { type: 'string', enum: ['payment', 'bazaar', 'hygiene'] },
+    severity: { type: 'string', enum: ['error', 'warn', 'info'] },
+    core: { type: 'boolean' },
+    sources: {
+      type: 'array',
+      description: 'where this rule comes from — the same provenance GET /check publishes',
+      items: {
+        type: 'object',
+        properties: { kind: { type: 'string' }, ref: { type: 'string' } },
+      },
+    },
+    summary: {
+      type: 'object',
+      description:
+        'the envelope description — versions, payTo, network, price, and any `partial` caveat. ' +
+        'DELIBERATELY WITHOUT bazaar_ready: the second verdict is computed over every ' +
+        'bazaar-regime check, and this call bought one check.',
+      properties: {
+        versions_detected: reportSchema.properties.summary.properties.versions_detected,
+        payTo: reportSchema.properties.summary.properties.payTo,
+        network: reportSchema.properties.summary.properties.network,
+        price: reportSchema.properties.summary.properties.price,
+        partial: reportSchema.properties.summary.properties.partial,
+      },
+    },
+    checks_run: {
+      type: 'integer',
+      enum: [0, 1],
+      description: '1 when the named check applied, 0 when it did not — the same rule the full report uses',
+    },
+  },
+};
+
+/** The required `check` field on the two single-check routes, enumerated. */
+const checkProperty = {
+  type: 'string',
+  enum: CHECKS.map((c) => c.id),
+  description:
+    'exactly one check id, from the catalogue GET /check publishes. Unknown or missing is a 400 ' +
+    'that lints nothing and charges nothing.',
+};
+
 const paidResponses = {
   200: { description: 'the lint report', content: { 'application/json': { schema: reportSchema } } },
   400: {
@@ -1070,31 +1175,37 @@ const openapi = {
               required: true,
               content: {
                 'application/json': {
-                  schema:
-                    endpoint.id === 'lint'
-                      ? {
-                          type: 'object',
-                          required: ['url'],
-                          properties: {
-                            url: { type: 'string', format: 'uri', description: 'the https URL of the paid endpoint to lint' },
-                            method: { type: 'string', enum: ['POST', 'GET'], default: 'POST' },
-                          },
-                        }
-                      : {
-                          type: 'object',
-                          required: ['status'],
-                          properties: {
-                            status: { type: 'integer', description: 'the HTTP status the endpoint answered with' },
-                            headers: { type: 'object', additionalProperties: { type: 'string' }, description: 'response headers; names are matched case-insensitively' },
-                            body: { type: 'string', description: 'the response body, as text' },
-                            url: { type: 'string', format: 'uri', description: 'optional: the URL it came from' },
-                          },
+                  // The rail decides the fields, `single` adds the required
+                  // `check` to either of them — the same two axes the price
+                  // sheet is built from, rather than four hand-written schemas.
+                  schema: endpoint.fetches
+                    ? {
+                        type: 'object',
+                        required: ['url', ...(endpoint.single ? ['check'] : [])],
+                        properties: {
+                          url: { type: 'string', format: 'uri', description: 'the https URL of the paid endpoint to lint' },
+                          method: { type: 'string', enum: ['POST', 'GET'], default: 'POST' },
+                          ...(endpoint.single ? { check: checkProperty } : {}),
                         },
+                      }
+                    : {
+                        type: 'object',
+                        required: ['status', ...(endpoint.single ? ['check'] : [])],
+                        properties: {
+                          status: { type: 'integer', description: 'the HTTP status the endpoint answered with' },
+                          headers: { type: 'object', additionalProperties: { type: 'string' }, description: 'response headers; names are matched case-insensitively' },
+                          body: { type: 'string', description: 'the response body, as text' },
+                          url: { type: 'string', format: 'uri', description: 'optional: the URL it came from' },
+                          ...(endpoint.single ? { check: checkProperty } : {}),
+                        },
+                      },
                   example: endpoint.sample,
                 },
               },
             },
-            responses: paidResponses,
+            responses: endpoint.single
+              ? { ...paidResponses, 200: { description: 'the single-check answer', content: { 'application/json': { schema: singleReportSchema } } } }
+              : paidResponses,
           },
         },
       ])
@@ -1105,8 +1216,17 @@ const openapi = {
     asset: USDC_BASE,
     networks: { 1: NETWORK_V1, 2: NETWORK_V2 },
     prices: Object.fromEntries(
-      ENDPOINTS.map((e) => [e.path, { usd: priceLabel(e.price_usd), atomic: atomicAmount(e.price_usd) }])
+      ENDPOINTS.map((e) => [
+        e.path,
+        {
+          usd: priceLabel(e.price_usd),
+          atomic: atomicAmount(e.price_usd),
+          scope: e.single ? 'one named check' : `all ${CHECKS.length} checks`,
+          fetches: e.fetches === true,
+        },
+      ])
     ),
+    pricing_note: batchAdvantageLine(CHECKS.length),
     free_tier: false,
   },
 };
@@ -1177,6 +1297,9 @@ on Base. No account, no API key.
 asset    USDC on Base, ${USDC_BASE}
 network  ${NETWORK_V1} (v1) / ${NETWORK_V2} (v2)
 prices   ${ENDPOINTS.map((e) => `${e.path} ${priceLabel(e.price_usd)}`).join(', ')}
+         ${batchAdvantageLine(CHECKS.length)}
+         A pasted response is half the price of a live one at both scopes,
+         because there is no outbound request to make on your behalf.
 free tier  none, deliberately — one would fail this service's own HTTP_FREE_TIER_200 check
 
 You are only charged for reports that are served. A bad URL or a malformed paste
@@ -1192,6 +1315,31 @@ settles nothing, even when the payment verified.
 
 checks_run is how many checks APPLIED, not how many exist: a v1-only endpoint
 legitimately skips every v2 check.
+
+## One named check
+
+The two /one routes take the same body plus a required "check", exactly one id
+from the catalogue below, and answer about that check alone:
+
+{"check": "V2_B64_URLSAFE",
+ "applied": true | false,
+ "passed": true | false | null,
+ "finding": {...the finding, with its fix} | null,
+ "note": "present when it did not apply: what did not happen, and why",
+ "regime", "severity", "core", "sources": [...],
+ "summary": {...versions, payTo, network, price...},
+ "checks_run": 1 | 0}
+
+THREE OUTCOMES, NOT TWO. passed null with applied false means the named check
+did not run against this response — a v2 check against a v1-only endpoint
+asserted nothing whatsoever. That is not a pass, and reporting it as one would
+tell a seller their v2 header is fine when they do not have one.
+
+summary carries no bazaar_ready here: the second verdict is computed over every
+bazaar-regime check, and a single-check call bought one check.
+
+An unknown or missing check id is a 400 naming the free catalogue. It lints
+nothing and charges nothing.
 
 ## Two verdicts
 
@@ -1261,7 +1409,7 @@ pasted in — same checks, no outbound request.
 ## Self-lint
 
 The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints both paid endpoint envelopes and fails on any finding.
+self-lints all ${ENDPOINTS.length} paid endpoint envelopes and fails on any finding.
 
 ## Privacy
 
@@ -1294,7 +1442,7 @@ quote, not the report; an x402-capable client must pay and retry the request.
 Use the official [x402 buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
 to configure \`@x402/fetch\` or another supported client.
 
-Lint a live endpoint (${priceLabel(ENDPOINTS[0].price_usd)}):
+Lint a live endpoint (${priceLabel(byId('lint').price_usd)}):
 
 \`\`\`bash
 curl -sS -X POST ${CANONICAL_BASE}/lint \\
@@ -1302,7 +1450,7 @@ curl -sS -X POST ${CANONICAL_BASE}/lint \\
   -d '{"url": "https://your-endpoint.example.com/api/thing"}'
 \`\`\`
 
-Lint a response you already have (${priceLabel(ENDPOINTS[1].price_usd)}) — works on staging,
+Lint a response you already have (${priceLabel(byId('lint-envelope').price_usd)}) — works on staging,
 on localhost, and on an endpoint that is not deployed yet:
 
 \`\`\`bash
@@ -1310,6 +1458,38 @@ curl -sS -X POST ${CANONICAL_BASE}/lint/envelope \\
   -H 'content-type: application/json' \\
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"}'
 \`\`\`
+
+## One question, one check
+
+When there is exactly ONE thing you want to know, name the check and pay a
+fifth: ${priceLabel(byId('lint-one').price_usd)} on a live URL, ${priceLabel(byId('lint-envelope-one').price_usd)} on a response you paste.
+
+\`\`\`bash
+curl -sS -X POST ${CANONICAL_BASE}/lint/one \\
+  -H 'content-type: application/json' \\
+  -d '{"url": "https://your-endpoint.example.com/api/thing", "check": "V2_B64_URLSAFE"}'
+
+curl -sS -X POST ${CANONICAL_BASE}/lint/envelope/one \\
+  -H 'content-type: application/json' \\
+  -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
+\`\`\`
+
+${batchAdvantageLine(CHECKS.length)} Do the arithmetic before
+firing a third single check: at that point the full report is cheaper AND
+tells you what you did not think to ask.
+
+**READ \`applied\` BEFORE \`passed\`.** A single-check answer has THREE outcomes,
+and the third is the one that will mislead a reader who skims:
+
+\`\`\`json
+${JSON.stringify(runSample(byId('lint-envelope-one')), null, 2)}
+\`\`\`
+
+\`passed: null\` with \`applied: false\` means the check DID NOT RUN against this
+response — a v2 check against a v1-only endpoint asserted nothing at all. Never
+summarise that as a pass. \`note\` says what did not happen and why. The check
+ids come from \`GET /check\`; an unknown one is a 400 that lints nothing and
+charges nothing.
 
 ## A 402 is the price, not an error
 
@@ -1324,7 +1504,7 @@ NEVER ask a person to paste a private key or a seed phrase.
 ## Trust boundaries
 
 The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints both paid endpoint envelopes and fails on any finding.
+self-lints all ${ENDPOINTS.length} paid endpoint envelopes and fails on any finding.
 
 The application store keeps no linted URLs, pasted envelopes or reports. What
 you lint is your business.
@@ -1332,7 +1512,7 @@ you lint is your business.
 ## Read the report
 
 \`\`\`json
-${JSON.stringify(runSample(ENDPOINTS[1]), null, 2)}
+${JSON.stringify(runSample(byId('lint-envelope')), null, 2)}
 \`\`\`
 
 Each finding carries a \`fix\` written to be applied directly. Work through

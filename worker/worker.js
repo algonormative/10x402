@@ -573,8 +573,8 @@ async function handlePaid(request, env, ctx, endpoint) {
           endpoint,
         };
       } else {
-        // UNREACHABLE / UNCONFIGURED FACILITATOR. Availability-first: at a cent
-        // a call the price is a signal, and turning paying callers away for OUR
+        // UNREACHABLE / UNCONFIGURED FACILITATOR. Availability-first: at these
+        // prices the number is a signal, and turning paying callers away for OUR
         // dependency's outage is the worse failure. The response says plainly
         // that nothing was checked, and every one of these is recorded.
         outcome = { kind: 'unverified', presented, error: publicReason(verdict.unavailable) };

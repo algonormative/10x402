@@ -34,7 +34,7 @@ quote, not the report; an x402-capable client must pay and retry the request.
 Use the official [x402 buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
 to configure `@x402/fetch` or another supported client.
 
-**Public endpoint — $0.01 per served report:**
+**Public endpoint — $0.10 per served report:**
 
 ```bash
 curl -sS -X POST https://10x402.com/lint \
@@ -42,10 +42,11 @@ curl -sS -X POST https://10x402.com/lint \
   -d '{"url": "https://their-endpoint.example.com/api/thing"}'
 ```
 
-**Captured response — $0.005 per served report.** Prefer this whenever you can
+**Captured response — $0.05 per served report.** Prefer this whenever you can
 already see the response: from a curl, from a test, or from the code that builds
 it. It fetches nothing, so it works on staging, on localhost, behind auth, and
-on an endpoint that is not deployed yet.
+on an endpoint that is not deployed yet — and it is half the price for exactly
+that reason.
 
 ```bash
 curl -sS -X POST https://10x402.com/lint/envelope \
@@ -53,8 +54,44 @@ curl -sS -X POST https://10x402.com/lint/envelope \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"}'
 ```
 
-As MCP tools, call `x402_checks` first (free), then choose `lint_x402` or
-`lint_x402_envelope`.
+**One named check — $0.02 live, $0.01 pasted.** When there is exactly one thing
+you want to know and you know which check answers it:
+
+```bash
+curl -sS -X POST https://10x402.com/lint/one \
+  -H 'content-type: application/json' \
+  -d '{"url": "https://their-endpoint.example.com/api/thing", "check": "V2_B64_URLSAFE"}'
+
+curl -sS -X POST https://10x402.com/lint/envelope/one \
+  -H 'content-type: application/json' \
+  -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
+```
+
+The full suite costs 5x a single check and runs 75 of them — a 15x per-check
+advantage. **Do the arithmetic before a third single check**: past two questions
+the full report is both cheaper and tells you what you did not think to ask.
+
+As MCP tools, call `x402_checks` first (free), then choose `lint_x402`,
+`lint_x402_envelope`, `lint_x402_one_check` or `lint_x402_envelope_one_check`.
+
+### A single-check answer has three outcomes
+
+```json
+{ "check": "V2_B64_URLSAFE", "applied": true, "passed": false,
+  "finding": { "severity": "error", "code": "V2_B64_URLSAFE", "message": "…", "fix": "…" },
+  "regime": "payment", "sources": [ … ], "summary": { … }, "checks_run": 1 }
+```
+
+- `passed: true` — the check ran and found nothing.
+- `passed: false` — it ran and emitted; `finding.fix` is the answer.
+- `passed: null` with `applied: false` — **the check did not run against this
+  response**, and `note` says why (a v2 check against a v1-only endpoint, say).
+  **That is not a pass.** Never summarise it as one; report it as "nothing was
+  checked", and buy the full report if you need to know what is actually wrong.
+
+An unknown or missing `check` is a 400 that lints nothing and charges nothing.
+`summary` in a single-check answer carries no `bazaar_ready`: the second verdict
+is computed over every bazaar-regime check, and this call bought one.
 
 ## A 402 from this service is the price, not an error
 
@@ -73,7 +110,7 @@ malformed paste settles nothing, even when the payment verified.
 ## Trust boundaries
 
 The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints both paid endpoint envelopes and fails on any finding.
+self-lints all four paid endpoint envelopes and fails on any finding.
 
 The application store keeps no linted URLs, no pasted envelopes, and no reports.
 It retains aggregate lint results plus the quota and payment records needed to

@@ -131,7 +131,7 @@ export function alertMessage(env, alert) {
     lines.push(`checked  NO — ${alert.error}`);
     lines.push('');
     lines.push('This lint was SERVED and the payment was never checked, so nobody paid for');
-    lines.push('it. Serving anyway is deliberate (availability-first at a cent a call), but a');
+    lines.push('it. Serving anyway is deliberate (availability-first on a cheap call), but a');
     lines.push('run of these is the paid rail quietly down.');
   } else {
     lines.push('checked  yes — the facilitator returned isValid');
