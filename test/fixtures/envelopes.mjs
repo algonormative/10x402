@@ -137,6 +137,10 @@ export function response({
   bodyRaw = null,
   headers = {},
   url = null,
+  // The verb the 402 was fetched with. Only the bazaar method-agreement check
+  // reads it, and it declines to run when nothing was fetched — which is the
+  // /lint/envelope case, where a pasted response has no verb to disagree with.
+  method = null,
 } = {}) {
   const h = { ...headers };
   if (!('content-type' in h) && v1) h['content-type'] = 'application/json; charset=utf-8';
@@ -144,7 +148,7 @@ export function response({
   else if (v2) h['payment-required'] = b64(v2);
   // `bodyRaw` puts an arbitrary string in the body, which is what the v2-only
   // fixtures need: the whole point of those is a body that is NOT an envelope.
-  return { status, headers: h, body: bodyRaw !== null ? bodyRaw : v1 ? JSON.stringify(v1) : '', url };
+  return { status, headers: h, body: bodyRaw !== null ? bodyRaw : v1 ? JSON.stringify(v1) : '', url, method };
 }
 
 /**
@@ -190,6 +194,14 @@ export function urlSafeEnvelopeHeader() {
 // of finding codes — not a subset — so a fixture that starts producing an extra
 // finding fails rather than quietly passing, which is what keeps a new check
 // from silently changing every other fixture's meaning.
+//
+// `expect.bazaar_ready` is the second verdict, asserted where the fixture is
+// ABOUT discoverability. THE GRADE ANSWERS "CAN I BE PAID" AND ONLY THAT: a
+// missing bazaar extension, an info/schema pair that does not agree, a v1-only
+// endpoint — none of those stop a single payment, so none of them move a grade,
+// and several fixtures below are an A whose report is nonetheless bad news. The
+// bad news is in `bazaar_ready` and its blockers, which is where a seller can
+// act on it without being told their working endpoint is broken.
 
 export const FIXTURES = [
   {
@@ -229,7 +241,12 @@ export const FIXTURES = [
         headers: { 'content-type': 'application/json' },
         url: RESOURCE_URL,
       }),
-    expect: { grade: 'B', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
+    // AN A, ON TWO INFOS. transports-v2 § Response Body puts the body outside
+    // the protocol — "a server implementation concern" — and the spec's own 402
+    // example serves `{}`. A check that costs the specification's own example a
+    // grade is wrong however good its intention, so what survives is the true
+    // and narrow part: the pre-header clients will misread this, said at info.
+    expect: { grade: 'A', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
   },
   {
     name: 'v2-only 402 with a text/plain body',
@@ -241,36 +258,20 @@ export const FIXTURES = [
         headers: { 'content-type': 'text/plain; charset=utf-8' },
         url: RESOURCE_URL,
       }),
-    expect: { grade: 'B', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
+    expect: { grade: 'A', codes: ['V1_ABSENT', 'V1_BODY_NOT_ENVELOPE'] },
   },
   {
     name: 'the v2 envelope echoed into the 402 body',
     why:
-      'NOT v2-only, and the distinction is the whole of isV1Attempt(). This body declares ' +
-      'x402Version and carries accepts[], so it IS trying to be a v1 envelope — and every v1 ' +
-      'field is missing or in the v2 spelling, which is what a v1 client would choke on. A ' +
-      'seller who serves the same object in both transports has a real defect, and it stays an F.',
+      'THE FIVE-ERROR CASCADE. A v2-only seller who mirrors their v2 envelope into the 402 ' +
+      'body is doing something a v2 client never even reads — it takes the PAYMENT-REQUIRED ' +
+      'header and consults the body only when there is none — but isV1Attempt() saw an object ' +
+      'carrying x402Version and accepts[], ran the whole v1 cascade over it, and reported five ' +
+      'core errors saying "this v1 envelope is missing a v1 field" about an object that had ' +
+      'never claimed to be one. A body that declares itself v2 is not a broken v1 envelope. It ' +
+      'is now one finding, at warn, that says exactly what it is.',
     response: () => response({ bodyRaw: JSON.stringify(v2Envelope()), v2: v2Envelope(), url: RESOURCE_URL }),
-    expect: {
-      grade: 'F',
-      codes: [
-        // The v2 envelope's own content-type is not JSON-labelled, because the
-        // body was never meant to be read as one.
-        'HTTP_CONTENT_TYPE_JSON',
-        'VERSION_BODY_SAYS_V2',
-        'V1_VERSION',
-        'V1_MAX_AMOUNT_REQUIRED',
-        'V1_NETWORK_NAME',
-        'V1_RESOURCE_STRING',
-        'V1_MIMETYPE',
-        'V1_DESCRIPTION',
-        'V1_OUTPUT_SCHEMA',
-        // DUAL_PRICE and DUAL_NETWORK stay quiet — it is the same object, so
-        // the numbers agree. DUAL_RESOURCE does not: a v2 accepts entry has no
-        // `resource` field to compare against the v2 resource object.
-        'DUAL_RESOURCE',
-      ],
-    },
+    expect: { grade: 'B', codes: ['VERSION_BODY_SAYS_V2', 'V1_ABSENT'] },
   },
   {
     name: 'dual-stack on a chain outside the linter’s table',
@@ -286,13 +287,23 @@ export const FIXTURES = [
       v2.accepts[0].network = 'eip155:42161';
       return response({ v1, v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'A', codes: ['DUAL_NETWORK'] },
+    // DUAL_NETWORK reports the pair as unverified, at info, exactly as before —
+    // and V1_NETWORK_KNOWN now says the thing the old catalogue missed
+    // entirely: "arbitrum" is not a member of the v1 client's closed enum, so
+    // x402-fetch throws an invalid_enum_value on this entry and cannot pay it.
+    // The v2 half is fine; Arbitrum simply has no v1 spelling.
+    expect: { grade: 'D', codes: ['V1_NETWORK_KNOWN', 'DUAL_NETWORK'] },
   },
   {
     name: 'perfect v1-only 402',
     why: 'the commonest real shape, and the one CDP tells sellers to upgrade.',
     response: () => response({ v1: v1Envelope(), url: RESOURCE_URL }),
-    expect: { grade: 'B', codes: ['V2_HEADER_PRESENT'] },
+    // PAYABLE, AND NOT INDEXABLE, and the two answers are now separate.
+    // @x402/core falls back to a v1 body when there is no header, so this
+    // endpoint takes money from the current client generation perfectly well —
+    // the grade says so. CDP marks the PAYMENT-REQUIRED header a required
+    // preflight, so it will never be listed — bazaar_ready says that.
+    expect: { grade: 'A', codes: ['V2_HEADER_PRESENT'], bazaar_ready: 'n/a' },
   },
   {
     name: 'v2 header in url-safe base64',
@@ -379,7 +390,7 @@ export const FIXTURES = [
       delete v2.extensions;
       return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'B', codes: ['V2_BAZAAR_PRESENT'] },
+    expect: { grade: 'A', codes: ['V2_BAZAAR_PRESENT'], bazaar_ready: false },
   },
   {
     name: 'bazaar info that does not validate against its own schema',
@@ -392,7 +403,11 @@ export const FIXTURES = [
       v2.extensions.bazaar.info.input.bodyType = 'json';
       return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'D', codes: ['V2_BAZAAR_INFO_VALIDATES'] },
+    // THE MOST INSTRUCTIVE A IN THIS FILE. Every payment on this endpoint
+    // works; the listing will never appear, and nothing in the seller's logs
+    // will mention it. One number could not say both, which is why there are
+    // now two.
+    expect: { grade: 'A', codes: ['V2_BAZAAR_INFO_VALIDATES'], bazaar_ready: false },
   },
   {
     name: 'bazaar info with no computed output example',
@@ -402,7 +417,9 @@ export const FIXTURES = [
       delete v2.extensions.bazaar.info.output.example;
       return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'B', codes: ['V2_BAZAAR_OUTPUT_EXAMPLE'] },
+    // An info, and bazaar_ready stays true: CDP grades both output checks
+    // ADVISORY, so this costs the listing quality rather than the listing.
+    expect: { grade: 'A', codes: ['V2_BAZAAR_OUTPUT_EXAMPLE'], bazaar_ready: true },
   },
   {
     name: 'free tier: 200 to an unauthenticated caller',
@@ -490,7 +507,10 @@ export const FIXTURES = [
       inBody.x402Version = 2;
       return response({ v1: inBody, v2: v2Envelope(), url: RESOURCE_URL });
     },
-    expect: { grade: 'F', codes: ['VERSION_BODY_SAYS_V2', 'V1_VERSION'] },
+    // One finding about one fault. The body says 2, so it is not a v1 attempt
+    // and the v1 cascade does not run over it — see 'the v2 envelope echoed
+    // into the 402 body' above, which is the same correction from the other side.
+    expect: { grade: 'B', codes: ['VERSION_BODY_SAYS_V2', 'V1_ABSENT'] },
   },
   {
     name: 'no EIP-712 domain in `extra`',
@@ -505,7 +525,12 @@ export const FIXTURES = [
       delete v2.accepts[0].extra;
       return response({ v1, v2, url: RESOURCE_URL });
     },
-    expect: { grade: 'B', codes: ['V2_EXTRA_EIP712', 'V1_EXTRA_EIP712'] },
+    // AN ERROR NOW, NOT A WARN. @x402/evm throws at payment CREATION when
+    // extra.name or extra.version is absent — no payment is attempted at all —
+    // and the older clients this fixture's `why` describes signed a truncated
+    // domain instead. Either way nothing settles, which the ladder calls an
+    // error rather than "it works and costs you something".
+    expect: { grade: 'D', codes: ['V2_EXTRA_EIP712', 'V1_EXTRA_EIP712'] },
   },
   {
     name: 'a 401 instead of a 402',
@@ -523,7 +548,11 @@ export const FIXTURES = [
       'wired up at all" and graded F, which sends a seller whose endpoint is fine looking in ' +
       'the wrong place; the retry is one field.',
     response: () => response({ status: 405, headers: { allow: 'GET' } }),
-    expect: { grade: 'F', codes: ['HTTP_STATUS_402'] },
+    // NOT AN F. The linter chose the verb; a conformant GET-only endpoint must
+    // not be graded "does not work" because the guess was POST. The finding
+    // stays — the report still has to say what happened — and the fix text says
+    // to run it again with {"method": "GET"} before changing anything.
+    expect: { grade: 'D', codes: ['HTTP_STATUS_402'] },
   },
   {
     name: 'a 500 instead of a 402',
@@ -557,14 +586,21 @@ export const FIXTURES = [
   },
   {
     name: 'v1 outputSchema with discoverable at the wrong level',
-    why: 'the flag lives inside outputSchema.input; one level up is the commonest way to be quietly left out.',
+    why:
+      'the flag lives inside outputSchema.input, and one level up is ignored. Not the ' +
+      'catastrophe the old catalogue described: the reference extractor defaults discoverable ' +
+      'to TRUE when it is absent, so a misplaced flag is inert rather than disqualifying.',
     response: () => {
       const v1 = v1Envelope();
       delete v1.accepts[0].outputSchema.input.discoverable;
       v1.accepts[0].outputSchema.discoverable = true;
       return response({ v1, v2: v2Envelope(), url: RESOURCE_URL });
     },
-    expect: { grade: 'B', codes: ['V1_DISCOVERABLE'] },
+    // AN INFO, BECAUSE THE FLAG IS AN OPT-OUT. The reference v1-to-v2 discovery
+    // extractor defaults `discoverable` to true when absent, so a misplaced one
+    // costs nothing — it is a line of JSON doing nothing, which is worth saying
+    // once and worth no more than that.
+    expect: { grade: 'A', codes: ['V1_DISCOVERABLE'] },
   },
   {
     name: 'a JSON envelope served as text/html',
@@ -588,5 +624,196 @@ export const FIXTURES = [
       url: RESOURCE_URL,
     }),
     expect: { grade: 'F', codes: ['V2_HEADER_PRESENT', 'V1_BODY_JSON', 'ENVELOPE_PRESENT'] },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // The checks the accuracy audit added, and the ones whose verdict it
+  // reversed. Each is still one perfect envelope with one thing changed.
+  // ─────────────────────────────────────────────────────────────────────
+
+  {
+    name: 'maxTimeoutSeconds as the string "60"',
+    why:
+      'THE COERCION THAT BLESSED A BROKEN ENVELOPE. The old predicate was ' +
+      'Number.isFinite(Number(x)), which accepts "60", "  60  ", ["60"] and true. @x402/core ' +
+      'types the field z.number().positive() and applies no coercion, so a quoted timeout fails ' +
+      'the schema outright — and where it slips through, @x402/evm ADDS it to a timestamp, ' +
+      'which concatenates instead of adding and produces a validBefore in the year 60000.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.accepts[0].maxTimeoutSeconds = '60';
+      return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'F', codes: ['V2_MAX_TIMEOUT'] },
+  },
+  {
+    name: 'payTo as an array holding a valid address',
+    why:
+      'the type hole. String(entry.payTo || "") coerced ["0x…"] to "0x…" and the regex passed, ' +
+      'so an envelope no client can parse — both the zod schema and viem reject a non-string — ' +
+      'graded A. The shape check now demands a string before it demands a shape.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.accepts[0].payTo = [PAYTO];
+      return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'F', codes: ['V2_PAYTO', 'DUAL_PAYTO'] },
+  },
+  {
+    name: 'a v2 header padded with whitespace',
+    why:
+      'the client tests its base64 regex against the RAW header value and throws before ' +
+      'decoding, so a header with a leading space is discarded unread. This linter used to trim ' +
+      'first, which meant it validated a string the client never sees.',
+    response: () => response({ v1: v1Envelope(), v2Raw: ` ${b64(v2Envelope())} `, url: RESOURCE_URL }),
+    expect: { grade: 'F', codes: ['V2_B64_URLSAFE'] },
+  },
+  {
+    name: 'a price below CDP’s indexing floor',
+    why:
+      'a tenth of CDP’s $0.001 minimum. Perfectly legal x402 and perfectly payable — nothing in ' +
+      'the protocol sets a floor — and un-indexable, because the validator marks the amount ' +
+      'check required with an expectation of >= 1000 atomic units. Exactly the shape the two ' +
+      'verdicts exist for.',
+    response: () => {
+      const v1 = v1Envelope();
+      const v2 = v2Envelope();
+      v1.accepts[0].maxAmountRequired = '100';
+      v2.accepts[0].amount = '100';
+      return response({ v1, v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: ['V2_AMOUNT_MINIMUM'], bazaar_ready: false },
+  },
+  {
+    name: 'a chain outside CDP’s facilitator set',
+    why:
+      'Ethereum mainnet. Valid CAIP-2, valid envelope, settleable by a self-hosted facilitator ' +
+      '— and not one of the chains CDP settles, so the listing will not happen. A warn in the ' +
+      'bazaar regime: it costs the seller something real without being a defect in the 402.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.accepts[0].network = 'eip155:1';
+      return response({ v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: ['V2_NETWORK_SUPPORTED', 'V1_ABSENT'], bazaar_ready: true },
+  },
+  {
+    name: 'resource.url served over http',
+    why:
+      'CDP marks url_https a REQUIRED preflight, so an http resource.url is not indexed at all. ' +
+      'The payment path does not read the field — it copies it into the payload the buyer sends ' +
+      '— so this costs the listing rather than the money, and the two checks now say so separately.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.resource.url = 'http://example.com/api/thing';
+      return response({ v2, url: 'http://example.com/api/thing' });
+    },
+    expect: { grade: 'A', codes: ['V2_RESOURCE_URL', 'V1_ABSENT'], bazaar_ready: false },
+  },
+  {
+    name: 'a serviceName past the 32-character cap',
+    why:
+      'the facilitator SOFT-DROPS a serviceName that fails its rule rather than rejecting the ' +
+      'envelope, so the seller gets the bare-URL listing they were trying to avoid and nothing ' +
+      'tells them why. Absence is silent — the field is optional and purely additive — but a ' +
+      'value that will be thrown away is worth a word.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.resource.serviceName = 'An Example Service With A Name Far Too Long To Survive Extraction';
+      return response({ v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: ['V2_SERVICE_NAME', 'V1_ABSENT'], bazaar_ready: true },
+  },
+  {
+    name: 'a bazaar input with no `type` discriminator',
+    why:
+      'x402#3045’s fourth production bug. `type` is what a facilitator reads FIRST, to decide ' +
+      'which of the three input shapes applies; without it the block is uninterpretable. The ' +
+      'old catalogue checked that info.input was an object and nothing else, so this passed.',
+    response: () => {
+      const v2 = v2Envelope();
+      delete v2.extensions.bazaar.info.input.type;
+      return response({ v2, url: RESOURCE_URL });
+    },
+    // V2_BAZAAR_INFO_VALIDATES fires too, and honestly: the seller's own schema
+    // lists `type` in required, so their own pair no longer agrees either.
+    expect: {
+      grade: 'A',
+      codes: ['V2_BAZAAR_INPUT_TYPE', 'V2_BAZAAR_INFO_VALIDATES', 'V1_ABSENT'],
+      bazaar_ready: false,
+    },
+  },
+  {
+    name: 'a bazaar input.method that is not the verb we probed',
+    why:
+      'CDP probes the URL and compares the method it used against the one you declared, and ' +
+      'marks that comparison required. A resource that answers POST while advertising PUT is ' +
+      'not catalogued, and every agent that finds the listing calls it wrong on the first try.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.resource.method = 'PUT';
+      v2.extensions.bazaar.info.input.method = 'PUT';
+      v2.extensions.bazaar.schema.properties.input.properties.method.const = 'PUT';
+      return response({ v2, url: RESOURCE_URL, method: 'POST' });
+    },
+    expect: { grade: 'A', codes: ['V2_BAZAAR_INPUT_METHOD', 'V1_ABSENT'], bazaar_ready: false },
+  },
+  {
+    name: 'a bazaar schema behind an external $ref',
+    why:
+      'x402#3045’s FIFTH production bug, and the one that was invisible here. bazaar.md says ' +
+      '$ref and $id must be same-document fragments and that a facilitator MUST NOT resolve an ' +
+      'external one — so a schema depending on a fetched document is a schema nothing that ' +
+      'catalogues can validate. The old json-schema subset SKIPPED an unresolvable $ref, which ' +
+      'meant `info` was declared valid against a schema half of which had never been read.',
+    response: () => {
+      const v2 = v2Envelope();
+      v2.extensions.bazaar.schema = {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: { input: { $ref: 'https://internal.example.com/bazaar-input.json' } },
+        required: ['input'],
+      };
+      return response({ v2, url: RESOURCE_URL });
+    },
+    expect: {
+      grade: 'A',
+      codes: ['V2_BAZAAR_SCHEMA_CONTENT', 'V2_BAZAAR_INFO_VALIDATES', 'V1_ABSENT'],
+      bazaar_ready: false,
+    },
+  },
+  {
+    name: 'a v1 envelope offering a scheme other than `exact`',
+    why:
+      'v2 left the scheme field open on purpose; v1 never did. x402@1.2.0 types it ' +
+      'z.enum(["exact"]) and x402-fetch runs EVERY accepts entry through that schema, so a ' +
+      '"upto" entry is a ZodError that fails the whole envelope rather than one skipped offer.',
+    response: () => {
+      const v1 = v1Envelope();
+      v1.accepts[0].scheme = 'upto';
+      return response({ v1, url: RESOURCE_URL });
+    },
+    expect: { grade: 'D', codes: ['V1_SCHEME_KNOWN', 'V2_HEADER_PRESENT'] },
+  },
+  {
+    name: 'the same two offers, listed in a different order in each envelope',
+    why:
+      'THE FALSE F ON A CORRECT ENVELOPE. Comparing v1 accepts[0] with v2 accepts[0] graded ' +
+      'this seller F on payTo, price, chain and asset at once — four core errors for an ' +
+      'ordering neither specification says anything about. Offers are matched on (chain, ' +
+      'asset) before anything is compared.',
+    response: () => {
+      const v1 = v1Envelope();
+      const v2 = v2Envelope();
+      const v1Second = v1Accept();
+      v1Second.network = 'polygon';
+      const v2Second = v2Accept();
+      v2Second.network = 'eip155:137';
+      // base first in v1, polygon first in v2 — the same two offers, reversed.
+      v1.accepts = [v1.accepts[0], v1Second];
+      v2.accepts = [v2Second, v2.accepts[0]];
+      return response({ v1, v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: [] },
   },
 ];

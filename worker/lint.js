@@ -291,7 +291,7 @@ const PAYMENT_REQUIRED_HEADER = 'payment-required';
  * telling the reader anything new: whatever is wrong with the ninth is almost
  * certainly what was already reported about the first.
  */
-const MAX_ACCEPTS_LINTED = 8;
+export const MAX_ACCEPTS_LINTED = 8;
 
 /** How many findings a report may carry before the rest are suppressed. */
 const MAX_FINDINGS = 200;
@@ -1194,8 +1194,14 @@ export function grade(findings) {
  * not flip the answer.
  */
 export function bazaarReady(findings, { v2Published }) {
-  if (!v2Published) return { bazaar_ready: 'n/a', blockers: [] };
   const blockers = findings.filter((f) => regimeOf(f.code) === 'bazaar' && f.severity === 'error');
+  // 'n/a' RATHER THAN false FOR A v1-ONLY ENDPOINT, because CDP's requirements
+  // are a v2 shape and answering `false` would read as a list of things that
+  // are wrong with a v2 envelope this seller never published. The blockers are
+  // still named, and V2_HEADER_PRESENT is the first of them — which is the
+  // honest form of the answer: not applicable, and here is what would make it
+  // applicable.
+  if (!v2Published) return { bazaar_ready: 'n/a', blockers: [...new Set(blockers.map((f) => f.code))] };
   return {
     bazaar_ready: blockers.length === 0,
     // De-duplicated: one code can be reported for several accepts entries, and
@@ -2743,8 +2749,59 @@ function lintDualStack(report, v1, v2) {
   const { pairs, unmatched } = pairOffers(v1Accepts, v2Accepts);
 
   if (!pairs.length) {
-    // Nothing lines up. Saying "these disagree" would be a claim about entries
-    // this linter never managed to put side by side.
+    // ONE OFFER ON EACH SIDE THAT DO NOT MATCH IS NOT AN AMBIGUITY. There is
+    // nothing to pair it WITH: the seller described one offer twice and the two
+    // descriptions disagree, which is the original DUAL_NETWORK/DUAL_ASSET case
+    // and stays a core error. The unverifiable answer below is for the case it
+    // was invented for — several offers on each side that happen not to line
+    // up, where this linter genuinely cannot tell which was meant to match which.
+    if (v1Accepts.length === 1 && v2Accepts.length === 1) {
+      const [a] = v1Accepts;
+      const [b] = v2Accepts;
+      const chain1 = chainOf(a.network);
+      const chain2 = chainOf(b.network);
+      const pair = `the v1 envelope is on ${clip(a.network ?? '(nothing)')} and the v2 envelope on ${clip(b.network ?? '(nothing)')}`;
+      if (chain1 !== null && chain2 !== null && chain1 !== chain2) {
+        report.check(
+          'DUAL_NETWORK',
+          false,
+          `${pair} — chains ${clip(chain1)} and ${clip(chain2)}.`,
+          'The two envelopes must name the SAME chain in each version\'s spelling — "base" in ' +
+            'v1, "eip155:8453" in v2. A genuine chain difference means a payment signed on one ' +
+            'chain is worthless on the other, and only one of your two buyer generations is ' +
+            'being quoted the terms you meant.'
+        );
+      } else if (chain1 === null || chain2 === null) {
+        // A chain this linter has no mapping for. It declines to assert a
+        // mismatch it cannot verify, and says which half it could not resolve.
+        report.check(
+          'DUAL_NETWORK',
+          false,
+          `${pair} — this linter does not recognise ${chain1 === null ? 'the v1 name' : 'the v2 identifier'}, ` +
+            'so it could not verify that the two name the same chain.',
+          'Check by hand that the two spellings are the same chain — the v1 plain name and the ' +
+            'v2 CAIP-2 id, e.g. "arbitrum" and "eip155:42161". This linter maps only the chains ' +
+            'that have a spelling in both generations, so an unrecognised pair is reported as ' +
+            'unverified rather than as wrong. If they DO disagree, a payment signed on one chain ' +
+            'is worthless on the other.',
+          'info',
+          false
+        );
+      }
+      report.check(
+        'DUAL_ASSET',
+        !(chain1 !== null && chain1 === chain2),
+        `on ${clip(chain1 ?? a.network)} the v1 envelope wants ${clip(a.asset ?? '(nothing)')} and ` +
+          `the v2 envelope wants ${clip(b.asset ?? '(nothing)')}.`,
+        'Name one token contract in both envelopes. Different assets means the two versions are ' +
+          'selling for different money, and a buyer who signs for the wrong one has paid you in ' +
+          'something you did not quote.'
+      );
+      return;
+    }
+
+    // Several offers a side, and none of them line up. Saying "these disagree"
+    // would be a claim about entries this linter never managed to put side by side.
     report.check(
       'DUAL_NETWORK',
       false,
