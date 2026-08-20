@@ -105,7 +105,7 @@ routes = [
 # Base to anyone running the ledger queries in README § Reading the ledger.
 # Comma-separated; compared lowercased. UNSET means every payer reads as a third
 # party, which fails towards TOO LOUD — the right direction for a revenue alert.
-HOUSE_PAYERS = ""
+HOUSE_PAYERS = "0x632ff2f904cc6ab6d741a42014c4c483f328e92f"
 
 # ------------------------------------------------------------------ alerts
 #
@@ -147,4 +147,4 @@ binding = "DB"
 database_name = "tenx402"
 # Placeholder — local dev only. REPLACE at deploy with the id printed by
 # `wrangler d1 create tenx402`.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "421ff9ba-98ff-418a-a6ba-a4d54719e744"
