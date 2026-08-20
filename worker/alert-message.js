@@ -42,7 +42,12 @@ export const ALERT_FROM = 'alerts@lemon-agent.dev';
 const ALERT_FROM_NAME = '10x402';
 
 /**
- * Atomic USDC (6 decimals) rendered as money: "10000" → "$0.01".
+ * Atomic USDC (6 decimals) rendered as money: "100000" → "$0.10".
+ *
+ * NEVER SHORTER THAN CENTS. Trailing zeros go, but not past two decimals: a
+ * revenue alert reading "$0.1" next to one reading "$0.02" is a 10x misread in
+ * the single message whose whole job is telling a human what moved. Sub-cent
+ * amounts keep the digits they need ("5000" → "$0.005").
  *
  * Anything that is not a run of digits is passed through labelled rather than
  * coerced — a NaN in a revenue alert is worse than an ugly one.
@@ -52,8 +57,8 @@ export function formatUsdc(atomic) {
   if (!/^\d+$/.test(raw)) return `${raw || 'unknown'} (atomic)`;
   const padded = raw.padStart(USDC_DECIMALS + 1, '0');
   const whole = padded.slice(0, -USDC_DECIMALS);
-  const frac = padded.slice(-USDC_DECIMALS).replace(/0+$/, '');
-  return `$${whole}${frac ? `.${frac}` : ''}`;
+  const frac = padded.slice(-USDC_DECIMALS).replace(/0+$/, '').padEnd(2, '0');
+  return `$${whole}.${frac}`;
 }
 
 /**
