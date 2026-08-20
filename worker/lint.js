@@ -397,7 +397,7 @@ export const CHECKS = [
   { id: 'HTTP_REDIRECT', area: 'http', severity: 'warn', regime: 'payment',
     summary: 'the 402 is not behind a redirect',
     sources: [
-      client('@x402/fetch@2.23.0 dist/esm/index.mjs — plain fetch(), so redirects ARE followed'),
+      client('@x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, i.e. the default redirect mode, so redirects ARE followed'),
       spec('RFC 9110 § 15.4.3 — 301/302 rewrite POST to GET; 307/308 do not'),
       validator('cdp-validator-toolshed.json preflight[0] url_valid — the ADVERTISED url is what is probed'),
     ] },
@@ -405,7 +405,7 @@ export const CHECKS = [
     summary: 'the v1 envelope body is served as JSON',
     sources: [
       spec('specs/transports-v1/http.md § Payment Required Signaling (Content-Type: application/json)'),
-      client('@x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs processResponse — parses the body only when content-type says JSON'),
+      client('@x402/core@2.23.0 dist/esm/chunk-BA2VL4DT.mjs:2163 — processResponse parses the body only when content-type includes application/json'),
       house('x402-fetch@1.2.0 dist/esm/index.mjs:22 does NOT branch on content-type, so this costs some client paths and not the main v1 one — hence warn'),
     ] },
   { id: 'ENVELOPE_PRESENT', area: 'http', severity: 'error', core: true, regime: 'payment',
@@ -527,7 +527,7 @@ export const CHECKS = [
     sources: [
       spec('specs/x402-specification-v2.md:128 § 5.1.2 — "Recipient wallet address or role constant (e.g., \\"merchant\\")"'),
       spec('specs/schemes/exact/scheme_exact_svm.md:53-68 — a base58 payTo on solana:*'),
-      client('@x402/evm@2.23.0 dist/cjs/index.js:568-569 — getAddress() on an eip155 entry throws on a non-address'),
+      client('@x402/evm@2.23.0 dist/cjs/index.js:537 — `to: getAddress(paymentRequirements.payTo)`; viem throws on a non-address'),
       client(`${CORE_SCHEMAS}:106 — payTo: NonEmptyString, i.e. the shape rule is the scheme’s, not the envelope’s`),
     ] },
   { id: 'V2_ASSET', area: 'v2', severity: 'error', core: true, regime: 'payment',
@@ -848,7 +848,7 @@ export const CHECKS = [
     summary: 'extra carries the EIP-712 domain the v1 client signs over (EVM networks only)',
     sources: [
       spec('specs/schemes/exact/scheme_exact_evm.md:72-73 — extra.name and extra.version required for eip3009'),
-      client('x402@1.2.0 dist/esm/chunk-EJI6X7BV.mjs:65-76 — signAuthorization reads extra?.name / extra?.version with no fallback'),
+      client('x402@1.2.0 dist/esm/chunk-EJI6X7BV.mjs:65-76 — signAuthorization reads extra?.name and extra?.version straight into the typed-data domain, with no fallback'),
       house('the reference facilitator recomputes the domain from its own table, so the mismatch surfaces only as invalid_exact_evm_payload_signature'),
       spec('specs/x402-specification-v1.md:261 — v1 Solana exact uses TransferChecked, which has no EIP-712 domain'),
     ] },
@@ -867,7 +867,11 @@ export const CHECKS = [
   { id: 'V1_DISCOVERABLE', area: 'v1', severity: 'info', regime: 'bazaar',
     summary: 'outputSchema.input.discoverable is an opt-OUT — absence means indexed',
     sources: [
-      client('x402-foundation/x402 go/extensions/v1/facilitator.go:107-117 — "Check if discoverable (default to true if not specified)"'),
+      // Quoted from the file rather than cited by line: this repository holds a
+      // sparse clone of specs/ only, so the line numbers were not verifiable
+      // here and the comment was. `discoverable := true` before the lookup is
+      // the whole of the rule.
+      client('x402-foundation/x402 go/extensions/v1/facilitator.go (main, read 2026-08-19) — "// Check if discoverable (default to true if not specified)" followed by `discoverable := true`, then an override only when the key is present'),
       live('worker/positive-control.js — a live indexed seller nests the flag under outputSchema.input'),
       cdpDocs('https://docs.cdp.coinbase.com/x402/bazaar — v1 discovery data reads input.discoverable'),
     ] },
@@ -897,7 +901,7 @@ export const CHECKS = [
     summary: 'the two envelopes offer overlapping chains',
     sources: [
       house('worker/lint.js — a payment signed on one chain is worthless on the other'),
-      client(`${V1_CLIENT_SCHEMAS}:52+ — the client’s own EvmNetworkToChainId map is the two spellings of one chain`),
+      client(`${V1_CLIENT_SCHEMAS}:52-70 — the client’s own EvmNetworkToChainId map, which is the two spellings of one chain`),
     ] },
   { id: 'DUAL_ASSET', area: 'dual', severity: 'error', core: true, regime: 'payment',
     summary: 'matched offers name the same asset',
@@ -914,8 +918,8 @@ export const CHECKS = [
     summary: 'the PAYMENT-REQUIRED header does not carry a v1 payload',
     sources: [
       spec(V2_TRANSPORT),
-      client(`${CORE_SCHEMAS}:124-127 — PaymentRequired is a discriminatedUnion on x402Version, so a v1 payload in the header is legally parsed AS v1`),
-      client('@x402/core@2.23.0 dist/esm/client/index.mjs:219 — dispatch is on the payload’s version, and a v1 client answers with X-PAYMENT while a v2 server reads PAYMENT-SIGNATURE'),
+      client(`${CORE_SCHEMAS}:128-131 — PaymentRequired is a discriminatedUnion on x402Version, so a v1 payload in the header is legally parsed AS v1`),
+      client('@x402/core@2.23.0 dist/esm/client/index.mjs:219 — registeredClientSchemes.get(paymentRequired.x402Version): dispatch is on the PAYLOAD’s version, and a v1 client answers with X-PAYMENT while a v2 server reads PAYMENT-SIGNATURE'),
     ] },
   // NOT CORE, AND CONDITIONAL. A v2 client reads the header first and consults
   // the body only when there is none, so a seller who mirrors their v2 envelope
