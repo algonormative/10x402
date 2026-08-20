@@ -1197,8 +1197,18 @@ export function grade(findings) {
  * facilitator set, an over-long serviceName that will be soft-dropped — costs
  * the seller something without stopping the listing, so it is reported and does
  * not flip the answer.
+ *
+ * `registryReadable` IS THE DIFFERENCE BETWEEN "NOTHING IS WRONG" AND "NOTHING
+ * WAS LOOKED AT". The registry checks read a decoded v2 envelope's ResourceInfo
+ * object; where there is no such object — the header did not decode, or
+ * `resource` arrived as the v1 flat string — not one of them ran, and the
+ * absence of a blocker is the absence of an inspection rather than a clean
+ * bill. Returning `true` there told a seller whose envelope no indexer can read
+ * that they were indexable. The corpus fixture v2-resource-flat-string is the
+ * case that caught it. It joins the v1-only case under `n/a` for the same
+ * reason: not a failure, a question this response cannot answer.
  */
-export function bazaarReady(findings, { v2Published }) {
+export function bazaarReady(findings, { v2Published, registryReadable = true }) {
   const blockers = findings.filter((f) => regimeOf(f.code) === 'bazaar' && f.severity === 'error');
   // 'n/a' RATHER THAN false FOR A v1-ONLY ENDPOINT, because CDP's requirements
   // are a v2 shape and answering `false` would read as a list of things that
@@ -1206,7 +1216,9 @@ export function bazaarReady(findings, { v2Published }) {
   // still named, and V2_HEADER_PRESENT is the first of them — which is the
   // honest form of the answer: not applicable, and here is what would make it
   // applicable.
-  if (!v2Published) return { bazaar_ready: 'n/a', blockers: [...new Set(blockers.map((f) => f.code))] };
+  if (!v2Published || !registryReadable) {
+    return { bazaar_ready: 'n/a', blockers: [...new Set(blockers.map((f) => f.code))] };
+  }
   return {
     bazaar_ready: blockers.length === 0,
     // De-duplicated: one code can be reported for several accepts entries, and
@@ -1623,7 +1635,19 @@ function lintV2Accept(report, accept, accepts) {
       );
       // CDP'S FLOOR, NOT THE PROTOCOL'S. Nothing stops a seller charging a
       // hundredth of a cent; CDP will not index them if they do.
-      if (atomic) {
+      //
+      // AND ONLY ON A CHAIN CDP SETTLES. The floor is 1000 atomic units of a
+      // 6-decimal stablecoin — a statement about USDC on the eight chains in
+      // CDP_FACILITATOR_CHAINS and about nothing else. Applied everywhere, it
+      // charged the Cloudflare batch-settlement profile — whose spec-defined
+      // 402 is `network: "cloudflare:402"`, `asset: "USD"`, `amount: "1"`, one
+      // cent in ISO 4217 — with being a thousandth of a USDC too cheap for an
+      // index that does not carry that network at all. A provider's
+      // observation silently becoming a requirement outside the provider's own
+      // domain is the exact failure the `sources` labelling exists to make
+      // visible, and it was here. V2_NETWORK_SUPPORTED already says the chain
+      // is outside CDP's set; once it has, this check has nothing to add.
+      if (atomic && CDP_FACILITATOR_CHAINS.has(entry.network)) {
         report.check(
           'V2_AMOUNT_MINIMUM',
           BigInt(entry.amount) >= CDP_MIN_AMOUNT_ATOMIC,
@@ -3107,7 +3131,15 @@ function runLint(response) {
   // CAN THIS BE INDEXED — the second verdict, and the one the grade cannot
   // carry. 'n/a' for a v1-only endpoint: CDP's requirements are a v2 shape, and
   // answering false would read as a failure rather than as a different question.
-  Object.assign(summary, bazaarReady(report.findings, { v2Published: v2 !== null }));
+  Object.assign(
+    summary,
+    bazaarReady(report.findings, {
+      v2Published: v2 !== null,
+      // The registry checks read the ResourceInfo OBJECT. No object, no
+      // inspection — and an uninspected envelope must not come back "indexable".
+      registryReadable: v2 !== null && isObject(v2.resource),
+    })
+  );
 
   // --- what this report did not cover -----------------------------------
   //
