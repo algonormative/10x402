@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chronick/10x402/corpus/schema/fixtures.schema.json",
+  "title": "x402 portable conformance corpus — fixtures document",
+  "description": "The shape of corpus/fixtures.json. This schema is deliberately restricted to the JSON Schema subset that worker/json-schema.js implements — type, const, enum, required, properties, additionalProperties, items, minLength, maxLength, minimum, maximum, minItems, maxItems, pattern, anyOf, oneOf, allOf, not, and same-document $ref — because the conformance runner that reads it (corpus/validate-results.mjs) uses that validator and nothing else. Keywords outside the subset would be silently ignored, which is the one failure mode a conformance artefact must not have: a check that reads as enforced and is not. Every invariant this file cannot express is enforced instead as an explicit programmatic check in corpus/validate-results.mjs, and each of those is named in the description of the field it governs so that a reader of the schema alone is never left believing the schema is the whole contract.",
+  "type": "object",
+  "required": [
+    "corpus_version",
+    "name",
+    "description",
+    "generated",
+    "schema",
+    "pins",
+    "dimensions",
+    "verdicts",
+    "na_kinds",
+    "client_interop_levels",
+    "evidence_kinds",
+    "reason_tags",
+    "fixtures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "corpus_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The tag list and the dimension contract are versioned together with the fixtures, because an expectation written against an older meaning of a tag is no longer the same claim. A results file states the version it was produced against and validate-results.mjs refuses a mismatch rather than comparing two different corpora to each other."
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "generated": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date the corpus was stamped, ISO 8601 date only. `format: date` is not in the supported subset, so the shape is asserted with a pattern instead; a pattern cannot reject 2026-13-45 and no consumer here depends on it doing so."
+    },
+    "schema": {
+      "type": "object",
+      "description": "Where the machine-readable contracts live, so a third implementation can find them from the corpus itself rather than from prose.",
+      "required": ["fixtures", "results", "conformance"],
+      "additionalProperties": { "type": "string" },
+      "properties": {
+        "fixtures": { "type": "string", "minLength": 1 },
+        "results": { "type": "string", "minLength": 1 },
+        "conformance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "description": "Everything whose bytes can change an answer, pinned. The block is deliberately heterogeneous — an engine is pinned by git blob hash, a package by version and registry integrity, a specification by commit — so the schema requires the four entries a reader needs to reproduce a run and admits further entries as objects rather than pretending to know their shape.",
+      "required": ["10x402", "packages", "x402-foundation/x402", "x402-doctor-prototype"],
+      "additionalProperties": { "type": "object" },
+      "properties": {
+        "10x402": {
+          "type": "object",
+          "description": "The engine under test. `commit` is informational — the repository HEAD moves and the HEAD a corpus was cut at is not in general the HEAD carrying the adapter that reads it — so the authority is `blobs`, which is content-addressed and re-checked before the adapter runs.",
+          "required": ["repo", "commit", "blobs"],
+          "properties": {
+            "repo": { "type": "string", "minLength": 1 },
+            "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "commit_is": { "type": "string" },
+            "blobs": {
+              "type": "object",
+              "description": "path -> git blob hash, for every file whose bytes can change a verdict.",
+              "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+            },
+            "note": { "type": "string" }
+          }
+        },
+        "packages": {
+          "type": "object",
+          "description": "The authoritative package table. A client-code citation is meaningless without a version and weak without an integrity hash: a version names a release, the integrity hash names the bytes.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["version", "integrity"],
+            "properties": {
+              "version": { "type": "string", "minLength": 1 },
+              "integrity": { "type": "string", "pattern": "^sha(256|512)-" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "x402-foundation/x402": {
+          "type": "object",
+          "description": "The specification tree every `spec` evidence ref is a path into.",
+          "required": ["repo", "commit"],
+          "properties": {
+            "repo": { "type": "string", "minLength": 1 },
+            "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "resolved": { "type": "string" },
+            "note": { "type": "string" }
+          }
+        },
+        "x402-doctor-prototype": {
+          "type": "object",
+          "required": ["repo", "commit"],
+          "properties": {
+            "repo": { "type": "string", "minLength": 1 },
+            "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "paths": { "type": "array", "items": { "type": "string" } },
+            "license": { "type": "string" },
+            "dependency": { "type": "string" },
+            "note": { "type": "string" }
+          }
+        }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "The three questions, published as prose inside the corpus so that a fixture's verdicts can be read without the FORMAT.md next to them.",
+      "required": ["payment", "client_interop", "discovery"],
+      "additionalProperties": false,
+      "properties": {
+        "payment": { "type": "string", "minLength": 1 },
+        "client_interop": { "type": "string", "minLength": 1 },
+        "discovery": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verdicts": {
+      "type": "object",
+      "description": "All four verdicts are defined here, including `not-evaluated`, which a RESULTS file may carry and an expectation may not. The asymmetry is enforced by the `verdict` enums below, which admit three values in an expectation and four in a result.",
+      "required": ["pass", "fail", "n/a", "not-evaluated"],
+      "additionalProperties": false,
+      "properties": {
+        "pass": { "type": "string", "minLength": 1 },
+        "fail": { "type": "string", "minLength": 1 },
+        "n/a": { "type": "string", "minLength": 1 },
+        "not-evaluated": { "type": "string", "minLength": 1 }
+      }
+    },
+    "na_kinds": {
+      "type": "object",
+      "description": "Two reasons a dimension can be `n/a`, and they are not interchangeable: `question-does-not-arise` is a complete recording the question does not apply to, while `scope` is a recording that cannot support any answer at all and is therefore excluded from the agreement statistics rather than counted as an agreement.",
+      "required": ["question-does-not-arise", "scope"],
+      "additionalProperties": false,
+      "properties": {
+        "question-does-not-arise": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "client_interop_levels": {
+      "type": "object",
+      "required": ["parse", "execute"],
+      "additionalProperties": false,
+      "properties": {
+        "parse": { "type": "string", "minLength": 1 },
+        "execute": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence_kinds": {
+      "type": "object",
+      "description": "What each citation kind is worth. Only `spec` may fail `payment` and only `client-code` may fail `client_interop`; the rest are observations, and a finding resting on nothing else decides nothing. That rule is applied by the adapters rather than by this schema, which can only assert that the vocabulary of kinds is the published one.",
+      "required": [
+        "spec",
+        "client-code",
+        "cdp-validator",
+        "cdp-docs",
+        "field-report",
+        "provider-observation",
+        "house-opinion"
+      ],
+      "additionalProperties": { "type": "string" }
+    },
+    "reason_tags": {
+      "type": "object",
+      "description": "tag -> one sentence of meaning, for every tag in the controlled vocabulary. That this key set is exactly the vocabulary exported by corpus/vocabulary.mjs is checked programmatically in validate-results.mjs: `required` cannot be generated from another file, and a corpus publishing a tag table that has drifted from the module every adapter imports would silently mean two different things by the same tag.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Uniqueness of `id` across this array is NOT asserted here: `uniqueItems` is outside the supported subset and would not express it anyway, since it compares whole items. validate-results.mjs checks it directly.",
+      "items": { "$ref": "#/$defs/fixture" }
+    }
+  },
+
+  "$defs": {
+    "dimension_name": {
+      "type": "string",
+      "enum": ["payment", "client_interop", "discovery"]
+    },
+
+    "reason_tag": {
+      "type": "string",
+      "description": "Any tag in the controlled vocabulary, observational ones included. This enum is checked against TAGS in corpus/vocabulary.mjs by validate-results.mjs, because a JSON file cannot import from a module and a stale copy of a vocabulary is worse than no copy.",
+      "enum": [
+        "status-not-402",
+        "server-error",
+        "redirect",
+        "free-tier-200",
+        "content-type",
+        "envelope-absent",
+        "b64-urlsafe",
+        "b64-undecodable",
+        "envelope-not-json",
+        "wrong-version-field",
+        "version-crosstalk",
+        "missing-required-field",
+        "network-form",
+        "network-unknown",
+        "network-unsupported-by-provider",
+        "amount-form",
+        "amount-below-provider-floor",
+        "payee-form",
+        "asset-form",
+        "timeout-form",
+        "missing-eip712-extra",
+        "scheme-unknown",
+        "resource-shape",
+        "resource-url",
+        "dual-divergence",
+        "bazaar-extension-absent",
+        "bazaar-info-schema-mismatch",
+        "bazaar-schema-unresolvable",
+        "bazaar-input-shape",
+        "bazaar-input-method",
+        "bazaar-output-shape",
+        "bazaar-output-example",
+        "discovery-metadata",
+        "legacy-v1-header-names",
+        "declaration-integrity",
+        "extension-responses",
+        "truncated"
+      ]
+    },
+
+    "fatal_reason_tag": {
+      "type": "string",
+      "description": "The subset a verdict may rest on — the tags whose underlying checks can reach error severity. An observational tag names something a tool noticed and never something that decides a dimension, so it may appear in a result's `observed_tags` and never in `reason_tags`. Keeping the subset as its own enum means the schema rejects `redirect` as a reason without needing a conditional, which is the one place this subset of JSON Schema pays for itself.",
+      "enum": [
+        "status-not-402",
+        "server-error",
+        "envelope-absent",
+        "b64-urlsafe",
+        "b64-undecodable",
+        "envelope-not-json",
+        "wrong-version-field",
+        "version-crosstalk",
+        "missing-required-field",
+        "network-form",
+        "network-unknown",
+        "amount-form",
+        "amount-below-provider-floor",
+        "payee-form",
+        "asset-form",
+        "timeout-form",
+        "missing-eip712-extra",
+        "scheme-unknown",
+        "resource-shape",
+        "resource-url",
+        "dual-divergence",
+        "bazaar-extension-absent",
+        "bazaar-info-schema-mismatch",
+        "bazaar-schema-unresolvable",
+        "bazaar-input-shape",
+        "bazaar-input-method",
+        "discovery-metadata",
+        "declaration-integrity"
+      ]
+    },
+
+    "expectation": {
+      "type": "object",
+      "description": "One dimension's expected answer. Three cross-field rules govern it and none of them is expressible here — a `fail` carries at least one reason, a `pass` or `n/a` carries none, and an `n/a` carries an `na_kind` — because this subset has no if/then/else and encoding them through anyOf would reduce every violation to the message 'matches none of the 2 anyOf alternatives', which tells a seller nothing about which rule they broke. validate-results.mjs enforces all three and names the fixture, the dimension and the rule.",
+      "required": ["verdict", "reason_tags"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "description": "An EXPECTATION may not be `not-evaluated`. That verdict says a tool declined to run a rule, which is a fact about a tool and never about a fixture.",
+          "enum": ["pass", "fail", "n/a"]
+        },
+        "reason_tags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fatal_reason_tag" }
+        },
+        "na_kind": {
+          "type": "string",
+          "enum": ["question-does-not-arise", "scope"]
+        }
+      }
+    },
+
+    "client_interop_expectation": {
+      "type": "object",
+      "description": "As `expectation`, plus the strength of the claim. `parse` is what a schema citation can support: the cited client's decoder accepts or rejects the declaration. `execute` is the stronger claim — the client also selects the offer, signs it and issues the payment — and it requires a citation into a signer or a payment path, which the builder guards and validate-results.mjs does not re-derive because it deliberately imports nothing that knows about signers.",
+      "required": ["verdict", "reason_tags", "claim_level"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["pass", "fail", "n/a"] },
+        "reason_tags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fatal_reason_tag" }
+        },
+        "na_kind": {
+          "type": "string",
+          "enum": ["question-does-not-arise", "scope"]
+        },
+        "claim_level": { "type": "string", "enum": ["parse", "execute"] }
+      }
+    },
+
+    "fixture": {
+      "type": "object",
+      "required": ["id", "title", "response", "context", "judgeable", "expected", "evidence", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "kebab-case, and stable: a results file answers fixtures by id, so renaming one silently invalidates every published comparison that mentions it."
+        },
+        "title": { "type": "string", "minLength": 1 },
+
+        "response": {
+          "type": "object",
+          "description": "THE RECORDING, and the whole of what a tool is given. `headers` are PARSED FIELD VALUES rather than wire bytes, which is why a header carrying leading whitespace is a meaningful fixture: such a value reached the client by a path with no HTTP parser in it — a facilitator replaying a stored declaration, an SDK reading a cache, a pasted capture — and the fixture that carries one says so in `population`.",
+          "required": ["status", "headers", "body"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "headers": {
+              "type": "object",
+              "description": "Lower-cased field name -> parsed field value. Values are strings; a multi-valued field arrives already joined, as a client library would hand it over.",
+              "additionalProperties": { "type": "string" }
+            },
+            "body": {
+              "type": "string",
+              "description": "The body verbatim, as a string and never as parsed JSON. A fixture whose point is that the body does not parse has to be able to carry a body that does not parse."
+            }
+          }
+        },
+
+        "context": {
+          "type": "object",
+          "description": "What the recording was of, as opposed to what came back. Both fields are nullable rather than optional: a fixture that does not know the request URL states that it does not, so a tool cannot mistake an absent key for a key it failed to read.",
+          "required": ["method", "url"],
+          "additionalProperties": false,
+          "properties": {
+            "method": { "type": "string", "nullable": true },
+            "url": { "type": "string", "nullable": true }
+          }
+        },
+
+        "judgeable": {
+          "type": "object",
+          "description": "WHICH DIMENSIONS THIS RECORDING CAN SUPPORT AN ANSWER ON, computed from the response alone by judgeableFrom() in corpus/vocabulary.mjs and never hand-written. It is published so a third adapter reaches the same set from the file rather than from a convention, and validate-results.mjs recomputes it from `response` — a corpus that lies about its own scope is caught by the same run that checks the results against it.",
+          "required": ["payment", "client_interop", "discovery"],
+          "additionalProperties": false,
+          "properties": {
+            "payment": { "type": "boolean" },
+            "client_interop": { "type": "boolean" },
+            "discovery": { "type": "boolean" }
+          }
+        },
+
+        "expected": {
+          "type": "object",
+          "required": ["payment", "client_interop", "discovery"],
+          "additionalProperties": false,
+          "properties": {
+            "payment": { "$ref": "#/$defs/expectation" },
+            "client_interop": { "$ref": "#/$defs/client_interop_expectation" },
+            "discovery": { "$ref": "#/$defs/expectation" }
+          }
+        },
+
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Why the expectations are what they are. A fixture with no evidence is an assertion, and an assertion is not a corpus.",
+          "items": {
+            "type": "object",
+            "required": ["kind", "ref", "dimensions"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "spec",
+                  "client-code",
+                  "cdp-validator",
+                  "cdp-docs",
+                  "field-report",
+                  "provider-observation",
+                  "house-opinion"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A citation precise enough to check: a specification path and section, a package at a version with a file and line, a dated capture."
+              },
+              "dimensions": {
+                "type": "array",
+                "minItems": 1,
+                "description": "REQUIRED AND NON-EMPTY. Evidence is dimension-scoped so that a reader can mechanically ask what supports the client_interop verdict on this fixture and get an answer, rather than a fixture-wide array to read by eye. An uncited dimension is the mechanism by which a house opinion becomes a normative verdict, and requiring the scope is what makes that visible.",
+                "items": { "$ref": "#/$defs/dimension_name" }
+              }
+            }
+          }
+        },
+
+        "origin": {
+          "type": "object",
+          "description": "Where the fixture came from. `calibration` fixtures are known-good documents — a specification's own published example — kept in a corpus of broken ones precisely because both defects this corpus found in 10x402 were found by a calibration fixture rather than by a broken one.",
+          "required": ["kind", "ref"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "type": "string", "enum": ["calibration", "10x402-suite", "constructed"] },
+            "ref": { "type": "string", "minLength": 1 }
+          }
+        },
+
+        "calibration": {
+          "type": "string",
+          "description": "Present only on a fixture that is a control. `must-pass` is a document that any conformant tool must accept; `must-not-fail-payment` is weaker and says only that no NORMATIVE fault may be reported, which is the form the control takes where a scheme profile legitimately differs from the core table.",
+          "enum": ["must-pass", "must-not-fail-payment"]
+        },
+
+        "population": {
+          "type": "string",
+          "description": "Which population of endpoint a fixture is about, where that is narrower than 'anything served over HTTP'. `raw-input` scopes a fixture to declarations that reached a consumer without passing through an HTTP parser, so that a client-specific raw-input opinion is not read as a claim about the live web.",
+          "enum": ["raw-input"]
+        },
+
+        "discovery_target": {
+          "type": "object",
+          "description": "THE PROVIDER A DISCOVERY VERDICT IS ABOUT, structured rather than implied. The dimension is static declaration eligibility — is the registry-facing declaration present, schema-valid, and does it meet this provider's DOCUMENTED requirements as documented — and it is never a claim that anything was indexed, listed or crawled. That every non-`n/a` discovery verdict carries this block, with a provider and provider-kind evidence behind it, is a conditional requirement and therefore enforced programmatically rather than here.",
+          "required": ["provider", "provider_evidence", "observed", "claim", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string", "minLength": 1 },
+            "provider_evidence": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The capture or document the provider's requirement is read from, not the requirement restated."
+            },
+            "observed": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "description": "When the provider behaviour was observed. A provider requirement is a fact with a date on it, and a verdict resting on one that does not say when it was seen cannot be re-checked."
+            },
+            "claim": {
+              "type": "string",
+              "description": "Named so that a stronger claim cannot be smuggled in later without changing the vocabulary. Indexed, listed and crawled outcomes need a live adapter and are outside this corpus.",
+              "enum": ["static-declaration-eligibility"]
+            },
+            "basis": { "type": "string", "minLength": 1 }
+          }
+        },
+
+        "notes": {
+          "type": "string",
+          "description": "Prose for a human reader. Every fixture in the shipped corpus carries one, but the format does not require it: a third party assembling fixtures in this shape should not have a file rejected for saying nothing beyond what its evidence already says."
+        }
+      }
+    }
+  }
+}

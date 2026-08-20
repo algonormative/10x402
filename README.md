@@ -258,10 +258,12 @@ re-argued.
 ## The portable corpus, and a second implementation
 
 `corpus/` holds a **tool-neutral conformance corpus**: 34 recorded 402 responses,
-each with three independent expectations — can it be paid, will the cited clients
-parse it, will a registry index it — plus the evidence behind each one. Nothing in
+each with three independent expectations — can it be paid under the specification,
+will the cited clients parse and execute it, is its registry declaration eligible
+at a named provider — plus dimension-scoped evidence behind each one. Nothing in
 `corpus/fixtures.json` names a check id or a grade, so any implementation can run
-it by writing an adapter. Format spec: [`corpus/FORMAT.md`](corpus/FORMAT.md).
+it by writing an adapter. Format spec: [`corpus/FORMAT.md`](corpus/FORMAT.md);
+machine-readable shapes in `corpus/schema/`.
 
 It exists because of
 [x402-foundation/x402#3104](https://github.com/x402-foundation/x402/issues/3104),
@@ -270,16 +272,24 @@ failure modes independently. The corpus is the shared ground; the outcome is
 [`DISAGREEMENTS.md`](DISAGREEMENTS.md) — both implementations run over the same
 cases, with **no winner declared**.
 
-Two engine defects in 10x402 were found by running the other implementation over
-our own fixtures, both fixed and both written up there. The corpus's own test
-phase asserts that `corpus/run-10x402.mjs` reproduces every published expectation,
-so what this repo ships and what it claims cannot drift apart.
+Six defects in 10x402 were found this way and all six are written up there: two in
+the engine, by running the other implementation over our own fixtures, and four in
+the corpus itself, by a pre-publication accuracy review
+([`CORPUS-REVIEW.md`](CORPUS-REVIEW.md)) that found house rules and provider
+observations deciding dimensions the format reserves for the specification. Format
+v2 is the repair, and it is mostly a narrowing of what the corpus claims.
+
+The test phase asserts that `corpus/run-10x402.mjs` reproduces every published
+expectation, that regenerating the corpus produces the committed file byte for
+byte, and that the engine on disk is the engine the corpus pins — so what this
+repo ships and what it claims cannot drift apart.
 
 ```sh
-node corpus/build-fixtures.mjs        # regenerate corpus/fixtures.json
+node corpus/build-fixtures.mjs        # regenerate corpus/fixtures.json (deterministic)
 node corpus/run-10x402.mjs            # → corpus/results-10x402.json
 node corpus/run-x402-doctor.mjs       # clones the prototype to a temp dir
 node corpus/report-disagreements.mjs  # → DISAGREEMENTS.md
+node corpus/validate-results.mjs corpus/results-10x402.json   # third-adapter conformance test
 ```
 
 ## The x402 conformance checklist: 75 published checks

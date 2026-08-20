@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chronick/10x402/corpus/schema/results.schema.json",
+  "title": "x402 portable conformance corpus — results document",
+  "description": "The shape of a results file: one tool's answers to every fixture in corpus/fixtures.json. THIS SCHEMA IS WRITTEN FOR A THIRD TOOL, not for the two adapters that happen to ship in this repository, and the difference shows in what it does not require. It asks for the answers, the identification of what produced them, and an honest declaration of what was held back — and it asks nothing at all about the internals of `tool_detail`, because a third implementation's own report is its own business and a corpus that legislated its shape would be demanding that everybody model their findings the way this repository models its own. Restricted, like fixtures.schema.json, to the JSON Schema subset worker/json-schema.js implements; the cross-field rules it therefore cannot express are enforced programmatically by corpus/validate-results.mjs, which is the actual conformance test.",
+  "type": "object",
+  "required": ["tool", "corpus_version", "ran", "adapter", "partial_evaluation", "results"],
+  "additionalProperties": true,
+  "properties": {
+    "tool": {
+      "type": "object",
+      "description": "WHAT PRODUCED THESE ANSWERS. `name` is the only required key, and everything else here is free-form on purpose: how a tool is best identified differs by what it is. A repository pins by commit or by content hash, a published package pins by version and registry integrity, a hosted service can pin by nothing better than a build id and a date. Requiring one of those shapes would mean the others lie to satisfy it. What is not negotiable is that SOMETHING here lets a reader get back to the code, and the shipped adapters both go further than the schema asks — 10x402 publishes the git blob hash of every file whose bytes can change an answer, since a commit says where a tree was and a blob hash says what the bytes were.",
+      "required": ["name"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "corpus_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The corpus version these answers were produced against. validate-results.mjs refuses a mismatch outright rather than comparing across versions: the tag list and the dimension contract are versioned together with the fixtures, so an answer given under version 1 is not a smaller or older version of an answer given under version 2, it is an answer to a different question."
+    },
+
+    "ran": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}",
+      "description": "When the run happened. An ISO 8601 date, optionally carrying a time after it — the pattern is unanchored at the end so a full timestamp is admitted, since `format: date-time` is outside the supported subset and a tool that records the hour should not be punished for it."
+    },
+
+    "adapter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The thing that mapped this tool's own findings into the corpus vocabulary, named so a reader can go and read it. The mapping is where a comparison is most easily rigged, and an adapter nobody can see is a set of numbers nobody can check."
+    },
+
+    "partial_evaluation": {
+      "type": "object",
+      "description": "WHAT THIS RUN DID NOT DO, stated up front. It is required even when the answer is nothing, because the alternative is that silence covers two very different situations: a tool that ran every rule it has, and a tool whose registry-dependent rules could not run offline and quietly returned a pass. `rules_held_back` names the second case in the tool's own rule vocabulary, and a dimension left `not-evaluated` is only acceptable when either the row says why or this list does.",
+      "required": ["rules_held_back"],
+      "additionalProperties": true,
+      "properties": {
+        "rules_held_back": {
+          "type": "array",
+          "description": "Empty is a real and meaningful answer: it asserts that nothing was held back, which is a claim a reader can hold the tool to.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "note": { "type": "string" }
+      }
+    },
+
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per corpus fixture. That the set is exactly the corpus's set — every fixture answered, answered once, and no unknown id — is checked programmatically; `uniqueItems` is outside the supported subset and would in any case compare whole entries rather than ids.",
+      "items": { "$ref": "#/$defs/result" }
+    }
+  },
+
+  "$defs": {
+    "reason_tag": {
+      "type": "string",
+      "description": "The controlled vocabulary in full, observational tags included, because `observed_tags` may carry any of them. That a REASON tag is additionally a fatal one is checked programmatically against corpus/vocabulary.mjs rather than by a second enum here: the distinction is defined in that module, and a copy of it in a JSON file is a copy that can go stale. validate-results.mjs also asserts that this enum still matches the module, so drift is caught rather than assumed away.",
+      "enum": [
+        "status-not-402",
+        "server-error",
+        "redirect",
+        "free-tier-200",
+        "content-type",
+        "envelope-absent",
+        "b64-urlsafe",
+        "b64-undecodable",
+        "envelope-not-json",
+        "wrong-version-field",
+        "version-crosstalk",
+        "missing-required-field",
+        "network-form",
+        "network-unknown",
+        "network-unsupported-by-provider",
+        "amount-form",
+        "amount-below-provider-floor",
+        "payee-form",
+        "asset-form",
+        "timeout-form",
+        "missing-eip712-extra",
+        "scheme-unknown",
+        "resource-shape",
+        "resource-url",
+        "dual-divergence",
+        "bazaar-extension-absent",
+        "bazaar-info-schema-mismatch",
+        "bazaar-schema-unresolvable",
+        "bazaar-input-shape",
+        "bazaar-input-method",
+        "bazaar-output-shape",
+        "bazaar-output-example",
+        "discovery-metadata",
+        "legacy-v1-header-names",
+        "declaration-integrity",
+        "extension-responses",
+        "truncated"
+      ]
+    },
+
+    "dimension_result": {
+      "type": "object",
+      "description": "One tool's answer on one dimension of one fixture. The rules that bind the fields to each other — a `fail` says why, anything else says nothing, a `not-evaluated` is accounted for, an unjudgeable dimension is `n/a` with `na_kind: \"scope\"` — are the substance of the format and none of them survives translation into this subset of JSON Schema. They are enforced by corpus/validate-results.mjs, which names the fixture, the dimension and the rule; a conditional built out of anyOf would report every one of them as 'matches none of the alternatives', which is not a finding a tool author can act on.",
+      "required": ["verdict", "reason_tags"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "description": "`not-evaluated` is a RESULTS-only verdict and is never a pass. It says the tool did not run the rules that would answer the question, which is a fact about the run and not about the endpoint, and it is excluded from agreement statistics rather than counted either way.",
+          "enum": ["pass", "fail", "n/a", "not-evaluated"]
+        },
+        "reason_tags": {
+          "type": "array",
+          "description": "Why the dimension failed, in the corpus vocabulary and not in the tool's own. Only fatal tags belong here; an observational one goes in `observed_tags`, and putting it here would turn something a tool merely noticed into something that decided a verdict.",
+          "items": { "$ref": "#/$defs/reason_tag" }
+        },
+        "observed_tags": {
+          "type": "array",
+          "description": "Everything the tool noticed on this dimension, whether or not it decided anything — including the findings whose provenance gave them no authority to decide. This is where a house rule or a provider observation belongs: on the record, and deciding nothing.",
+          "items": { "$ref": "#/$defs/reason_tag" }
+        },
+        "scope_suppressed": {
+          "type": "array",
+          "description": "What this tool WOULD have failed the dimension on, had the recording been able to support a verdict at all. The opinion is not discarded along with the verdict: a scope exclusion removes a row from the statistics, and a tool that had something to say about it should still have said it.",
+          "items": { "$ref": "#/$defs/reason_tag" }
+        },
+        "na_kind": {
+          "type": "string",
+          "description": "Which kind of `n/a` this is, where the tool distinguishes them. `scope` is mandatory on a dimension the corpus declares unjudgeable and forbidden on one it does not, and both directions are checked; `question-does-not-arise` is optional, because a tool that answers `n/a` without classifying why has still given a usable answer.",
+          "enum": ["question-does-not-arise", "scope"]
+        },
+        "not_evaluated_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why this tool did not answer. Required on a `not-evaluated` row unless the file's `partial_evaluation.rules_held_back` already accounts for it — the point being that a `not-evaluated` must be explained somewhere, so that it can never read as a quiet pass."
+        }
+      }
+    },
+
+    "result": {
+      "type": "object",
+      "required": ["id", "dimensions"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "The fixture this answers, by the corpus's own id."
+        },
+        "dimensions": {
+          "type": "object",
+          "description": "All three, always. A tool with no rules for a dimension answers `not-evaluated` and says so, rather than omitting the key: an absent answer and an unevaluated one look identical to a reader and mean very different things to a comparison.",
+          "required": ["payment", "client_interop", "discovery"],
+          "additionalProperties": false,
+          "properties": {
+            "payment": { "$ref": "#/$defs/dimension_result" },
+            "client_interop": { "$ref": "#/$defs/dimension_result" },
+            "discovery": { "$ref": "#/$defs/dimension_result" }
+          }
+        },
+        "tool_detail": {
+          "type": "object",
+          "description": "THE TOOL'S OWN REPORT, IN THE TOOL'S OWN SHAPE — free-form, and deliberately unconstrained beyond being an object. Its purpose is to make the reduction auditable — a reader who doubts a verdict should be able to see the findings it was reduced from, with whatever severity, rule id and provenance the tool works in — and any schema this corpus imposed on it would be this repository's model of a finding, presented as a portability requirement. Optional, too: a results file is complete and comparable without it, and a tool that cannot serialise its internals should publish the answers rather than nothing."
+        }
+      }
+    }
+  }
+}
