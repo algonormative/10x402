@@ -57,7 +57,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 
-import { DOCTOR_TAGS, DOCTOR_NOT_EVALUABLE_OFFLINE, TAGS } from './vocabulary.mjs';
+import { DOCTOR_TAGS, DOCTOR_NOT_EVALUABLE_OFFLINE, TAGS, DIMENSIONS, judgeableFrom } from './vocabulary.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const corpus = JSON.parse(readFileSync(join(here, 'fixtures.json'), 'utf8'));
@@ -166,9 +166,27 @@ function localOnlyFetch(origin, port, blocked) {
 // differs from ours, the difference is preserved rather than harmonised — that
 // is the finding, and DISAGREEMENTS.md reports it.
 
+// A MIXED RULE keeps every scope its own text states. `x402.http.challenge_status`
+// emits "The unpaid request returned HTTP 200; Bazaar requires HTTP 402", which is
+// two observations in one sentence: a TRANSPORT one (the response is not a 402)
+// and a NAMED-PROVIDER one (Bazaar's documented requirement). Mapping it to
+// payment/client_interop alone discarded the provider scope the prototype itself
+// stated, and manufactured payment-dimension disagreements out of a policy
+// citation. The format's rule, stated in FORMAT.md § Mixed-scope rules: a finding
+// whose own text names more than one scope maps to EVERY dimension it speaks to,
+// and the per-dimension preconditions then decide what it may fail there.
+const MIXED_SCOPE = {
+  'x402.http.challenge_status': {
+    dimensions: ['payment', 'client_interop', 'discovery'],
+    why: 'the prototype’s own message states a transport observation and a named-provider policy in one sentence',
+    discovery_tag: 'status-not-402',
+  },
+};
+
 const RULE_DIMENSIONS = {
-  // transport / envelope readability: a client cannot get to the terms at all
-  'x402.http.challenge_status': ['payment', 'client_interop'],
+  // transport / envelope readability: a client cannot get to the terms at all.
+  // challenge_status is the one MIXED-SCOPE rule; see the table above.
+  'x402.http.challenge_status': MIXED_SCOPE['x402.http.challenge_status'].dimensions,
   'x402.headers.v2': ['payment', 'client_interop'],
   'x402.header.payment_required': ['payment', 'client_interop'],
   'x402.version': ['payment', 'client_interop'],
@@ -199,14 +217,28 @@ const RULE_DIMENSIONS = {
 
 /**
  * The PAYMENT-REQUIRED failure carries its cause in `detail`, and the causes
- * are different faults: an alphabet the decoder rejects, and a payload that
- * decoded but carried no terms. Splitting them is the difference between
- * agreeing with 10x402 about a fixture and merely producing the same verdict.
+ * are different faults. Splitting them is the difference between agreeing with
+ * 10x402 about a fixture and merely producing the same verdict.
+ *
+ * THE ORDER MATTERS AND IT WAS WRONG. `b64-undecodable` used to be the
+ * fall-through, so a report about a header that WAS NOT THERE came out as a
+ * header that would not decode. On `perfect-v1-only` and `no-envelope-html-body`
+ * the prototype's own detail says there was no header at all, and the adapter
+ * added a Base64 diagnosis on top of it — distorting the prototype's
+ * observation, and flattering 10x402's by comparison. Absent input is
+ * `envelope-absent`; `b64-undecodable` requires an actual header to have failed
+ * to decode.
  */
 function paymentRequiredTag(finding, rawHeader) {
   const detail = String(finding.detail ?? '');
   if (/listed no terms/i.test(detail)) return 'wrong-version-field';
-  if (typeof rawHeader === 'string' && /[-_]/.test(rawHeader.trim())) return 'b64-urlsafe';
+  // THE INPUT DECIDES, NOT THE WORDING. The prototype's message for this rule is
+  // the single string "PAYMENT-REQUIRED is missing or malformed", which cannot
+  // tell the two apart — so the adapter looks at what was actually sent. No
+  // header, or an empty one, is an ABSENT envelope; a header has to be present
+  // before "it would not decode" is a thing that can be said about it.
+  if (typeof rawHeader !== 'string' || rawHeader.trim() === '') return 'envelope-absent';
+  if (/[-_]/.test(rawHeader.trim())) return 'b64-urlsafe';
   return 'b64-undecodable';
 }
 
@@ -222,7 +254,7 @@ function mapReport(report, fixture) {
 
   for (const finding of report.findings) {
     if (DOCTOR_NOT_EVALUABLE_OFFLINE.has(finding.ruleId)) {
-      notEvaluated.push({ rule: finding.ruleId, level: finding.level, message: finding.message });
+      notEvaluated.push({ rule: finding.ruleId, level: finding.level, message: finding.message, status: 'reported-by-tool' });
       continue;
     }
     const targets = RULE_DIMENSIONS[finding.ruleId];
@@ -233,9 +265,14 @@ function mapReport(report, fixture) {
       continue;
     }
     if (!TAGS.includes(tag)) throw new Error(`doctor rule ${finding.ruleId} maps to ${tag}, not in the vocabulary`);
+    const mixed = MIXED_SCOPE[finding.ruleId];
     for (const dim of targets) {
-      if (!dims[dim].observed_tags.includes(tag)) dims[dim].observed_tags.push(tag);
-      if (finding.level === 'error' && !dims[dim].reason_tags.includes(tag)) dims[dim].reason_tags.push(tag);
+      // A mixed-scope rule may carry a different tag on its provider half, so
+      // that "the response is not a 402" and "Bazaar requires 402" are the same
+      // observation reported in the two dimensions it is an observation about.
+      const dimTag = mixed && dim === 'discovery' ? (mixed.discovery_tag ?? tag) : tag;
+      if (!dims[dim].observed_tags.includes(dimTag)) dims[dim].observed_tags.push(dimTag);
+      if (finding.level === 'error' && !dims[dim].reason_tags.includes(dimTag)) dims[dim].reason_tags.push(dimTag);
     }
   }
 
@@ -252,6 +289,32 @@ function mapReport(report, fixture) {
     dims.discovery.not_evaluated_reason =
       'the extension checks passed, but the live-versus-indexed comparison — the rule this tool ' +
       'exists for — needs a registry the offline corpus cannot provide';
+  }
+
+  // THE RECORDED-CHALLENGE PRECONDITION, applied to this tool exactly as
+  // corpus/run-10x402.mjs applies it to ours. Where the fixture records no
+  // challenge, neither tool may report a payment or client-interoperability
+  // verdict — but what each WOULD have said is kept, in `observed_tags` and in
+  // `scope_suppressed`, and reported in DISAGREEMENTS.md. Suppressing the
+  // verdict is not the same as discarding the opinion, and the prototype's
+  // reading of a free tier is the sharpest thing in the comparison.
+  const judgeable = fixture.judgeable ?? judgeableFrom(fixture.response);
+  for (const dim of DIMENSIONS) {
+    if (judgeable[dim] !== false) continue;
+    if (dims[dim].reason_tags.length) dims[dim].scope_suppressed = [...dims[dim].reason_tags];
+    dims[dim].reason_tags = [];
+    dims[dim].verdict = 'n/a';
+    dims[dim].na_kind = 'scope';
+  }
+
+  // PER-FIXTURE SKIP EVIDENCE, COMPLETE. Previously a rule was recorded on a
+  // fixture only if the prototype happened to mention it in that fixture's
+  // findings, so nine of the ten offline-unevaluable rules existed only in a
+  // top-level list and no reader could tell, per fixture, what had run. Every
+  // held-back rule is now listed on every fixture with its status.
+  const reported = new Set(notEvaluated.map((n) => n.rule));
+  for (const rule of DOCTOR_NOT_EVALUABLE_OFFLINE) {
+    if (!reported.has(rule)) notEvaluated.push({ rule, level: null, message: null, status: 'held-back' });
   }
 
   return { dims, notEvaluated, unmapped };
@@ -334,8 +397,16 @@ const payload = {
     dependency: `@x402/extensions@${EXTENSIONS_VERSION}`,
   },
   corpus_version: corpus.corpus_version,
-  ran: new Date().toISOString().slice(0, 10),
+  // The corpus's own stamp rather than today's date, so that regenerating this
+  // file without changing an answer changes no bytes. See FORMAT.md § Determinism.
+  ran: corpus.generated,
   adapter: 'corpus/run-x402-doctor.mjs',
+  partial_evaluation: {
+    rules_held_back: [...DOCTOR_NOT_EVALUABLE_OFFLINE],
+    per_fixture: 'every result carries the complete held-back list under tool_detail.not_evaluated, each marked `reported-by-tool` or `held-back`',
+    unsupported_versions: 'the prototype is v2-only by construction; it reports v1-only challenges as failures rather than declining them, and the corpus records that as a scope difference rather than harmonising it',
+    note: 'a dimension whose rules all ran is a verdict; a dimension whose deciding rule was held back is `not-evaluated`, never a pass',
+  },
   harness: {
     transport: 'the recorded response is re-served from 127.0.0.1 and the fixture’s own origin is mapped onto it',
     payments: 'no paidProbe is passed; a settlement is structurally impossible',
