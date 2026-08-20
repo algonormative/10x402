@@ -1,0 +1,1754 @@
+{
+  "corpus_version": 1,
+  "name": "x402 portable conformance corpus",
+  "description": "Recorded 402 responses with tool-neutral, three-dimensional expectations. See corpus/FORMAT.md. Assembled for x402-foundation/x402#3104.",
+  "generated": "2026-08-20",
+  "pins": {
+    "10x402": {
+      "repo": "https://github.com/chronick/10x402",
+      "commit": "853ed3f5a722c67b26e82c7b68c0a2b56de9abe9",
+      "note": "the engine under test — worker/lint.js, 75 checks"
+    },
+    "@x402/core": {
+      "version": "2.23.0",
+      "note": "the v2 client schemas every client-code citation in this corpus resolves against"
+    },
+    "x402": {
+      "version": "1.2.0",
+      "note": "the v1 client package (x402 / x402-fetch), cited for v1 parse behaviour"
+    },
+    "x402-foundation/x402": {
+      "repo": "https://github.com/x402-foundation/x402",
+      "commit": "75b519d0a3a7fd609a00b6d5bf684a6a9131fe25",
+      "resolved": "2026-08-20",
+      "note": "main at the time this corpus was cut; every `spec` ref is a path in this tree"
+    },
+    "x402-doctor-prototype": {
+      "repo": "https://github.com/Maha-Strategies/maha-corp-web",
+      "commit": "37233104653b3ff6ea211169b0201026b12758ed",
+      "paths": [
+        "scripts/x402-doctor.ts",
+        "lib/x402/doctor.ts",
+        "test/x402-doctor.test.ts"
+      ],
+      "license": "NONE — the repository publishes no licence file and package.json declares none",
+      "note": "run from a temporary clone only. No file from this repository is vendored into 10x402, and no code from it is copied into the adapter: corpus/run-x402-doctor.mjs imports diagnoseX402Endpoint() from the clone at this commit and maps its output."
+    }
+  },
+  "dimensions": {
+    "payment": "can the declared payment be interpreted and settled under the stated x402 version, per the normative specification?",
+    "client_interop": "will the cited client implementations parse and execute it correctly?",
+    "discovery": "will registry-specific metadata be accepted and indexed by the cited provider? (provider observation)"
+  },
+  "evidence_kinds": {
+    "spec": "normative — a section of the x402 specification at the pinned commit",
+    "client-code": "binding for that client at the pinned version, and for nothing else",
+    "cdp-validator": "observed behaviour of the CDP Bazaar validator — provider observation, not protocol",
+    "cdp-docs": "CDP’s published seller documentation — provider observation, not protocol",
+    "field-report": "a reproduced report from the x402 issue tracker",
+    "provider-observation": "observed behaviour of a named provider or a live capture",
+    "house-opinion": "this corpus’s own reasoning, cited as such. NOT normative and never to be read as one."
+  },
+  "reason_tags": {
+    "status-not-402": "the unauthenticated request was not answered with 402",
+    "server-error": "the unpaid path answered 5xx",
+    "redirect": "the 402 is reached through a redirect rather than served directly",
+    "free-tier-200": "an unauthenticated caller is served 200 — there is no challenge to interpret",
+    "content-type": "the envelope is served under a content-type that misdescribes it",
+    "envelope-absent": "no payment envelope for the version in question",
+    "b64-urlsafe": "the header is base64url, or otherwise outside the standard base64 alphabet the cited client validates against before decoding",
+    "b64-undecodable": "the header does not base64-decode at all",
+    "envelope-not-json": "the decoded payload is not JSON",
+    "wrong-version-field": "x402Version is absent, or names a version other than the one the transport implies",
+    "version-crosstalk": "a field or shape belonging to one protocol version appears in the other",
+    "missing-required-field": "a field the version requires is absent",
+    "network-form": "the network identifier is in the wrong form for the version (CAIP-2 vs bare name)",
+    "network-unknown": "the network is well-formed but outside the cited client implementation’s closed enum",
+    "network-unsupported-by-provider": "the network is valid and outside a named provider’s settlement set",
+    "amount-form": "the amount is not a positive integer base-unit string",
+    "amount-below-provider-floor": "the amount is legal protocol-wise and below a named provider’s indexing minimum",
+    "payee-form": "payTo is absent, the wrong JSON type, or not an address of the network’s family",
+    "asset-form": "asset is absent, the wrong JSON type, or not an identifier of the network’s family",
+    "timeout-form": "maxTimeoutSeconds is absent or is not a positive integer NUMBER",
+    "missing-eip712-extra": "no EIP-712 domain in `extra` on a chain whose scheme signs one",
+    "scheme-unknown": "the scheme is outside the set the version admits",
+    "resource-shape": "the resource is the wrong shape for the version (object vs flat string)",
+    "resource-url": "the resource url is absent, unparseable, insecure, or does not identify the endpoint",
+    "dual-divergence": "the v1 and v2 envelopes of one dual-stack response disagree on a payment term",
+    "bazaar-extension-absent": "extensions.bazaar, or a required half of it, is absent",
+    "bazaar-info-schema-mismatch": "the declared `info` does not validate against the `schema` published beside it",
+    "bazaar-schema-unresolvable": "the schema depends on an external $ref a facilitator must not resolve",
+    "bazaar-input-shape": "the declared input is absent or carries no `type` discriminator",
+    "bazaar-input-method": "the declared input method disagrees with the verb the resource answers",
+    "bazaar-output-shape": "the declared output block is malformed",
+    "bazaar-output-example": "no computed output example is published",
+    "discovery-metadata": "descriptive metadata a registry reads is absent or outside its bounds",
+    "legacy-v1-header-names": "the response also exposes deprecated v1 header names",
+    "declaration-integrity": "a declaration-integrity extension is present and does not describe this declaration",
+    "extension-responses": "EXTENSION-RESPONSES was absent or undecodable",
+    "truncated": "the tool stopped reading before the end of the input"
+  },
+  "fixtures": [
+    {
+      "id": "calibration-spec-canonical-402",
+      "title": "the v2 transport spec’s own canonical 402",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQQVlNRU5ULVNJR05BVFVSRSBoZWFkZXIgaXMgcmVxdWlyZWQiLCJyZXNvdXJjZSI6eyJ1cmwiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9wcmVtaXVtLWRhdGEiLCJkZXNjcmlwdGlvbiI6IkFjY2VzcyB0byBwcmVtaXVtIG1hcmtldCBkYXRhIiwibWltZVR5cGUiOiJhcHBsaWNhdGlvbi9qc29uIn0sImFjY2VwdHMiOlt7InNjaGVtZSI6ImV4YWN0IiwibmV0d29yayI6ImVpcDE1NTo4NDUzMiIsImFtb3VudCI6IjEwMDAwIiwiYXNzZXQiOiIweDAzNkNiRDUzODQyYzU0MjY2MzRlNzkyOTU0MWVDMjMxOGYzZENGN2UiLCJwYXlUbyI6IjB4MjA5NjkzQmM2YWZjMEM1MzI4YkEzNkZhRjAzQzUxNEVGMzEyMjg3QyIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTREMiLCJ2ZXJzaW9uIjoiMiJ9fV19"
+        },
+        "body": "{}"
+      },
+      "context": {
+        "method": "GET",
+        "url": "https://api.example.com/premium-data"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — the whole response, verbatim"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — bazaar extension required for indexing"
+        }
+      ],
+      "calibration": "must-pass",
+      "notes": "THE CALIBRATION TARGET. Payment and client_interop must pass: a checker that flags the specification’s own example is wrong. Discovery legitimately fails — the example publishes no extensions.bazaar and is therefore not indexable. One fixture, two different correct answers, which is the argument for keeping the dimensions apart.",
+      "origin": {
+        "kind": "calibration",
+        "ref": "specs/transports-v2/http.md § Payment Required Signaling — the whole response, verbatim"
+      }
+    },
+    {
+      "id": "calibration-live-positive-control",
+      "title": "a real production dual-stack 402, captured off the wire",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly90b29sc2hlZC5sZW1vbi1hZ2VudC5kZXYvY29udmVydC9tZC1odG1sIiwibWV0aG9kIjoiUE9TVCIsImRlc2NyaXB0aW9uIjoiTWFya2Rvd24gdG8gSFRNTCBjb252ZXJzaW9uIiwibWltZVR5cGUiOiJ0ZXh0L2h0bWwiLCJ0YWdzIjpbIng0MDIiLCJjb252ZXJzaW9uIl0sInNlcnZpY2VOYW1lIjoiVG9vbHNoZWQifSwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiIxMDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJwYXlUbyI6IjB4MGFkYzdhZGFjN2JiYWZmZmZiZDczNTA1NzExZTQyMzc4YzRmOWY5ZSIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiIjIFRpdGxlXG5cblNvbWUgKipib2xkKiogdGV4dC5cbiJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJ0ZXh0L2h0bWwiLCJleGFtcGxlIjoiPGgxPlRpdGxlPC9oMT5cbjxwPlNvbWUgPHN0cm9uZz5ib2xkPC9zdHJvbmc+IHRleHQuPC9wPlxuIn19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwiZGVzY3JpcHRpb24iOiJ0aGUgcmF3IE1hcmtkb3duIGZpbGUgYXMgdGhlIHJlcXVlc3QgYm9keSwgdXAgdG8gMjU2IEtCIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0L2h0bWwiLCJkZXNjcmlwdGlvbiI6InRoZSBjb252ZXJ0ZWQgSFRNTCBmaWxlIGFzIHRoZSByZXNwb25zZSBib2R5ICh0ZXh0L2h0bWwpIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyIsImRlc2NyaXB0aW9uIjoidGhlIHNhbXBsZSByZXF1ZXN0IGJvZHkgYWJvdmUsIGNvbnZlcnRlZCDigJQgd2hhdCBhIHRoZSBjb252ZXJ0ZWQgSFRNTCBmaWxlIGFzIHRoZSByZXNwb25zZSBib2R5ICh0ZXh0L2h0bWwpIGxvb2tzIGxpa2UifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"error\":\"X-PAYMENT header is required\",\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://toolshed.lemon-agent.dev/convert/md-html\",\"description\":\"Markdown to HTML conversion\",\"mimeType\":\"text/html\",\"payTo\":\"0x0adc7adac7bbaffffbd73505711e42378c4f9f9e\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the raw Markdown file as the request body, up to 256 KB\"},\"output\":{\"type\":\"string\",\"description\":\"the converted HTML file as the response body (text/html)\"}}}]}\n"
+      },
+      "context": {
+        "method": "POST",
+        "url": "https://toolshed.lemon-agent.dev/convert/md-html"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "provider-observation",
+          "ref": "captured 2026-08-19T17:43:35Z from https://toolshed.lemon-agent.dev/convert/md-html with one unauthenticated POST"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md"
+        }
+      ],
+      "calibration": "must-pass",
+      "notes": "The other half of the calibration argument: constructed fixtures prove the checks fire, a captured reality proves they stay quiet. All three dimensions pass. Frozen — refreshing it would make the corpus depend on a third party staying healthy.",
+      "origin": {
+        "kind": "calibration",
+        "ref": "captured 2026-08-19T17:43:35Z from https://toolshed.lemon-agent.dev/convert/md-html with one unauthenticated POST"
+      }
+    },
+    {
+      "id": "calibration-bazaar-spec-example",
+      "title": "bazaar.md’s own worked example, with an OBJECT output.example",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQQVlNRU5ULVNJR05BVFVSRSBoZWFkZXIgaXMgcmVxdWlyZWQiLCJyZXNvdXJjZSI6eyJ1cmwiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS93ZWF0aGVyIiwiZGVzY3JpcHRpb24iOiJXZWF0aGVyIGRhdGEgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJzZXJ2aWNlTmFtZSI6IkV4YW1wbGUgV2VhdGhlciIsInRhZ3MiOlsid2VhdGhlciIsImZvcmVjYXN0Il0sImljb25VcmwiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9pY29uLnBuZyJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MzIiLCJhbW91bnQiOiIxMDAwMCIsImFzc2V0IjoiMHgwMzZDYkQ1Mzg0MmM1NDI2NjM0ZTc5Mjk1NDFlQzIzMThmM2RDRjdlIiwicGF5VG8iOiIweDIwOTY5M0JjNmFmYzBDNTMyOGJBMzZGYUYwM0M1MTRFRjMxMjI4N0MiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0RDIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiR0VUIiwicXVlcnlQYXJhbXMiOnsiY2l0eSI6IlNhbiBGcmFuY2lzY28ifX0sIm91dHB1dCI6eyJ0eXBlIjoianNvbiIsImV4YW1wbGUiOnsiY2l0eSI6IlNhbiBGcmFuY2lzY28iLCJ3ZWF0aGVyIjoiZm9nZ3kiLCJ0ZW1wZXJhdHVyZSI6NjB9fX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJlbnVtIjpbIkdFVCIsIkhFQUQiLCJERUxFVEUiXX0sInF1ZXJ5UGFyYW1zIjp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImNpdHkiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsiY2l0eSJdfSwiaGVhZGVycyI6eyJ0eXBlIjoib2JqZWN0IiwiYWRkaXRpb25hbFByb3BlcnRpZXMiOnsidHlwZSI6InN0cmluZyJ9fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyJ9LCJleGFtcGxlIjp7InR5cGUiOiJvYmplY3QifX0sInJlcXVpcmVkIjpbInR5cGUiXX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{}"
+      },
+      "context": {
+        "method": "GET",
+        "url": "https://api.example.com/weather"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md — the GET-endpoint example, info and schema verbatim"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md — output.example is typed `any`"
+        }
+      ],
+      "calibration": "must-pass",
+      "notes": "Covers the “missing output example” case from the other side: the example is an OBJECT, which bazaar.md admits. A checker demanding a non-empty STRING reports the spec’s own example as missing — 10x402 did, before the audit.",
+      "origin": {
+        "kind": "calibration",
+        "ref": "specs/extensions/bazaar.md — the GET-endpoint example, info and schema verbatim"
+      }
+    },
+    {
+      "id": "calibration-cloudflare-batch-settlement",
+      "title": "the Cloudflare batch-settlement profile",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "text/html",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJObyBQQVlNRU5ULVNJR05BVFVSRSBoZWFkZXIgcHJvdmlkZWQiLCJyZXNvdXJjZSI6eyJ1cmwiOiJodHRwczovL2V4YW1wbGUuY29tL2FydGljbGUiLCJtaW1lVHlwZSI6InRleHQvaHRtbCJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJiYXRjaC1zZXR0bGVtZW50IiwibmV0d29yayI6ImNsb3VkZmxhcmU6NDAyIiwiYW1vdW50IjoiMSIsImFzc2V0IjoiVVNEIiwicGF5VG8iOiJtZXJjaGFudCIsImV4dHJhIjp7InZlcnNpb24iOiIxLjAuMCJ9fV0sImV4dGVuc2lvbnMiOnsiaHR0cC1tZXNzYWdlLXNpZ25hdHVyZXMiOnsiaW5mbyI6eyJyZWdpc3RyYXRpb25VcmwiOiJodHRwczovL2RldmVsb3BlcnMuY2xvdWRmbGFyZS5jb20vYWktY3Jhd2wtY29udHJvbC9mZWF0dXJlcy9wYXktcGVyLWNyYXdsL3VzZS1wYXktcGVyLWNyYXdsLWFzLWFpLW93bmVyL3ZlcmlmeS1haS1jcmF3bGVyLyIsInNpZ25hdHVyZVNjaGVtZXMiOlsiZWQyNTUxOSJdLCJ0YWdzIjpbIndlYi1ib3QtYXV0aCJdfX19fQ=="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": "GET",
+        "url": "https://example.com/article"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim"
+        },
+        {
+          "kind": "spec",
+          "ref": "…:110 — maxTimeoutSeconds is optional on this network"
+        },
+        {
+          "kind": "spec",
+          "ref": "…:48 — the network omits `schema` to stay under 2 KB"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — NetworkSchemaV2 is min(3) plus a colon, so `cloudflare:402` is legal"
+        }
+      ],
+      "calibration": "must-not-fail-payment",
+      "notes": "A spec-defined scheme with `asset: \"USD\"`, `payTo: \"merchant\"` and no bazaar extension. Deliberately terse and deliberately not discoverable — nothing about it is broken, and a payment-dimension failure here would be a checker asserting EVM shapes as protocol law.",
+      "origin": {
+        "kind": "calibration",
+        "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md — the scheme’s own 402, verbatim"
+      }
+    },
+    {
+      "id": "calibration-solana-spec-envelope",
+      "title": "a spec-conformant Solana v2 envelope",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQQVlNRU5ULVNJR05BVFVSRSBoZWFkZXIgaXMgcmVxdWlyZWQiLCJyZXNvdXJjZSI6eyJ1cmwiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9wcmVtaXVtLWRhdGEiLCJkZXNjcmlwdGlvbiI6IkFjY2VzcyB0byBwcmVtaXVtIG1hcmtldCBkYXRhIiwibWltZVR5cGUiOiJhcHBsaWNhdGlvbi9qc29uIn0sImFjY2VwdHMiOlt7InNjaGVtZSI6ImV4YWN0IiwibmV0d29yayI6InNvbGFuYTo1ZXlrdDRVc0Z2OFA4TkpkVFJFcFkxdnpxS3FaS3ZkcCIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IkVQakZXZGQ1QXVmcVNTcWVNMnFOMXh6eWJhcEM4RzR3RUdHa1p3eVREdDF2IiwicGF5VG8iOiIyd0t1cExSOXE2d1hZcHB3OEdyMk52V3hLQlVxbTRQUEpLa1Fmb3hIREJnNCIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsiZmVlUGF5ZXIiOiJFd1dxR0U0WkZLTG9mdWVzdG1VNExEZEs3WE0xTjRBTGdkWmNjd1l1Z3dHZCIsIm1lbW8iOiJwaV8zYWJjMTIzZGVmNDU2IiwicmVjZW50QmxvY2toYXNoIjoiRVozclNUNWR2SG1iYW5oNzVqYzRQdUxmVjk2dnA5ZkVZQlZlTms0RmZNMWsiLCJsYXN0VmFsaWRCbG9ja0hlaWdodCI6IjI5MTQ3MDIzNyJ9fV19"
+        },
+        "body": "{}"
+      },
+      "context": {
+        "method": "GET",
+        "url": "https://api.example.com/premium-data"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/schemes/exact/scheme_exact_svm.md — the exact scheme’s own SVM PaymentRequirements, verbatim"
+        },
+        {
+          "kind": "spec",
+          "ref": "…:61-67 — Solana’s `extra` is {feePayer, memo, recentBlockhash, lastValidBlockHeight}; there is no EIP-712 domain"
+        }
+      ],
+      "calibration": "must-pass",
+      "notes": "base58 payTo, an SPL mint as asset, and no typed-data domain. 10x402 graded this F before the audit because its address regex hardcoded a 20-byte EVM address for every network.",
+      "origin": {
+        "kind": "calibration",
+        "ref": "specs/schemes/exact/scheme_exact_svm.md — the exact scheme’s own SVM PaymentRequirements, verbatim"
+      }
+    },
+    {
+      "id": "perfect-dual-stack",
+      "title": "perfect dual-stack 402",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md"
+        }
+      ],
+      "notes": "From the 10x402 suite — the reference. Everything else is this with one thing broken.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — perfect dual-stack 402"
+      }
+    },
+    {
+      "id": "perfect-v2-only",
+      "title": "perfect v2-only 402",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client reads the body and finds none"
+        }
+      ],
+      "notes": "From the 10x402 suite — valid and modern, but invisible to every v1 client that still exists.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — perfect v2-only 402"
+      }
+    },
+    {
+      "id": "perfect-v1-only",
+      "title": "perfect v1-only 402",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — @x402/core falls back to a v1 body when there is no header, so this is payable"
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight — the PAYMENT-REQUIRED header is a required preflight, so this is not indexable"
+        }
+      ],
+      "notes": "DISCOVERY IS n/a, NOT fail. CDP’s requirements are a v2 shape; answering `fail` would read as a list of things wrong with a v2 envelope this seller never published. From the 10x402 suite — the commonest real shape, and the one CDP tells sellers to upgrade.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — perfect v1-only 402"
+      }
+    },
+    {
+      "id": "dual-offers-reordered",
+      "title": "the same two offers, listed in a different order in each envelope",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6MTM3IiwiYW1vdW50IjoiMTAwMCIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19LHsic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiIxMDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJwYXlUbyI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}},{\"scheme\":\"exact\",\"network\":\"polygon\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "house-opinion",
+          "ref": "neither specification orders accepts[]; offers are matched on (chain, asset) before anything is compared"
+        }
+      ],
+      "notes": "From the 10x402 suite — THE FALSE F ON A CORRECT ENVELOPE. Comparing v1 accepts[0] with v2 accepts[0] graded this seller F on payTo, price, chain and asset at once — four core errors for an ordering neither specification says anything about. Offers are matched on (chain, asset) before anything is compared.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — the same two offers, listed in a different order in each envelope"
+      }
+    },
+    {
+      "id": "v2-header-b64-urlsafe",
+      "title": "v2 header in url-safe base64",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQ_IiwibWltZVR5cGUiOiJhcHBsaWNhdGlvbi9qc29uIiwidGFncyI6WyJ4NDAyIiwiZXhhbXBsZSJdLCJzZXJ2aWNlTmFtZSI6IkV4YW1wbGUifSwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiIxMDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJwYXlUbyI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — Base64EncodedRegex is tested against the RAW header value BEFORE atob()"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling — the header carries base64-encoded JSON"
+        },
+        {
+          "kind": "field-report",
+          "ref": "x402-foundation/x402#3104 — reported as a case the doctor prototype did not yet cover"
+        }
+      ],
+      "notes": "From the 10x402 suite — the most expensive one-character bug in x402: the client validates the header against the standard-base64 charset BEFORE decoding, so a url-safe envelope is discarded unread and the seller looks like they published nothing.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v2 header in url-safe base64"
+      }
+    },
+    {
+      "id": "v2-header-b64-whitespace",
+      "title": "a v2 header padded with whitespace",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": " eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ== "
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "b64-urlsafe"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the regex runs on the raw value, so a leading space fails it before decoding"
+        }
+      ],
+      "notes": "Discovery is n/a on both base64 fixtures for the same reason: the envelope did not decode, so its registry metadata could not be judged at all — not a clean listing and not a refused one, an unanswerable question. THE FIXTURE THAT CANNOT SURVIVE A LIVE TRANSPORT. HTTP strips optional whitespace around a header value, so any tool that probes a live URL sees the trimmed header and cannot reproduce this at all. It is reachable only by linting a captured or pasted response — which is why the corpus carries the response rather than a URL. From the 10x402 suite — the client tests its base64 regex against the RAW header value and throws before decoding, so a header with a leading space is discarded unread. This linter used to trim first, which meant it validated a string the client never sees.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a v2 header padded with whitespace"
+      }
+    },
+    {
+      "id": "no-envelope-html-body",
+      "title": "a 402 with an unparseable body and no header",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "text/html"
+        },
+        "body": "<h1>402 Payment Required</h1>"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "envelope-not-json"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "envelope-absent",
+            "envelope-not-json"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v1/http.md § Payment Required Signaling"
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23"
+        }
+      ],
+      "notes": "From the 10x402 suite — an HTML error page where the envelope should be — a seller who thinks 402 alone is enough.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a 402 with an unparseable body and no header"
+      }
+    },
+    {
+      "id": "v2-network-bare-name",
+      "title": "v2 envelope naming the network \"base\"",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJiYXNlIiwiYW1vdW50IjoiMTAwMCIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — NetworkSchemaV2 requires a colon"
+        }
+      ],
+      "notes": "From the 10x402 suite — the v1 spelling in a v2 envelope. The v2 schema requires the colon, so this is invalid, not lenient.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v2 envelope naming the network \"base\""
+      }
+    },
+    {
+      "id": "v1-network-caip2",
+      "title": "v1 envelope naming the network in CAIP-2",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"eip155:8453\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v1.md § 5.1.2 (PaymentRequirements table)"
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — the v1 network field is a closed enum of bare names"
+        }
+      ],
+      "notes": "From the 10x402 suite — the v2 spelling in a v1 body.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v1 envelope naming the network in CAIP-2"
+      }
+    },
+    {
+      "id": "v2-amount-uses-v1-field-name",
+      "title": "v2 envelope carrying maxAmountRequired instead of amount",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn0sIm1heEFtb3VudFJlcXVpcmVkIjoiMTAwMCJ9XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-required-field"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-required-field"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — v2 renamed maxAmountRequired to amount"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js"
+        }
+      ],
+      "notes": "The corpus tags the FATAL reason (`amount` is absent). The v1 field left behind is reported by 10x402 as a non-fatal crosstalk warning. From the 10x402 suite — v2 renamed the price field; a v2 client reads `amount`, finds nothing, and has no price to sign.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v2 envelope carrying maxAmountRequired instead of amount"
+      }
+    },
+    {
+      "id": "v2-resource-flat-string",
+      "title": "v2 envelope with a flat-string resource",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOiJodHRwczovL2V4YW1wbGUuY29tL2FwaS90aGluZyIsImFjY2VwdHMiOlt7InNjaGVtZSI6ImV4YWN0IiwibmV0d29yayI6ImVpcDE1NTo4NDUzIiwiYW1vdW50IjoiMTAwMCIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "resource-shape"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "resource-shape"
+          ]
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (ResourceInfo table)"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — ResourceInfoSchema is an object"
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json"
+        }
+      ],
+      "notes": "DISCOVERY IS n/a, AND THAT ANSWER IS THE ONE 10x402 GOT WRONG. The registry checks all read the ResourceInfo object; with the v1 flat string in its place not one of them can run, so there is no blocker — and the engine reported the absence of a blocker as \"indexable: true\" to a seller whose envelope no indexer can read. Fixed while building this corpus; see DISAGREEMENTS.md § Where 10x402 was wrong. From the 10x402 suite — the v1 resource form at the v2 top level. An indexer gets no name, no method and no description.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v2 envelope with a flat-string resource"
+      }
+    },
+    {
+      "id": "v2-envelope-echoed-into-body",
+      "title": "the v2 envelope echoed into the 402 body",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":2,\"resource\":{\"url\":\"https://example.com/api/thing\",\"method\":\"POST\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"tags\":[\"x402\",\"example\"],\"serviceName\":\"Example\"},\"accepts\":[{\"scheme\":\"exact\",\"network\":\"eip155:8453\",\"amount\":\"1000\",\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"}}],\"extensions\":{\"bazaar\":{\"info\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"bodyType\":\"text\",\"body\":\"{\\\"hello\\\":\\\"world\\\"}\"},\"output\":{\"type\":\"text\",\"format\":\"application/json\",\"example\":\"{\\\"ok\\\":true}\"}},\"schema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"http\"},\"method\":{\"type\":\"string\",\"const\":\"POST\"},\"bodyType\":{\"type\":\"string\",\"const\":\"text\"},\"body\":{\"type\":\"string\",\"maxLength\":262144}},\"required\":[\"type\",\"method\",\"bodyType\",\"body\"],\"additionalProperties\":false},\"output\":{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"text\"},\"format\":{\"type\":\"string\",\"const\":\"application/json\"},\"example\":{\"type\":\"string\"}},\"required\":[\"type\",\"format\"],\"additionalProperties\":false}},\"required\":[\"input\"]}}}}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/transports-v2/http.md § Response Body — \"Response bodies are a server implementation concern\""
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a pre-header client parses the body with v1 rules"
+        }
+      ],
+      "notes": "NOT A FAILURE ON ANY DIMENSION. A body that declares itself v2 is not a broken v1 envelope. 10x402 used to run the whole v1 core cascade over it and report five core errors about an object that never claimed to be v1. From the 10x402 suite — THE FIVE-ERROR CASCADE. A v2-only seller who mirrors their v2 envelope into the 402 body is doing something a v2 client never even reads — it takes the PAYMENT-REQUIRED header and consults the body only when there is none — but isV1Attempt() saw an object carrying x402Version and accepts[], ran the whole v1 cascade over it, and reported five core errors saying \"this v1 envelope is missing a v1 field\" about an object that had never claimed to be one. A body that declares itself v2 is not a broken v1 envelope. It is now one finding, at warn, that says exactly what it is.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — the v2 envelope echoed into the 402 body"
+      }
+    },
+    {
+      "id": "v2-timeout-string",
+      "title": "maxTimeoutSeconds as the string \"60\"",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOiI2MCIsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — z.number().positive(), no coercion, so \"60\" fails the schema"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/evm — where a quoted timeout slips through it is ADDED to a timestamp, concatenating rather than adding"
+        }
+      ],
+      "notes": "From the 10x402 suite — THE COERCION THAT BLESSED A BROKEN ENVELOPE. The old predicate was Number.isFinite(Number(x)), which accepts \"60\", \"  60  \", [\"60\"] and true. @x402/core types the field z.number().positive() and applies no coercion, so a quoted timeout fails the schema outright — and where it slips through, @x402/evm ADDS it to a timestamp, which concatenates instead of adding and produces a validBefore in the year 60000.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — maxTimeoutSeconds as the string \"60\""
+      }
+    },
+    {
+      "id": "v2-timeout-absent",
+      "title": "a v2 accepts entry with no maxTimeoutSeconds, on an EVM chain",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "timeout-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — maxTimeoutSeconds is required for the exact scheme on EVM"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md:110 — and is OPTIONAL on cloudflare:402, which is why this fixture is on eip155"
+        }
+      ],
+      "notes": "Constructed for this corpus. The pair to calibration-cloudflare-batch-settlement: the same absent field is a defect on one network and legal on another, so a checker that hardcodes \"maxTimeoutSeconds is required\" fails a spec-defined profile. Constructed for this corpus.",
+      "origin": {
+        "kind": "constructed",
+        "ref": "corpus/build-fixtures.mjs"
+      }
+    },
+    {
+      "id": "v2-asset-ticker-not-address",
+      "title": "asset given as the ticker \"USDC\" instead of the contract address",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IlVTREMiLCJwYXlUbyI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "asset-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table) — asset is the on-chain identifier"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the eip155 asset is an address"
+        }
+      ],
+      "notes": "Constructed for this corpus, v2-only so it carries exactly one fault. Constructed for this corpus.",
+      "origin": {
+        "kind": "constructed",
+        "ref": "corpus/build-fixtures.mjs"
+      }
+    },
+    {
+      "id": "extra-eip712-absent",
+      "title": "no EIP-712 domain in `extra`",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwfV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-eip712-extra"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "missing-eip712-extra"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/schemes/exact/scheme_exact_evm.md — the EIP-3009 domain is signed from extra.name/extra.version"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/evm — throws at payment CREATION when extra.name or extra.version is absent"
+        }
+      ],
+      "notes": "From the 10x402 suite — the silent killer. The client signs over an undefined domain name while the facilitator recomputes it from its own table, so every real payment fails as invalid_exact_evm_payload_signature and nothing in the logs says so.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — no EIP-712 domain in `extra`"
+      }
+    },
+    {
+      "id": "v2-payto-array",
+      "title": "payTo as an array holding a valid address",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjpbIjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSJdLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "payee-form",
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "payee-form"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/x402-specification-v2.md § 5.1.2 (PaymentRequirements table)"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — the zod schema and viem both reject a non-string payTo"
+        },
+        {
+          "kind": "house-opinion",
+          "ref": "the dual-stack comparison is a house rule; neither specification requires the two envelopes to agree"
+        }
+      ],
+      "notes": "From the 10x402 suite — the type hole. String(entry.payTo || \"\") coerced [\"0x…\"] to \"0x…\" and the regex passed, so an envelope no client can parse — both the zod schema and viem reject a non-string — graded A. The shape check now demands a string before it demands a shape.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — payTo as an array holding a valid address"
+      }
+    },
+    {
+      "id": "dual-payto-divergence",
+      "title": "dual-stack payTo divergence",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMGZmIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "fail",
+          "reason_tags": [
+            "dual-divergence"
+          ]
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "house-opinion",
+          "ref": "NOT A PROTOCOL REQUIREMENT. Neither specification says a dual-stack seller’s two envelopes must name the same payee; both halves are individually valid and individually settleable. 10x402 treats the divergence as a payment-dimension defect because the money lands in two places, and records the evidence as house-opinion so nobody mistakes it for spec."
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — a v1 client reads the body; a v2 client reads the header; neither sees the other"
+        }
+      ],
+      "notes": "From the 10x402 suite — your two generations of buyers are paying two different addresses, and only one is yours.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — dual-stack payTo divergence"
+      }
+    },
+    {
+      "id": "dual-network-unmapped-chain",
+      "title": "dual-stack on a chain outside the linter’s table",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6NDIxNjEiLCJhbW91bnQiOiIxMDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJwYXlUbyI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"arbitrum\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "fail",
+          "reason_tags": [
+            "network-unknown"
+          ]
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "client-code",
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — \"arbitrum\" is not a member of the v1 closed enum, so x402-fetch throws invalid_enum_value on this entry"
+        },
+        {
+          "kind": "house-opinion",
+          "ref": "the v1↔v2 chain equivalence table covers the nine chains x402 clients ship with; outside it the pair is unverified, not divergent"
+        }
+      ],
+      "notes": "A CLIENT-INTEROP FAILURE THAT IS NOT A PAYMENT FAILURE, and one of the clearest cases for the split: the v2 half is correct, the chain simply has no v1 spelling in the cited client’s enum. Nothing in either specification closes that enum. From the 10x402 suite — a correctly paired dual-stack envelope on Arbitrum. V1_NETWORK_CHAIN maps the nine chains x402 clients ship with, and treating \"not in the table\" as \"the two disagree\" graded every seller on every other chain F for a gap in this repo rather than a fault in theirs.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — dual-stack on a chain outside the linter’s table"
+      }
+    },
+    {
+      "id": "free-tier-200",
+      "title": "free tier: 200 to an unauthenticated caller",
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": null
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "client-code",
+          "ref": "x402-fetch@1.2.0 dist/esm/index.mjs:19-23 — `if (response.status !== 402) return response`; the client never enters the payment flow"
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json preflight returns_402 (required)"
+        },
+        {
+          "kind": "cdp-docs",
+          "ref": "https://docs.cdp.coinbase.com/x402/seller/get-discovered — endpoints are health-probed on an interval"
+        }
+      ],
+      "notes": "THE MOST ARGUABLE EXPECTATION IN THE CORPUS, and it is written down rather than hidden. A 200 to an anonymous caller is a seller CHOICE, not a malformed challenge: there is no envelope to misinterpret, so 10x402 does not fail the payment dimension on it. A tool that reads “Bazaar requires 402” as a protocol requirement fails it. See DISAGREEMENTS.md. From the 10x402 suite — Bazaar's prober calls with no payment on an interval and expects a 402. A free tier fails that probe and delists an endpoint that was already indexed.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — free tier: 200 to an unauthenticated caller"
+      }
+    },
+    {
+      "id": "redirect-instead-of-402",
+      "title": "a redirect instead of a 402",
+      "response": {
+        "status": 307,
+        "headers": {
+          "location": "https://example.com/api/thing/v2"
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": null
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "n/a",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "client-code",
+          "ref": "@x402/fetch@2.23.0 dist/esm/index.mjs:10 — `await fetch(request)`, the default redirect mode, so redirects ARE followed"
+        },
+        {
+          "kind": "house-opinion",
+          "ref": "the envelope is at the other end of the redirect, unread; the fixture is about the redirect, not about an absent envelope"
+        }
+      ],
+      "notes": "From the 10x402 suite — x402 clients do not follow redirects before reading the envelope, and the paid retry is a POST carrying a payment header that a redirect drops.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a redirect instead of a 402"
+      }
+    },
+    {
+      "id": "bazaar-extension-absent",
+      "title": "v2 envelope with no extensions.bazaar",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-extension-absent"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the bazaar extension is required for indexing"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md"
+        },
+        {
+          "kind": "field-report",
+          "ref": "x402-foundation/x402#2207, #2284"
+        }
+      ],
+      "notes": "Payable and undiscoverable. Every payment on this endpoint works; the listing never appears and nothing says why. From the 10x402 suite — payable but not discoverable. The listing never appears and nothing says why.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — v2 envelope with no extensions.bazaar"
+      }
+    },
+    {
+      "id": "bazaar-info-schema-mismatch",
+      "title": "bazaar info that does not validate against its own schema",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJqc29uIiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6IlBPU1QifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md — info must validate against the schema published beside it"
+        },
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json"
+        },
+        {
+          "kind": "field-report",
+          "ref": "x402-foundation/x402#3045"
+        }
+      ],
+      "notes": "From the 10x402 suite — the silent delisting. The facilitator validates one against the other before cataloguing and declines without telling anyone; the endpoint keeps taking payments.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — bazaar info that does not validate against its own schema"
+      }
+    },
+    {
+      "id": "bazaar-schema-external-ref",
+      "title": "a bazaar schema behind an external $ref",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIiwiZXhhbXBsZSI6IntcIm9rXCI6dHJ1ZX0ifX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyIkcmVmIjoiaHR0cHM6Ly9pbnRlcm5hbC5leGFtcGxlLmNvbS9iYXphYXItaW5wdXQuanNvbiJ9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-schema-unresolvable",
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md — $ref and $id must be same-document fragments; a facilitator MUST NOT resolve an external one"
+        },
+        {
+          "kind": "field-report",
+          "ref": "x402-foundation/x402#3045, fifth production bug"
+        }
+      ],
+      "notes": "From the 10x402 suite — x402#3045’s FIFTH production bug, and the one that was invisible here. bazaar.md says $ref and $id must be same-document fragments and that a facilitator MUST NOT resolve an external one — so a schema depending on a fetched document is a schema nothing that catalogues can validate. The old json-schema subset SKIPPED an unresolvable $ref, which meant `info` was declared valid against a schema half of which had never been read.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a bazaar schema behind an external $ref"
+      }
+    },
+    {
+      "id": "bazaar-input-no-type",
+      "title": "a bazaar input with no `type` discriminator",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-shape",
+            "bazaar-info-schema-mismatch"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md — `type` is the discriminator that selects which input shape applies"
+        },
+        {
+          "kind": "field-report",
+          "ref": "x402-foundation/x402#3045, fourth production bug"
+        }
+      ],
+      "notes": "From the 10x402 suite — x402#3045’s fourth production bug. `type` is what a facilitator reads FIRST, to decide which of the three input shapes applies; without it the block is uninterpretable. The old catalogue checked that info.input was an object and nothing else, so this passed.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a bazaar input with no `type` discriminator"
+      }
+    },
+    {
+      "id": "bazaar-input-method-mismatch",
+      "title": "a bazaar input.method that is not the verb we probed",
+      "response": {
+        "status": 402,
+        "headers": {
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQVVQiLCJkZXNjcmlwdGlvbiI6ImFuIGV4YW1wbGUgcGFpZCBlbmRwb2ludCIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiIsInRhZ3MiOlsieDQwMiIsImV4YW1wbGUiXSwic2VydmljZU5hbWUiOiJFeGFtcGxlIn0sImFjY2VwdHMiOlt7InNjaGVtZSI6ImV4YWN0IiwibmV0d29yayI6ImVpcDE1NTo4NDUzIiwiYW1vdW50IjoiMTAwMCIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBVVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQVVQifSwiYm9keVR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJib2R5Ijp7InR5cGUiOiJzdHJpbmciLCJtYXhMZW5ndGgiOjI2MjE0NH19LCJyZXF1aXJlZCI6WyJ0eXBlIiwibWV0aG9kIiwiYm9keVR5cGUiLCJib2R5Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX0sIm91dHB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiZm9ybWF0Ijp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6ImFwcGxpY2F0aW9uL2pzb24ifSwiZXhhbXBsZSI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJ0eXBlIiwiZm9ybWF0Il0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+        },
+        "body": ""
+      },
+      "context": {
+        "method": "POST",
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "bazaar-input-method"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the probed method is compared against the declared one, and the comparison is required"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md"
+        }
+      ],
+      "notes": "The closest fixture to the doctor prototype’s founding check (replay the declared crawler request and require 402 rather than an accidental 400) — reached statically here, because a corpus fixture is a recorded response rather than a live endpoint. From the 10x402 suite — CDP probes the URL and compares the method it used against the one you declared, and marks that comparison required. A resource that answers POST while advertising PUT is not catalogued, and every agent that finds the listing calls it wrong on the first try.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a bazaar input.method that is not the verb we probed"
+      }
+    },
+    {
+      "id": "bazaar-output-example-absent",
+      "title": "bazaar info with no computed output example",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwibWF4VGltZW91dFNlY29uZHMiOjYwLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV0sImV4dGVuc2lvbnMiOnsiYmF6YWFyIjp7ImluZm8iOnsiaW5wdXQiOnsidHlwZSI6Imh0dHAiLCJtZXRob2QiOiJQT1NUIiwiYm9keVR5cGUiOiJ0ZXh0IiwiYm9keSI6IntcImhlbGxvXCI6XCJ3b3JsZFwifSJ9LCJvdXRwdXQiOnsidHlwZSI6InRleHQiLCJmb3JtYXQiOiJhcHBsaWNhdGlvbi9qc29uIn19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — both output checks are graded ADVISORY, not required"
+        },
+        {
+          "kind": "spec",
+          "ref": "specs/extensions/bazaar.md"
+        }
+      ],
+      "notes": "DISCOVERY PASSES. The provider asks for an output example and does not withhold the listing over it — an advisory observation that must not become a requirement. From the 10x402 suite — CDP's validator asks for one, and a hand-written example drifts the first time the endpoint changes.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — bazaar info with no computed output example"
+      }
+    },
+    {
+      "id": "amount-below-cdp-floor",
+      "title": "a price below CDP’s indexing floor",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMCIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwicGF5VG8iOiIweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XSwiZXh0ZW5zaW9ucyI6eyJiYXphYXIiOnsiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsIm1ldGhvZCI6IlBPU1QiLCJib2R5VHlwZSI6InRleHQiLCJib2R5Ijoie1wiaGVsbG9cIjpcIndvcmxkXCJ9In0sIm91dHB1dCI6eyJ0eXBlIjoidGV4dCIsImZvcm1hdCI6ImFwcGxpY2F0aW9uL2pzb24iLCJleGFtcGxlIjoie1wib2tcIjp0cnVlfSJ9fSwic2NoZW1hIjp7IiRzY2hlbWEiOiJodHRwczovL2pzb24tc2NoZW1hLm9yZy9kcmFmdC8yMDIwLTEyL3NjaGVtYSIsInR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiaHR0cCJ9LCJtZXRob2QiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiUE9TVCJ9LCJib2R5VHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImJvZHkiOnsidHlwZSI6InN0cmluZyIsIm1heExlbmd0aCI6MjYyMTQ0fX0sInJlcXVpcmVkIjpbInR5cGUiLCJtZXRob2QiLCJib2R5VHlwZSIsImJvZHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoidGV4dCJ9LCJmb3JtYXQiOnsidHlwZSI6InN0cmluZyIsImNvbnN0IjoiYXBwbGljYXRpb24vanNvbiJ9LCJleGFtcGxlIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbInR5cGUiLCJmb3JtYXQiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfX0sInJlcXVpcmVkIjpbImlucHV0Il19fX19"
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"100\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"0x0000000000000000000000000000000000000001\",\"maxTimeoutSeconds\":60,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "fail",
+          "reason_tags": [
+            "amount-below-provider-floor"
+          ]
+        }
+      },
+      "evidence": [
+        {
+          "kind": "cdp-validator",
+          "ref": "audit/2026-08-19/cdp-validator-toolshed.json — the amount check is required with an expectation of >= 1000 atomic units"
+        },
+        {
+          "kind": "house-opinion",
+          "ref": "nothing in either specification sets a price floor; this is a provider observation and is labelled as one"
+        }
+      ],
+      "notes": "THE CLEANEST PROVIDER-OBSERVATION FIXTURE. Perfectly legal x402, perfectly payable, and un-indexable by one named provider. Exactly the case the thread meant by \"provider observations should not silently become protocol requirements\". From the 10x402 suite — a tenth of CDP’s $0.001 minimum. Perfectly legal x402 and perfectly payable — nothing in the protocol sets a floor — and un-indexable, because the validator marks the amount check required with an expectation of >= 1000 atomic units. Exactly the shape the two verdicts exist for.",
+      "origin": {
+        "kind": "10x402-suite",
+        "ref": "test/fixtures/envelopes.mjs — a price below CDP’s indexing floor"
+      }
+    },
+    {
+      "id": "solana-dual-stack",
+      "title": "a dual-stack Solana seller",
+      "response": {
+        "status": 402,
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkvdGhpbmciLCJtZXRob2QiOiJQT1NUIiwiZGVzY3JpcHRpb24iOiJhbiBleGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJ0YWdzIjpbIng0MDIiLCJleGFtcGxlIl0sInNlcnZpY2VOYW1lIjoiRXhhbXBsZSJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJzb2xhbmE6NWV5a3Q0VXNGdjhQOE5KZFRSRXBZMXZ6cUtxWkt2ZHAiLCJhbW91bnQiOiIxMDAwIiwiYXNzZXQiOiJFUGpGV2RkNUF1ZnFTU3FlTTJxTjF4enliYXBDOEc0d0VHR2tad3lURHQxdiIsInBheVRvIjoiMndLdXBMUjlxNndYWXBwdzhHcjJOdld4S0JVcW00UFBKS2tRZm94SERCZzQiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsImV4dHJhIjp7ImZlZVBheWVyIjoiRXdXcUdFNFpGS0xvZnVlc3RtVTRMRGRLN1hNMU40QUxnZFpjY3dZdWd3R2QiLCJtZW1vIjoicGlfM2FiYzEyM2RlZjQ1NiIsInJlY2VudEJsb2NraGFzaCI6IkVaM3JTVDVkdkhtYmFuaDc1amM0UHVMZlY5NnZwOWZFWUJWZU5rNEZmTTFrIiwibGFzdFZhbGlkQmxvY2tIZWlnaHQiOiIyOTE0NzAyMzcifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwibWV0aG9kIjoiUE9TVCIsImJvZHlUeXBlIjoidGV4dCIsImJvZHkiOiJ7XCJoZWxsb1wiOlwid29ybGRcIn0ifSwib3V0cHV0Ijp7InR5cGUiOiJ0ZXh0IiwiZm9ybWF0IjoiYXBwbGljYXRpb24vanNvbiIsImV4YW1wbGUiOiJ7XCJva1wiOnRydWV9In19LCJzY2hlbWEiOnsiJHNjaGVtYSI6Imh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiaW5wdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJodHRwIn0sIm1ldGhvZCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJQT1NUIn0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6InRleHQifSwiYm9keSI6eyJ0eXBlIjoic3RyaW5nIiwibWF4TGVuZ3RoIjoyNjIxNDR9fSwicmVxdWlyZWQiOlsidHlwZSIsIm1ldGhvZCIsImJvZHlUeXBlIiwiYm9keSJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9LCJvdXRwdXQiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidHlwZSI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJ0ZXh0In0sImZvcm1hdCI6eyJ0eXBlIjoic3RyaW5nIiwiY29uc3QiOiJhcHBsaWNhdGlvbi9qc29uIn0sImV4YW1wbGUiOnsidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsidHlwZSIsImZvcm1hdCJdLCJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2V9fSwicmVxdWlyZWQiOlsiaW5wdXQiXX19fX0="
+        },
+        "body": "{\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"solana\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://example.com/api/thing\",\"description\":\"an example paid endpoint\",\"mimeType\":\"application/json\",\"payTo\":\"2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4\",\"maxTimeoutSeconds\":60,\"asset\":\"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\",\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"POST\",\"discoverable\":true,\"bodyType\":\"text\",\"description\":\"the request body\"},\"output\":{\"type\":\"string\",\"description\":\"the response body\"}}}]}"
+      },
+      "context": {
+        "method": null,
+        "url": "https://example.com/api/thing"
+      },
+      "expected": {
+        "payment": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "client_interop": {
+          "verdict": "pass",
+          "reason_tags": []
+        },
+        "discovery": {
+          "verdict": "pass",
+          "reason_tags": []
+        }
+      },
+      "evidence": [
+        {
+          "kind": "spec",
+          "ref": "specs/schemes/exact/scheme_exact_svm.md"
+        },
+        {
+          "kind": "client-code",
+          "ref": "x402@1.2.0 dist/esm/chunk-V3RMM5AE.mjs (PaymentRequirementsSchema) — `solana` is a member of the v1 network enum"
+        },
+        {
+          "kind": "client-code",
+          "ref": "@x402/core@2.23.0 dist/cjs/schemas/index.js — solana:5eykt… is a CAIP-2 identifier"
+        }
+      ],
+      "notes": "Constructed for this corpus. Nothing here is broken — it exists because a checker that hardcodes EVM address shapes or demands an EIP-712 domain fails all three dimensions on a conformant seller. Constructed for this corpus.",
+      "origin": {
+        "kind": "constructed",
+        "ref": "corpus/build-fixtures.mjs"
+      }
+    }
+  ]
+}
