@@ -216,4 +216,4 @@ header envelope and no v1 body envelope, which is the current generation of the
 protocol done correctly. The only thing it costs is the pre-header clients, and
 whether that matters is the seller's call, not the linter's.
 
-Support: support@lemon-agent.dev
+Support: support@10x402.com

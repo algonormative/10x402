@@ -20,7 +20,7 @@ export const SERVICE_TAGLINE = 'x402 conformance linting, sold per call over x40
 export const SITE_HOST = '10x402.com';
 export const SITE_BASE = `https://${SITE_HOST}`;
 
-export const SUPPORT_EMAIL = 'support@lemon-agent.dev';
+export const SUPPORT_EMAIL = 'support@10x402.com';
 
 // ResourceInfoSchema caps serviceName at 32 printable ASCII and tags at 5
 // entries of 32 characters (@x402/core 2.23.0).

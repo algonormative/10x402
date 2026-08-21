@@ -308,7 +308,7 @@ h3 code { color: var(--mint); background: none; padding: 0; font-size: .95em; }
 p { max-width: 46rem; }
 a { color: var(--mint); text-underline-offset: .18em; text-decoration-color: rgba(110,231,183,.45); }
 a:hover { text-decoration-color: var(--mint); }
-.eyebrow { margin: 0; font-family: var(--mono); color: var(--dim); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+.eyebrow { margin: 0 auto; font-family: var(--mono); color: var(--dim); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; text-align: center; }
 .lede { max-width: 42rem; margin-inline: auto; font-size: clamp(1.06rem, 1.9vw, 1.24rem); font-weight: 500; color: var(--muted); }
 .muted { color: var(--muted); }
 .small { font-size: .875rem; }
