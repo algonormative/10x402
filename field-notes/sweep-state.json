@@ -1,0 +1,9 @@
+{
+  "watermarks": {
+    "x402-foundation/x402": "2026-08-21T05:00:00Z",
+    "coinbase/x402": "2026-08-21T05:00:00Z",
+    "Merit-Systems/x402scan": "2026-08-21T05:00:00Z"
+  },
+  "consecutive_quiet_ticks": 0,
+  "note": "Watermarks seeded to the end of the manual harvest loop's last full read (the 2026-08-21 morning #3104 sweep). Advanced by the routine to the newest item actually read, per repo — never to 'now'."
+}
