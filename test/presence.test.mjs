@@ -57,6 +57,9 @@ async function startRegistries() {
     scanStatus: 200,
     chainRows: [],
     chainStatus: 200,
+    // One-shot statuses consumed before chainStatus — lets a test serve
+    // "429 then 200" without property tricks.
+    chainStatuses: [],
     hits: [],
   };
   const server = http.createServer((req, res) => {
@@ -82,7 +85,8 @@ async function startRegistries() {
         return answer(200, { result: { data: { json: state.scanRecord } } });
       }
       if (url.pathname === '/api') {
-        if (state.chainStatus !== 200) return answer(state.chainStatus, {});
+        const status = state.chainStatuses.length ? state.chainStatuses.shift() : state.chainStatus;
+        if (status !== 200) return answer(status, {});
         return answer(200, { status: '1', message: 'OK', result: state.chainRows });
       }
       return answer(404, { error: 'no such surface' });
@@ -101,6 +105,7 @@ async function startRegistries() {
       state.scanStatus = 200;
       state.chainRows = [];
       state.chainStatus = 200;
+      state.chainStatuses.length = 0;
       state.hits.length = 0;
     },
     stop: () => new Promise((resolve) => (server.closeAllConnections?.(), server.close(resolve))),
@@ -230,6 +235,34 @@ describe('POST /presence', () => {
     assert.equal(r.registries.x402scan.verdict, 'listed');
     assert.equal(r.onchain.verdict, 'active');
     assert.equal(r.summary.unknown, 1);
+  });
+
+  test('an unreadable chain makes settlement_seen null — a non-claim, not a no', async () => {
+    // The first production presence call hit a Blockscout 429. `false` would
+    // have said "nothing has settled here"; the explorer said no such thing.
+    target.reset();
+    registries.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    registries.state.chainStatus = 500;
+
+    const res = await presence();
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.onchain.verdict, 'unknown');
+    assert.equal(res.body.summary.settlement_seen, null);
+  });
+
+  test('a chain 429 is retried once, and the retry answer stands', async () => {
+    target.reset();
+    registries.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    registries.state.chainRows = [chainRowTo(PAYTO)];
+    registries.state.chainStatuses.push(429);
+
+    const res = await presence();
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.onchain.verdict, 'active', JSON.stringify(res.body.onchain));
+    const chainHits = registries.state.hits.filter((h) => h.startsWith('/api?'));
+    assert.equal(chainHits.length, 2, 'the 429 was not retried exactly once');
   });
 
   test('a target with no readable payTo is a refusal that points at /lint', async () => {

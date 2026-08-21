@@ -180,10 +180,17 @@ async function observeScan(env, payToList) {
 /** Blockscout tokentx: has anything settled to this payTo, and how recently. */
 async function observeChain(env, payToList) {
   const payTo = payToList[0];
-  const read = await readJson(
-    `${chainBase(env)}/api?module=account&action=tokentx&address=${payTo}&page=1&offset=25&sort=desc`,
-    env
-  );
+  const url = `${chainBase(env)}/api?module=account&action=tokentx&address=${payTo}&page=1&offset=25&sort=desc`;
+  let read = await readJson(url, env);
+  // A 429 gets ONE retry after a beat: the very first production presence call
+  // hit one — Cloudflare egress IPs are heavily shared, so explorer rate
+  // limits are an operating condition here, not an anomaly. One retry, not a
+  // loop: a host that is rate-limiting us twice is telling us something, and
+  // the honest verdict for it is `unknown`.
+  if (!read.ok && read.why === 'answered 429') {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    read = await readJson(url, env);
+  }
   if (!read.ok) return { ok: false, why: `chain explorer ${read.why}` };
   const rows = Array.isArray(read.json?.result) ? read.json.result : [];
   const incoming = rows.filter((t) => String(t?.to || '').toLowerCase() === payTo.toLowerCase());
@@ -292,7 +299,9 @@ export function assemblePresence({ target, identity, bazaar, scan, chain }) {
       listed: verdicts.filter((v) => v === 'listed').length,
       of: verdicts.length,
       unknown: verdicts.filter((v) => v === 'unknown').length,
-      settlement_seen: onchain.verdict === 'active',
+      // null, not false, when the chain could not be read: `false` is a claim
+      // ("nothing has settled here") and an unreadable explorer cannot back it.
+      settlement_seen: onchain.verdict === 'unknown' ? null : onchain.verdict === 'active',
     },
     notes: [
       'Verdicts are observations of public read surfaces at one moment, not guarantees. An ' +
