@@ -36,7 +36,11 @@ compatibility_date = "2025-10-08"
 routes = [
   { pattern = "10x402.com/check*", zone_name = "10x402.com" },
   { pattern = "10x402.com/lint", zone_name = "10x402.com" },
-  { pattern = "10x402.com/lint/*", zone_name = "10x402.com" }
+  { pattern = "10x402.com/lint/*", zone_name = "10x402.com" },
+  # /presence takes no query parameters today; the wildcard is the same
+  # future-proofing as /check* — a parameter added later must not become a
+  # silent outage.
+  { pattern = "10x402.com/presence*", zone_name = "10x402.com" }
 ]
 
 # The read surface is NOT here. dist/ is a separate Cloudflare Pages project

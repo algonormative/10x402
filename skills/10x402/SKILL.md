@@ -1,6 +1,6 @@
 ---
 name: 10x402
-description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs a 75-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix and cites the spec section, client source line or CDP requirement its rule comes from. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
+description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs an 82-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix and cites the spec section, client source line or CDP requirement its rule comes from. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
 ---
 
 # 10x402 — identify blockers to indexing and payment
@@ -36,7 +36,7 @@ to configure `@x402/fetch` or another supported client.
 
 **Public endpoint — $0.25 per served report.** Priced for the incident it
 resolves: a 402 that passes validate and still is not indexed, with nothing in
-the stack saying which of the 75 things is wrong.
+the stack saying which of the 82 things is wrong.
 
 ```bash
 curl -sS -X POST https://10x402.com/lint \
@@ -56,6 +56,21 @@ curl -sS -X POST https://10x402.com/lint/envelope \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"}'
 ```
 
+**Registry presence — $0.15 per served report.** The other half of the stuck-seller
+question: the declaration lints clean, so where does the resource actually stand
+with the registries? Fetches the live 402, reads the payTo and resource it
+declares, then checks the full CDP Bazaar discovery catalog, the x402scan
+explorer, and USDC settlement activity to the payTo on Base. Per-registry
+verdict (`listed` / `not_found` / `unknown`) with the evidence and a specific
+way in for each miss — a surface that cannot be read reports `unknown`, never a
+guessed `not_found`.
+
+```bash
+curl -sS -X POST https://10x402.com/presence \
+  -H 'content-type: application/json' \
+  -d '{"url": "https://their-endpoint.example.com/api/thing"}'
+```
+
 **One named check — $0.02 live, $0.01 pasted.** The CI product: run on every
 commit, against one property. Use it when there is exactly one thing you want to
 know and you know which check answers it:
@@ -70,7 +85,7 @@ curl -sS -X POST https://10x402.com/lint/envelope/one \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
 ```
 
-A full 75-check report costs 12.5x one check on a live URL and 10x on a pasted
+A full 82-check report costs 12.5x one check on a live URL and 10x on a pasted
 response — a 6x and 7.5x per-check advantage. Singles stay the cheaper buy
 through 12 questions live and 9 pasted; past that, buy the report. **Do that
 arithmetic before firing off a stack of single checks**: past those counts the

@@ -215,14 +215,14 @@ describe('the published samples are worked examples, computed by the real engine
 // THE PRICE SHEET
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('the four prices, and the atomic math underneath them', () => {
+describe('the five prices, and the atomic math underneath them', () => {
   test('the sheet is what it is meant to be', () => {
     // WRITTEN OUT, not derived. A test that computed these from the same
     // constants the Worker reads would agree with any re-price, including one
     // nobody decided on.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, e.price_usd])),
-      { '/lint': 0.25, '/lint/one': 0.02, '/lint/envelope': 0.1, '/lint/envelope/one': 0.01 }
+      { '/lint': 0.25, '/lint/one': 0.02, '/presence': 0.15, '/lint/envelope': 0.1, '/lint/envelope/one': 0.01 }
     );
   });
 
@@ -231,7 +231,7 @@ describe('the four prices, and the atomic math underneath them', () => {
     // that reads as plausible in every other assertion in this suite.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, atomicAmount(e.price_usd)])),
-      { '/lint': '250000', '/lint/one': '20000', '/lint/envelope': '100000', '/lint/envelope/one': '10000' }
+      { '/lint': '250000', '/lint/one': '20000', '/presence': '150000', '/lint/envelope': '100000', '/lint/envelope/one': '10000' }
     );
     // Float division is not exact — 0.1 * 1e6 is 100000.00000000001 — so the
     // conversion has to round rather than truncate. This is that assertion.
@@ -242,7 +242,7 @@ describe('the four prices, and the atomic math underneath them', () => {
   test('a price never renders shorter than cents', () => {
     // "$0.1" on a sheet that also says "$0.02" is a 10x misread a buyer only
     // notices after paying.
-    assert.deepEqual(ENDPOINTS.map((e) => priceLabel(e.price_usd)), ['$0.25', '$0.02', '$0.10', '$0.01']);
+    assert.deepEqual(ENDPOINTS.map((e) => priceLabel(e.price_usd)), ['$0.25', '$0.02', '$0.15', '$0.10', '$0.01']);
     assert.equal(priceLabel(0), 'free');
     assert.equal(priceLabel(0.005), '$0.005', 'sub-cent prices keep the digits they need');
   });

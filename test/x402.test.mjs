@@ -140,6 +140,7 @@ describe('the v1 envelope, in the body', () => {
     assert.deepEqual(atomic, {
       '/lint': '250000',            // $0.25
       '/lint/one': '20000',         // $0.02
+      '/presence': '150000',        // $0.15
       '/lint/envelope': '100000',   // $0.10
       '/lint/envelope/one': '10000', // $0.01
     });

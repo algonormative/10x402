@@ -86,6 +86,7 @@ const SUITE_OCTET = {
   'self-lint': 16,
   settlement: 17,
   alerts: 18,
+  presence: 20,
 };
 
 /**

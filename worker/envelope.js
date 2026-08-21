@@ -43,6 +43,8 @@ import {
 } from './catalog.js';
 import { lint, lintOne } from './lint.js';
 import { POSITIVE_CONTROL } from './positive-control.js';
+import { assemblePresence } from './presence.js';
+import { PRESENCE_CONTROL } from './presence-control.js';
 
 export const PAYMENT_HEADER_V1 = 'x-payment';
 export const PAYMENT_HEADER_V2 = 'payment-signature';
@@ -150,6 +152,20 @@ export function sampleOutput(endpoint) {
  * and not another string comparison here.
  */
 export function runSample(endpoint) {
+  // The presence sample is the real assembly code over the frozen
+  // PRESENCE_CONTROL capture — three registry observations of this service's
+  // own /lint/one resource, recorded on the capture date. Same discipline as
+  // the lint samples below: real code path, frozen input, no network.
+  if (endpoint.kind === 'presence') {
+    return assemblePresence({
+      target: { url: PRESENCE_CONTROL.target.url, method: 'POST', status: 402 },
+      identity: { payTo: PRESENCE_CONTROL.target.payTo, declaredUrl: PRESENCE_CONTROL.target.url },
+      bazaar: PRESENCE_CONTROL.bazaar,
+      scan: PRESENCE_CONTROL.scan,
+      chain: PRESENCE_CONTROL.chain,
+    });
+  }
+
   // A fetching endpoint's sample points at the positive control's URL, and
   // POST /lint on it fetches that URL and lints what comes back. The captured
   // copy IS what comes back, so linting it here is the same computation with no

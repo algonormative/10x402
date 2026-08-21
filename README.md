@@ -9,10 +9,10 @@ blockers between those steps and gives you a specific fix for each finding. It
 does not promise demand, a Bazaar listing, or a successful payment; it shows you
 what in the published 402 can prevent them.
 
-**Status: built, not deployed. Zero revenue to date. `10x402.com` is not
-registered yet.** Nothing in this repo depends on that domain resolving — no
-test fetches it, the Worker never calls it, and it appears only as a string in
-generated copy and in envelope metadata.
+**Status: live at [10x402.com](https://10x402.com) since 2026-08-20.** Zero
+third-party revenue to date — the only settlements so far are the house's own
+priming and alert-proof calls, and this README will keep saying so until that
+changes.
 
 ---
 
@@ -37,7 +37,7 @@ verify:
   `amount`, finds `undefined`, and has no price to sign against.
 
 10x402 turns those absences into named findings and concrete changes. Its
-75-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
+82-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
 consistency, version hygiene, Bazaar metadata, and two safeguards that disclose
 when the report itself had to stop or truncate work. Every check names the
 specification section, client source line or CDP requirement its rule comes
@@ -46,12 +46,12 @@ from — and where the honest answer is a house opinion, it says that instead.
 ## The self-lint invariant
 
 **The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints all four paid endpoint envelopes and fails on any finding.**
+self-lints all five paid endpoint envelopes and fails on any finding.**
 
-`test/self-lint.test.mjs` takes 10x402's *own* 402 — for all four paid
+`test/self-lint.test.mjs` takes 10x402's *own* 402 — for all five paid
 endpoints, in the production configuration, off the wire through wrangler and
 workerd — and runs it through 10x402's *own* lint engine. It must grade **A with
-zero findings**, info included. Separately, `node build.mjs` constructs all four
+zero findings**, info included. Separately, `node build.mjs` constructs all five
 production envelopes, runs the same engine, and refuses to emit `dist/` if any
 of them has a finding.
 
@@ -70,9 +70,9 @@ known-good before trusting any negative verdict.
 ## What you lint is your business
 
 The application store keeps no linted URLs, no pasted envelopes, and no reports.
-It retains the endpoint id (`lint`, `lint-one`, `lint-envelope` or
-`lint-envelope-one`), grade, and error/warning counts as aggregate product
-telemetry, plus the quota and payment records needed to operate the service. It
+It retains the endpoint id (`lint`, `lint-one`, `presence`, `lint-envelope` or
+`lint-envelope-one`), grade (for `presence`, only the count of registries that
+listed the target), and error/warning counts as aggregate product telemetry, plus the quota and payment records needed to operate the service. It
 does not persist the material being linted.
 
 ## Start here
@@ -96,6 +96,7 @@ form of either when there is exactly one check you want the answer to.
 |---|---|---|
 | `POST /lint` | **$0.25** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
 | `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
+| `POST /presence` | **$0.15** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and USDC settlement activity on Base. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
 | `POST /lint/envelope` | **$0.10** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
@@ -103,13 +104,13 @@ form of either when there is exactly one check you want the answer to.
 **The two scopes are two products, bought at two different moments.** A full
 report is bought during an incident: a 402 that passes validate and still is not
 indexed is the class of problem that eats weeks, because nothing in the stack
-says which of the 75 things is wrong. $0.25 is priced against that, and it is
+says which of the 82 things is wrong. $0.25 is priced against that, and it is
 still a fraction of the $25 a signed conformance report costs. A single check is
 bought in a test and then again on every commit — it is the CI and regression
 product, and it stays micro because a regression product that is not cheap does
 not get run.
 
-**The multiples fall out of that rather than being designed.** A full 75-check
+**The multiples fall out of that rather than being designed.** A full 82-check
 report costs 12.5x one check on a live URL and 10x on a pasted response — a 6x
 and 7.5x per-check advantage. Singles stay the cheaper buy through 12 questions
 live and 9 pasted; past that, buy the report. The two rails differ because the

@@ -98,6 +98,7 @@ import {
   resourceInfoV2,
 } from './envelope.js';
 import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
+import { runPresence } from './presence.js';
 import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
@@ -656,9 +657,12 @@ async function handlePaid(request, env, ctx, endpoint) {
 
   let report;
   try {
-    report = endpoint.fetches
-      ? await runUrlLint(body, env, named?.check)
-      : runEnvelopeLint(body, named?.check);
+    report =
+      endpoint.kind === 'presence'
+        ? await runPresence(body, env)
+        : endpoint.fetches
+          ? await runUrlLint(body, env, named?.check)
+          : runEnvelopeLint(body, named?.check);
   } catch (err) {
     return abandon(badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint)));
   }
@@ -1161,17 +1165,25 @@ async function recordSettlementSafely(db, row) {
  * it was written for.
  */
 const lintTelemetry = (report) =>
-  report.check
+  report.registries
     ? {
-        grade: report.applied ? (report.passed ? 'pass' : 'fail') : 'n/a',
-        errors: report.finding?.severity === 'error' ? 1 : 0,
-        warns: report.finding?.severity === 'warn' ? 1 : 0,
+        // A presence report has no grade; the telemetry row records how many
+        // registries listed the target — counts only, same privacy posture.
+        grade: `${report.summary.listed}/${report.summary.of} listed`,
+        errors: 0,
+        warns: 0,
       }
-    : {
-        grade: report.grade,
-        errors: report.findings.filter((f) => f.severity === 'error').length,
-        warns: report.findings.filter((f) => f.severity === 'warn').length,
-      };
+    : report.check
+      ? {
+          grade: report.applied ? (report.passed ? 'pass' : 'fail') : 'n/a',
+          errors: report.finding?.severity === 'error' ? 1 : 0,
+          warns: report.finding?.severity === 'warn' ? 1 : 0,
+        }
+      : {
+          grade: report.grade,
+          errors: report.findings.filter((f) => f.severity === 'error').length,
+          warns: report.findings.filter((f) => f.severity === 'warn').length,
+        };
 
 async function recordLintSafely(db, { now, endpoint, report }) {
   if (!db) return;

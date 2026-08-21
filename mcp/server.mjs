@@ -9,6 +9,7 @@
 //   lint_x402_one_check          {url, check, method?}      POST {BASE}/lint/one
 //   lint_x402_envelope           {status, headers?, body?}  POST {BASE}/lint/envelope
 //   lint_x402_envelope_one_check {status, check, …}         POST {BASE}/lint/envelope/one
+//   check_x402_presence          {url, method?}             POST {BASE}/presence
 //   x402_checks                  {}                         GET  {BASE}/check
 //
 // BASE comes from TENX402_URL, defaulting to production.
@@ -71,6 +72,32 @@ const TOOLS = [
       type: 'object',
       properties: {
         url: { type: 'string', description: 'the https URL of the paid endpoint to lint' },
+        method: {
+          type: 'string',
+          enum: ['POST', 'GET'],
+          description: 'how the endpoint is called. Defaults to POST, which is what most paid x402 endpoints take.',
+        },
+      },
+      required: ['url'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'check_x402_presence',
+    description:
+      'Find out where a live x402 resource actually stands with the registries — the other half of ' +
+      'the stuck-seller question. lint_x402 answers whether the declaration is right; this answers ' +
+      'whether the world can see it. Fetches the 402, reads the payTo and resource it declares, ' +
+      'then checks three public surfaces: the full CDP Bazaar discovery catalog (scanned end to ' +
+      'end), the x402scan explorer, and USDC transfer activity to the payTo on Base. Returns a ' +
+      'per-registry verdict (listed / not_found / unknown) with the evidence and a specific way in ' +
+      'for each miss; a surface that cannot be read reports unknown, never a guessed not_found. ' +
+      'Costs $0.15 per served report, paid over x402; the first call answers 402 with the terms, ' +
+      'which is a price quote and not an error.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'the https URL of the live x402 resource to look up' },
         method: {
           type: 'string',
           enum: ['POST', 'GET'],
@@ -219,6 +246,14 @@ async function lint(args) {
   const payload = { url };
   if (args.method) payload.method = String(args.method).toUpperCase();
   return post('/lint', payload);
+}
+
+async function checkPresence(args) {
+  const url = String(args.url || '').trim();
+  if (!url) return fail('`url` is required — the https URL of the live x402 resource to look up.');
+  const payload = { url };
+  if (args.method) payload.method = String(args.method).toUpperCase();
+  return post('/presence', payload);
 }
 
 async function lintEnvelope(args) {
@@ -618,6 +653,7 @@ function formatDuration(seconds) {
 const HANDLERS = {
   lint_x402: lint,
   lint_x402_one_check: lintOneCheck,
+  check_x402_presence: checkPresence,
   lint_x402_envelope: lintEnvelope,
   lint_x402_envelope_one_check: lintEnvelopeOneCheck,
   x402_checks: checks,

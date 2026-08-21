@@ -109,7 +109,7 @@ async function own402(endpoint) {
 }
 
 describe('10x402 lints itself', () => {
-  test('all four paid endpoints are under this invariant, not just the two it started with', () => {
+  test('all five paid endpoints are under this invariant, not just the two it started with', () => {
     // THE INVARIANT IS PER ROUTE, and each route publishes its own envelope
     // with its own price, resource, bazaar sample and computed output example.
     // A fifth route that quietly escaped this loop would be the one endpoint
@@ -117,7 +117,7 @@ describe('10x402 lints itself', () => {
     // sign case. `node build.mjs` gates on the same list.
     assert.deepEqual(
       ENDPOINTS.map((e) => e.path),
-      ['/lint', '/lint/one', '/lint/envelope', '/lint/envelope/one']
+      ['/lint', '/lint/one', '/presence', '/lint/envelope', '/lint/envelope/one']
     );
   });
 

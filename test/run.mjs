@@ -87,6 +87,16 @@ const PHASES = [
     files: ['test/lint-http.test.mjs'],
   },
   {
+    // STANDALONE for the same reason as settlement: the worker's
+    // PRESENCE_*_BASE vars are the mock registries' ports, learned only at
+    // startup, so the file has to boot its own worker. Tests never touch the
+    // live registries — the base-URL seam is the same one production uses,
+    // pointed at 127.0.0.1.
+    name: 'presence (mock registries)',
+    standalone: true,
+    files: ['test/presence.test.mjs'],
+  },
+  {
     // THE PRODUCTION CONFIGURATION: no free tier, a receiving address set. The
     // first unauthenticated call is the 402 — which is both the product's front
     // door and the thing a discovery index probes for. self-lint runs here and

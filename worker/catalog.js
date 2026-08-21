@@ -239,6 +239,38 @@ export const ENDPOINTS = [
     sample: { ...LINT_SAMPLE_INPUT, check: LINT_ONE_SAMPLE_CHECK },
   },
   {
+    id: 'presence',
+    path: '/presence',
+    method: 'POST',
+    // $0.15 and DELIBERATELY DISTINCT from every other price on the sheet:
+    // amounts are the one field a bare chain explorer shows, so unique prices
+    // make every settlement attributable to its endpoint with no other data.
+    // Costlier than the pasted rail because it is the most outbound work this
+    // service does — the target fetch plus a full catalog scan.
+    price_usd: 0.15,
+    fetches: true,
+    single: false,
+    kind: 'presence',
+    mimeType: 'application/json',
+    description: 'Where a live x402 resource stands with the registries — Bazaar, x402scan, and on-chain',
+    long:
+      'The question the stuck-seller threads open with: "I settle payments — why can nobody find ' +
+      'me?" Fetches your 402, reads the payTo and resource it declares, then checks three public ' +
+      'surfaces: the full CDP Bazaar discovery catalog (scanned end to end — its payTo filter is ' +
+      'documented but inert, so the honest read is the whole catalog), the x402scan explorer, and ' +
+      'USDC transfer activity to your payTo on Base. Per-registry verdict with the evidence and a ' +
+      'specific way in for each miss. A surface that cannot be read reports `unknown`, never a ' +
+      'guessed `not_found`. /lint answers whether your declaration is right; this answers whether ' +
+      'the world can see it.',
+    inputDescription:
+      'a JSON object: { "url": "https://…" } — the live x402 resource to look up — and optionally ' +
+      '{ "method": "POST" | "GET" }, default POST',
+    outputDescription:
+      'a JSON presence report: per-registry verdicts (listed | not_found | unknown) with evidence, ' +
+      'on-chain settlement activity, and a summary',
+    sample: LINT_SAMPLE_INPUT,
+  },
+  {
     id: 'lint-envelope',
     path: '/lint/envelope',
     method: 'POST',

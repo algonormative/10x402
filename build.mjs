@@ -123,7 +123,12 @@ const byId = (id) => {
 
 const rail = (endpoint) =>
   endpoint.fetches ? 'A live public endpoint' : 'A captured or local 402 response';
-const scopeOf = (endpoint) => (endpoint.single ? 'One named check' : `All ${CHECKS.length} checks`);
+const scopeOf = (endpoint) =>
+  endpoint.kind === 'presence'
+    ? 'Registry presence, by evidence'
+    : endpoint.single
+      ? 'One named check'
+      : `All ${CHECKS.length} checks`;
 
 // EVERY NUMBER ON THE PAGE IS DERIVED. A count typed into copy is a count that
 // disagrees with the catalogue the first time a check is added, and a
@@ -1656,6 +1661,5 @@ if (HOST !== CANONICAL_HOST) {
       'Run `node build.mjs` with no SITE_HOST override before committing or deploying.'
   );
 }
-console.log('build: NOTE — 10x402.com is not registered yet; nothing in this build depends on it resolving.');
 console.log(`build: bundled ${FONT_FILES.length} self-hosted OFL font files into dist/fonts/ (licences alongside)`);
 console.log('build: wrote dist/index.html dist/openapi.json dist/.well-known/x402 dist/llms.txt dist/skill.md dist/robots.txt');
