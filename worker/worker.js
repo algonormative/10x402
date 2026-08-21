@@ -97,7 +97,7 @@ import {
   requirementsV2,
   resourceInfoV2,
 } from './envelope.js';
-import { fetchTarget, unsafeTargetsAllowed } from './fetch-target.js';
+import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
 import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
@@ -770,10 +770,30 @@ async function runUrlLint(body, env, check) {
   const fetched = await fetchTarget(body.url, body.method, env);
   if (!fetched.ok) return { error: fetched.error, fix: fetched.fix };
 
+  // THE NEGATIVE CONTROL RUNS ONLY WHEN ITS CHECKS WILL BE IN THE ANSWER: the
+  // full report always, /lint/one only when the named check is one of the two
+  // control checks. A single-check buyer of anything else still costs the
+  // target exactly one request — that bound is asserted in the tests and it is
+  // part of what they bought. A failed control is not a refusal: the two
+  // checks decline (absent from checks_run) and the rest of the report stands,
+  // the same way the method-agreement check declines with no verb.
+  const wantsControl = !check || check === 'HTTP_ROUTE_DISCRIMINATES' || check === 'HTTP_SOFT_404';
+  if (wantsControl) {
+    const control = await fetchControl(body.url, env);
+    if (control.ok) fetched.input.control = { path: CONTROL_PATH, status: control.status };
+  }
+
   const report = check ? lintOne(fetched.input, check) : lint(fetched.input);
   return {
     ...report,
-    target: { url: fetched.input.url, method: fetched.input.method, status: fetched.input.status },
+    target: {
+      url: fetched.input.url,
+      method: fetched.input.method,
+      status: fetched.input.status,
+      // The control observation is evidence, preserved next to the verdicts
+      // that rest on it: which path was asked, what came back.
+      ...(fetched.input.control ? { control: fetched.input.control } : {}),
+    },
     ...(fetched.input.truncated
       ? {
           truncated: `the response body was longer than ${MAX_BODY_BYTES / 1024} KB and was read to that point`,

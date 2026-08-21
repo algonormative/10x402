@@ -17,7 +17,7 @@ import { describe, test } from 'node:test';
 import { readFileSync } from 'node:fs';
 
 import { REASON_TAGS, TAGS, DIMENSIONS, TENX402_TAGS, CLIENT_INTEROP_LEVELS, judgeableFrom } from '../corpus/vocabulary.mjs';
-import { runFixture, tagFor, assertPinnedBlobs } from '../corpus/run-10x402.mjs';
+import { runFixture, tagFor, assertPinnedBlobs, LIVE_ONLY_CHECKS } from '../corpus/run-10x402.mjs';
 import { buildCorpus } from '../corpus/build-fixtures.mjs';
 import { validateCorpus, validateResults, agreement } from '../corpus/validate-results.mjs';
 import { FIXTURES } from './fixtures/envelopes.mjs';
@@ -261,12 +261,33 @@ describe('corpus: no house rule decides a normative dimension', () => {
 });
 
 describe('corpus: the adapter is total', () => {
-  test('every check in the catalogue has a corpus tag', () => {
+  test('every check in the catalogue has a corpus tag, or is declared live-only', () => {
     // A new check with no tag would throw at run time, in the middle of a run,
     // for whichever fixture happened to trigger it first. Assert it up front.
+    // A LIVE-ONLY check is the one legitimate exception: its evidence is a
+    // second live request no recorded fixture carries, so it is DECLARED in
+    // the adapter rather than tagged — forgotten and declared must stay
+    // distinguishable, which is what this assertion pair keeps true.
+    const liveOnly = new Set(LIVE_ONLY_CHECKS);
     for (const check of CHECKS) {
+      if (liveOnly.has(check.id)) continue;
       assert.ok(TENX402_TAGS[check.id], `check ${check.id} has no corpus tag`);
       assert.doesNotThrow(() => tagFor(check.id), `check ${check.id} maps outside the vocabulary`);
+    }
+  });
+
+  test('every declared live-only check exists, is hygiene, and stays out of the vocabulary', () => {
+    // The declaration must not drift from the catalogue (a renamed check would
+    // silently re-open the totality hole), must stay hygiene/info (a live-only
+    // check that could grade would make the corpus and the product disagree),
+    // and must not ALSO carry a tag (tagged and declared at once would mean
+    // one of the two is a leftover).
+    for (const id of LIVE_ONLY_CHECKS) {
+      const check = CHECKS.find((c) => c.id === id);
+      assert.ok(check, `live-only ${id} is not in the catalogue`);
+      assert.equal(check.regime, 'hygiene', `live-only ${id} is ${check.regime}, not hygiene`);
+      assert.equal(TENX402_TAGS[id], undefined, `live-only ${id} also has a corpus tag`);
+      assert.throws(() => tagFor(id), `a live-only finding in a corpus reduction must throw`);
     }
   });
 

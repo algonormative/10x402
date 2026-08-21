@@ -14,17 +14,17 @@
       "commit": "2a0f2fb628e4ccfaa335911316a39002bad85f37",
       "commit_is": "INFORMATIONAL, AND ALWAYS BEHIND. Where the tree was when this corpus was last stamped. It cannot be the commit that carries this file, because writing this file is itself a change to be committed, and it falls further behind with every commit made after a stamp — so no fixed lag is claimed here, and an earlier version of this note claiming \"one commit\" was wrong by the time it was read. It is not, and cannot be, a handle on \"what code ran\". The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and checked before the engine executes.",
       "blobs": {
-        "worker/lint.js": "241382f706c7420dba0967cb1f670c673f89cc22",
+        "worker/lint.js": "38bb9a4055c1a53bb3082a2c4a9504afcfd61ff7",
         "worker/json-schema.js": "852ff5546384c03cf7f3251b372d804dad7a6ab0",
         "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
         "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
         "test/fixtures/envelopes.mjs": "0c333e124ad665cdf053bbf0c843b08415531b36",
         "corpus/vocabulary.mjs": "ef61b617cbfe537cf9de56f75742c5a74f0ccb5b",
-        "corpus/run-10x402.mjs": "f437405d5ec41d22cdbab1304f6e665cea5757ad",
+        "corpus/run-10x402.mjs": "7be82d608feeb7b3d408b06dd5f994ae6a6e9222",
         "corpus/client-probe.json": "8f80dc795b51f80fbae49172a13f62ecee7de1d3",
         "corpus/client-probe.lock.json": "c42b926aa770c49fa3e5e4d94eb18b5f40e2d174"
       },
-      "note": "the engine under test — worker/lint.js, 80 checks"
+      "note": "the engine under test — worker/lint.js, 82 checks (two of them live-only — see LIVE_ONLY_CHECKS in corpus/run-10x402.mjs; they cannot fire on a recorded fixture)"
     },
     "packages": {
       "@x402/core": {

@@ -443,6 +443,24 @@ export const CHECKS = [
       spec(V2_TRANSPORT), spec(V1_TRANSPORT),
       client('@x402/core@2.23.0 dist/cjs/http/index.js:1620-1628 — no header and no v1 body throws "Invalid payment required response"'),
     ] },
+  // THE NEGATIVE CONTROL PAIR. Live lints only: both judge a second request —
+  // one GET to an impossible path on the same host — that a pasted response
+  // does not carry, so on /lint/envelope they decline rather than guess.
+  // Hygiene by construction: neither is a payment defect nor an indexing
+  // blocker, and the census that produced them is explicit that the
+  // 402-before-routing shape is a PLATFORM property the seller may not control.
+  { id: 'HTTP_ROUTE_DISCRIMINATES', area: 'http', severity: 'info', regime: 'hygiene',
+    summary: 'the host tells a real path from an impossible one, so the declared path’s answer is evidence the route exists (runs only when the one-request negative control could be fetched)',
+    sources: [
+      field('x402-foundation/x402#3104 (Circadian-agent, 2026-08-21) — 533-host census of the live catalog: 493/526 answering hosts (93.9%) return 404/410 for an impossible path; 10 hosts (1.9%) answer 402 for everything, clustered on 5 domains — a platform property, not a per-endpoint mistake'),
+      field('x402-foundation/x402#3104 (mayonerajan, 2026-08-21) — models the outcome as route_existence: confirmed | uninformative rather than pass/fail, and adopts the negative control into the x402-doctor design'),
+    ] },
+  { id: 'HTTP_SOFT_404', area: 'http', severity: 'info', regime: 'hygiene',
+    summary: 'an impossible path is not answered with a success status — a soft-404 host defeats liveness checks, a different class than the 402 gate (runs only when the negative control could be fetched)',
+    sources: [
+      field('x402-foundation/x402#3104 (Circadian-agent, 2026-08-21) — 13/526 hosts (2.5%) answer 200 for an impossible path, diffuse across 13 distinct domains: independent mistakes, not a platform'),
+      field('x402-foundation/x402#3104 (mayonerajan, 2026-08-21) — "it is not \'route exists\', merely an indeterminate positive response"; reported distinctly from both 404/410 and 402-before-routing'),
+    ] },
 
   // --- v2 envelope ------------------------------------------------------
   //
@@ -3272,7 +3290,41 @@ export function lint(response) {
  */
 function runLint(response) {
   const report = new Report();
-  const { status, headers = {}, body = '', url = null, method = null, redirectedTo = null, truncated = false } = response || {};
+  const { status, headers = {}, body = '', url = null, method = null, redirectedTo = null, truncated = false, control = null } = response || {};
+
+  // --- negative control (live lints only) -------------------------------
+  //
+  // `control` is the observation from one GET to an impossible path on the
+  // same host (worker/fetch-target.js CONTROL_PATH), attached by the Worker
+  // only when it was actually fetched. Both checks decline without it — a
+  // pasted response carries no second request, and inventing one would make
+  // the report a claim about a host nobody asked.
+  if (isObject(control) && typeof control.status === 'number') {
+    report.check(
+      'HTTP_ROUTE_DISCRIMINATES',
+      control.status !== status,
+      `a path that cannot exist (${clip(String(control.path || ''), 80)}) answered ${control.status} — ` +
+        `the same status as the declared path. The ${status} above carries no information about ` +
+        'whether the declared route exists: this host answers everything the same way.',
+      'If you control the routing, answer 404 for paths that do not route; if this is a hosted ' +
+        'x402 platform that payment-gates before routing, it may not be yours to fix — but it is ' +
+        'yours to know. On this host, replay-based verification, registry crawlers, and buyers ' +
+        'probing before payment all lose the ability to tell a typo in your declared resource ' +
+        'from a live route. 93.9% of catalogued x402 hosts return 404/410 here; yours is in the ' +
+        'small cluster that does not.'
+    );
+    report.check(
+      'HTTP_SOFT_404',
+      !(control.status >= 200 && control.status < 300),
+      `a path that cannot exist (${clip(String(control.path || ''), 80)}) answered ${control.status} — ` +
+        'a success status for a page that is really a not-found: a soft-404.',
+      'Answer 404 for paths that do not exist. A liveness check that reads only the status ' +
+        'records a dead or mistyped URL as alive on this host, which defeats a different class ' +
+        'of checks than the payment gate does — url-liveness rather than route evidence. In the ' +
+        'live-catalog census this shape is rare (2.5%) and always an independent mistake, so it ' +
+        'is almost certainly fixable on your side.'
+    );
+  }
 
   // --- HTTP layer -------------------------------------------------------
   const is3xx = status >= 300 && status < 400;

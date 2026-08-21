@@ -437,3 +437,62 @@ describe('robustness', () => {
     assert.deepEqual(codesOf(upper), codesOf(lower));
   });
 });
+
+describe('the negative control (x402#3104)', () => {
+  // The control is a SECOND observation, not part of the response — which is
+  // why these are not entries in FIXTURES: that array is replayed byte-for-byte
+  // through the pasted rail, where no second request exists and both checks
+  // must decline rather than guess.
+  const perfect = () => response({ v1: v1Envelope(), v2: v2Envelope(), url: RESOURCE_URL });
+  const CONTROL_PATH = '/zzq-10x402-route-control-9931/does-not-exist.json';
+
+  test('a discriminating host (the 94% case): nothing fires', () => {
+    const report = lint({ ...perfect(), control: { path: CONTROL_PATH, status: 404 } });
+    assert.deepEqual(codesOf(report), []);
+    assert.equal(report.grade, 'A');
+  });
+
+  test('a host that 402s before routing: uninformative, reported as hygiene info', () => {
+    const report = lint({ ...perfect(), control: { path: CONTROL_PATH, status: 402 } });
+    assert.deepEqual(codesOf(report), ['HTTP_ROUTE_DISCRIMINATES']);
+    const finding = report.findings[0];
+    assert.equal(finding.severity, 'info');
+    assert.match(finding.message, /carries no information/);
+    assert.match(finding.fix, /may not be yours to fix/);
+    // A report, never a grade: the census says this is usually the platform's
+    // property, and payment on such a host works fine.
+    assert.equal(report.grade, 'A');
+  });
+
+  test('a soft-404 host: reported separately — a different check class loses', () => {
+    const report = lint({ ...perfect(), control: { path: CONTROL_PATH, status: 200 } });
+    assert.deepEqual(codesOf(report), ['HTTP_SOFT_404']);
+    assert.equal(report.findings[0].severity, 'info');
+    assert.match(report.findings[0].message, /soft-404/);
+    assert.equal(report.grade, 'A');
+  });
+
+  test('a free-tier host whose control also answers 200 fires both, honestly', () => {
+    // Declared path 200 and impossible path 200: the host does not
+    // discriminate AND it soft-404s. Two true sentences, both said.
+    const report = lint({ ...response({ status: 200, bodyRaw: '{}' }), control: { path: CONTROL_PATH, status: 200 } });
+    const codes = codesOf(report);
+    assert.ok(codes.includes('HTTP_ROUTE_DISCRIMINATES'), codes.join(','));
+    assert.ok(codes.includes('HTTP_SOFT_404'), codes.join(','));
+  });
+
+  test('without a control observation, both checks decline — on every fixture', () => {
+    // The whole FIXTURES array is control-free, so this is also the proof that
+    // adding the pair changed no existing expectation: the checks are absent
+    // from checks_run, not silently passing.
+    for (const fixture of FIXTURES) {
+      const report = lint(fixture.response());
+      const codes = codesOf(report);
+      assert.ok(!codes.includes('HTTP_ROUTE_DISCRIMINATES'), fixture.name);
+      assert.ok(!codes.includes('HTTP_SOFT_404'), fixture.name);
+    }
+    const withControl = lint({ ...perfect(), control: { path: CONTROL_PATH, status: 404 } });
+    const without = lint(perfect());
+    assert.equal(withControl.checks_run - without.checks_run, 2);
+  });
+});

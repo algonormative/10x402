@@ -65,6 +65,14 @@ const CANNOT_APPLY = [
   // Both only run in v2-only mode. We publish both envelopes.
   'V1_ABSENT',
   'V1_BODY_NOT_ENVELOPE',
+  // Both judge the negative-control observation — a second, live request the
+  // self-lint's constructed 402 does not carry, so they decline here the same
+  // way they decline on /lint/envelope. The live form of the claim (10x402.com
+  // itself answers 404 for the control path, so a lint of this service reports
+  // neither) is a deployment property, verified against production at deploy
+  // time rather than asserted from a test that never fetched.
+  'HTTP_ROUTE_DISCRIMINATES',
+  'HTTP_SOFT_404',
   // FINDINGS_TRUNCATED is NOT on this list any more, and its absence is the
   // point of the change that removed it. It used to fire only when the
   // 200-finding cap was hit — a cap the accepts limit and the fault-collapsing

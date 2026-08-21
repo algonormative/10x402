@@ -375,6 +375,55 @@ export async function fetchTarget(rawUrl, method, env) {
   };
 }
 
+/**
+ * THE NEGATIVE CONTROL, from x402#3104's census: one GET to a path on the same
+ * host that cannot exist. If it answers the same way the declared path did, a
+ * 402 there carried no information about whether the declared route exists —
+ * on ~2% of catalogued hosts the payment gate answers before routing, and on
+ * another ~2.5% a success page answers for everything (soft-404). One request
+ * separates those hosts from the 94% where the 402 is real route evidence.
+ *
+ * A FIXED path, deliberately: determinism is worth more than unguessability
+ * here (nothing is gained by a host special-casing this path except a wrong
+ * "discriminates" verdict about itself, which its buyers would then discover),
+ * and a stable string lets a seller reading their logs see exactly what hit
+ * them and why. GET with no body — the route does not exist, so the verb the
+ * declared resource takes is irrelevant, and GET is the verb that cannot be
+ * misread as an attempted call. The body is cancelled unread: only the status
+ * is evidence.
+ */
+export const CONTROL_PATH = '/zzq-10x402-route-control-9931/does-not-exist.json';
+
+export async function fetchControl(rawUrl, env) {
+  const checked = checkTargetUrl(rawUrl, { unsafe: unsafeTargetsAllowed(env) });
+  if (checked.error) return { ok: false };
+
+  const controlUrl = new URL(CONTROL_PATH, checked.url.origin);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs(env));
+  try {
+    const res = await fetch(controlUrl.href, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        accept: 'application/json, */*',
+        'user-agent': '10x402-lint/0.1 (+https://10x402.com)',
+      },
+      signal: controller.signal,
+    });
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* the status is the evidence; a dead stream changes nothing */
+    }
+    return { ok: true, status: res.status };
+  } catch {
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** The two transport refusals, written once so they cannot drift apart. */
 const timedOut = (env, what = 'answer') => ({
   error: `the target did not ${what} within ${timeoutMs(env) / 1000}s`,

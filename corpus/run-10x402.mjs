@@ -84,6 +84,19 @@ export function assertPinnedBlobs(corpus) {
   return blobs;
 }
 
+/**
+ * Checks whose evidence CANNOT exist in a recorded fixture: they judge a
+ * second, live request — the negative-control probe of x402#3104 — that a
+ * recorded response does not carry. They are declared here, in the ADAPTER,
+ * rather than tagged in the vocabulary, because a tag would imply a recorded
+ * expectation could name them; this is the same line FORMAT.md draws for
+ * discovery, where live outcomes belong to a live adapter. runFixture() never
+ * fetches, so these can never fire on a corpus run — and tagFor still throws
+ * on them, which is correct: a live-only finding appearing in a corpus
+ * reduction IS an error, not a gap in the map.
+ */
+export const LIVE_ONLY_CHECKS = Object.freeze(['HTTP_ROUTE_DISCRIMINATES', 'HTTP_SOFT_404']);
+
 export function tagFor(code) {
   const tag = TENX402_TAGS[code];
   if (!tag) throw new Error(`no corpus tag for check ${code} — add it to corpus/vocabulary.mjs`);

@@ -1627,6 +1627,24 @@ writeFileSync(join(DIST, 'llms.txt'), llms);
 writeFileSync(join(DIST, 'skill.md'), skill);
 writeFileSync(join(DIST, 'robots.txt'), robots);
 
+// 404.html: WITHOUT this file, Cloudflare Pages treats the site as an SPA and
+// serves index.html with a 200 for every path that does not exist — which made
+// 10x402.com itself a soft-404 host, caught by our own HTTP_SOFT_404 check on
+// launch day of that check (deploy-time verification, 2026-08-21). A service
+// that lints soft-404s for money answers 404 like it tells everyone else to.
+writeFileSync(
+  join(DIST, '404.html'),
+  `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>404 — 10x402</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0c12;color:#e2e8f0;font:500 1rem/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}main{text-align:center;padding:2rem}h1{font-size:1.4rem;margin:0 0 .5rem}a{color:#7dd3fc}p{color:#94a3b8;max-width:34rem}</style>
+</head><body><main><h1>404 — no such path</h1>
+<p>This is a real 404 with a real 404 status. If you are probing whether this
+host discriminates real routes from impossible ones: it does, and so should
+yours. <a href="/">10x402.com</a> checks that, among 82 other things.</p>
+</main></body></html>\n`
+);
+
 console.log(`build: ${CHECKS.length} checks across ${AREA_ORDER.length} areas`);
 for (const area of AREA_ORDER) console.log(`  ${area.padEnd(8)} ${byArea(area).length}`);
 console.log(`build: self-lint A with zero findings on ${ENDPOINTS.length} endpoints`);

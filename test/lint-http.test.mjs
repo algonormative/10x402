@@ -30,7 +30,7 @@ let target;
  * possible — "no payment header was sent" is a recorded fact, not an inference.
  */
 async function startTarget() {
-  const state = { hits: [], next: null, hang: false, dribble: false };
+  const state = { hits: [], next: null, control: null, hang: false, dribble: false };
   const dribblers = new Set();
 
   const server = http.createServer((req, res) => {
@@ -61,6 +61,17 @@ async function startTarget() {
         return;
       }
 
+      // The negative-control path is routed separately, like a real host that
+      // discriminates: by default it 404s (so the control checks stay silent in
+      // every test that is not about them), and a test that IS about them sets
+      // `state.control` to play a 402-before-routing or soft-404 host.
+      if (req.url.startsWith('/zzq-10x402-route-control')) {
+        const control = state.control || { status: 404, headers: {}, body: 'not found' };
+        res.writeHead(control.status, control.headers || {});
+        res.end(control.body ?? '');
+        return;
+      }
+
       const canned = state.next || { status: 404, headers: {}, body: '{}' };
       res.writeHead(canned.status, canned.headers || {});
       res.end(canned.body ?? '');
@@ -84,6 +95,7 @@ async function startTarget() {
     reset() {
       state.hits.length = 0;
       state.next = null;
+      state.control = null;
       state.hang = false;
       state.dribble = false;
       for (const { res, timer } of dribblers) {
@@ -196,22 +208,32 @@ describe('the request this service sends', () => {
   test('carries no payment header of either version', async () => {
     // The whole point of the call is to see what an UNPAID caller sees. A
     // payment header would make the report a description of a different request
-    // from the one the buyer is asking about.
+    // from the one the buyer is asking about. True of BOTH requests — the probe
+    // and the negative control.
     target.reset();
     target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
     await lintTarget();
-    const sent = target.hits[0].headers;
-    assert.equal(sent['x-payment'], undefined);
-    assert.equal(sent['payment-signature'], undefined);
-    assert.equal(sent.authorization, undefined);
-    assert.equal(sent.cookie, undefined);
+    for (const hit of target.hits) {
+      assert.equal(hit.headers['x-payment'], undefined);
+      assert.equal(hit.headers['payment-signature'], undefined);
+      assert.equal(hit.headers.authorization, undefined);
+      assert.equal(hit.headers.cookie, undefined);
+    }
   });
 
-  test('is exactly ONE request', async () => {
+  test('is exactly TWO requests: the probe, then the negative control', async () => {
+    // The bound a full report costs the target, asserted on the target's own
+    // record. The second request is the x402#3104 negative control: a GET to a
+    // fixed impossible path, no body, same self-identifying user-agent — a
+    // seller reading their logs sees exactly what hit them and why.
     target.reset();
     target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
     await lintTarget();
-    assert.equal(target.hits.length, 1);
+    assert.equal(target.hits.length, 2);
+    assert.equal(target.hits[1].method, 'GET');
+    assert.equal(target.hits[1].url, '/zzq-10x402-route-control-9931/does-not-exist.json');
+    assert.equal(target.hits[1].body, '');
+    assert.match(target.hits[1].headers['user-agent'], /10x402/);
   });
 
   test('defaults to POST with an empty JSON body', async () => {
@@ -256,7 +278,13 @@ describe('redirects are reported, not followed', () => {
     };
     const res = await lintTarget('/moved');
 
-    assert.equal(target.hits.length, 1, 'the redirect was followed');
+    // Two hits: the probe (whose redirect is NOT followed — that is this
+    // test's claim) and the negative control. Neither goes to /elsewhere.
+    assert.equal(target.hits.length, 2, 'the redirect was followed');
+    assert.ok(
+      target.hits.every((h) => !h.url.includes('elsewhere')),
+      'a request followed the redirect'
+    );
     assert.equal(res.status, 200);
     const redirect = res.body.findings.find((f) => f.code === 'HTTP_REDIRECT');
     assert.ok(redirect, JSON.stringify(res.body.findings));
@@ -284,7 +312,9 @@ describe('redirects are reported, not followed', () => {
       body: '',
     };
     const res = await lintTarget('/bounce');
-    assert.equal(target.hits.length, 1);
+    // The probe and the negative control — both to THIS host, neither to the
+    // metadata address the redirect named.
+    assert.equal(target.hits.length, 2);
     assert.equal(res.status, 200);
     assert.ok(res.body.findings.some((f) => f.code === 'HTTP_REDIRECT'));
     // Nothing from the metadata service can be in the report, because nothing
@@ -448,5 +478,71 @@ describe('POST /lint/one: the same fetch, one named check', () => {
     );
     assert.equal(res.status, 400, res.text);
     assert.equal(res.body.check, undefined, 'a refused fetch answered with a lint result');
+  });
+});
+
+describe('the negative control, over the wire', () => {
+  const CONTROL_PATH = '/zzq-10x402-route-control-9931/does-not-exist.json';
+
+  test('the observation is preserved as evidence in target.control', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    const res = await lintTarget();
+    assert.equal(res.status, 200, res.text);
+    assert.deepEqual(res.body.target.control, { path: CONTROL_PATH, status: 404 });
+    // The default mock host discriminates, so neither control check fires.
+    const codes = res.body.findings.map((f) => f.code);
+    assert.ok(!codes.includes('HTTP_ROUTE_DISCRIMINATES'), codes.join(','));
+    assert.ok(!codes.includes('HTTP_SOFT_404'), codes.join(','));
+  });
+
+  test('a host that 402s before routing is reported uninformative', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    target.state.control = { status: 402, headers: {}, body: '{}' };
+    const res = await lintTarget();
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.target.control.status, 402);
+    const finding = res.body.findings.find((f) => f.code === 'HTTP_ROUTE_DISCRIMINATES');
+    assert.ok(finding, JSON.stringify(res.body.findings));
+    assert.equal(finding.severity, 'info');
+    assert.equal(res.body.grade, 'A', 'an uninformative host must not cost the grade');
+  });
+
+  test('a soft-404 host is reported as one', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    target.state.control = { status: 200, headers: {}, body: '<html>welcome</html>' };
+    const res = await lintTarget();
+    const finding = res.body.findings.find((f) => f.code === 'HTTP_SOFT_404');
+    assert.ok(finding, JSON.stringify(res.body.findings));
+    assert.equal(finding.severity, 'info');
+  });
+
+  test('/lint/one on a control check makes the control request; on any other it does not', async () => {
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    target.state.control = { status: 402, headers: {}, body: '{}' };
+    const one = await api.post(
+      '/lint/one',
+      { url: target.url('/api'), check: 'HTTP_ROUTE_DISCRIMINATES' },
+      { ip: ips.next() }
+    );
+    assert.equal(one.status, 200, one.text);
+    assert.equal(one.body.passed, false);
+    assert.equal(one.body.checks_run, 1);
+    assert.equal(target.hits.length, 2, 'the control check needs the control request');
+    assert.equal(target.hits[1].url, CONTROL_PATH);
+
+    // Any other named check keeps the one-request bound the buyer paid for.
+    target.reset();
+    target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
+    const other = await api.post(
+      '/lint/one',
+      { url: target.url('/api'), check: 'V2_B64_URLSAFE' },
+      { ip: ips.next() }
+    );
+    assert.equal(other.status, 200, other.text);
+    assert.equal(target.hits.length, 1, 'a non-control single check made the control request');
   });
 });
