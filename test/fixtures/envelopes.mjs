@@ -416,6 +416,58 @@ export const FIXTURES = [
     expect: { grade: 'A', codes: ['V2_BAZAAR_INFO_VALIDATES'], bazaar_ready: false },
   },
   {
+    name: 'a required parameter supplied in the wrong bag (the readx.sh shape)',
+    why:
+      'x402#3104: the schema requires the key as a query parameter, the worked example ' +
+      'supplies it as a path parameter. Both consumers of the declaration lose — a ' +
+      'validator rejects the publisher’s own example, a schema-driven client sends the ' +
+      'parameter where the route will not read it — and no probe can arbitrate, because ' +
+      'the 402 answers before parameter validation. 276 live listings had this on 2026-08-20.',
+    response: () => {
+      const v2 = v2Envelope();
+      const input = v2.extensions.bazaar.schema.properties.input;
+      // Faithful to the specimen: pathParams declared as a bare open object,
+      // queryParams carrying the required key, additionalProperties left open.
+      delete input.additionalProperties;
+      input.properties.pathParams = { type: 'object' };
+      input.properties.queryParams = {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      };
+      v2.extensions.bazaar.info.input.pathParams = { name: 'BobbyThakkar' };
+      v2.extensions.bazaar.info.input.queryParams = {};
+      return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
+    },
+    // V2_BAZAAR_INFO_VALIDATES fires too, and should: the wrong-bag key IS a
+    // missing required key as far as generic validation can see. The new code
+    // is the diagnosis — it names both bags instead of reporting an absence.
+    expect: {
+      grade: 'A',
+      codes: ['V2_BAZAAR_INFO_VALIDATES', 'V2_BAZAAR_BAG_MISMATCH'],
+      bazaar_ready: false,
+    },
+  },
+  {
+    name: 'parameter bags that agree',
+    why:
+      'the control for the wrong-bag check: the same schema shape with the key supplied ' +
+      'in the bag that requires it must not fire either bazaar finding.',
+    response: () => {
+      const v2 = v2Envelope();
+      const input = v2.extensions.bazaar.schema.properties.input;
+      delete input.additionalProperties;
+      input.properties.queryParams = {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      };
+      v2.extensions.bazaar.info.input.queryParams = { name: 'BobbyThakkar' };
+      return response({ v1: v1Envelope(), v2, url: RESOURCE_URL });
+    },
+    expect: { grade: 'A', codes: [], bazaar_ready: true },
+  },
+  {
     name: 'bazaar info with no computed output example',
     why: "CDP's validator asks for one, and a hand-written example drifts the first time the endpoint changes.",
     response: () => {

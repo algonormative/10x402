@@ -739,6 +739,13 @@ export const CHECKS = [
       validator('cdp-validator-toolshed.json preflight[24] parse (required)'),
       field('x402-foundation/x402#3045 — an info/schema mismatch is declined silently; nothing reaches the seller’s logs'),
     ] },
+  { id: 'V2_BAZAAR_BAG_MISMATCH', area: 'v2', severity: 'error', regime: 'bazaar',
+    summary: 'every key a schema parameter-bag requires is supplied by info in THAT bag, not a sibling bag',
+    sources: [
+      spec('specs/extensions/bazaar.md:322 — the info/schema validation this contradiction is guaranteed to fail'),
+      field('x402-foundation/x402#3104 (Circadian-agent, 2026-08-20) — 276 of 14,691 live listings with a `required` key fail their own schema, across 59 hosts; the named specimen requires `name` in queryParams while its own example supplies it in pathParams'),
+      field('Circadian-agent/agent-economy-data findings/bazaar-info-fails-own-schema-2026-08-20.md — the census behind those counts'),
+    ] },
   { id: 'V2_BAZAAR_INPUT', area: 'v2', severity: 'error', regime: 'bazaar',
     summary: 'bazaar.info.input carries a worked sample call',
     sources: [
@@ -2294,7 +2301,62 @@ function lintBazaar(report, extensions, probedMethod) {
         'that no longer matches the info after a rename, a `required` field the info dropped, ' +
         'and "additionalProperties": false with a field the info added.'
     );
+    lintBazaarBags(report, bazaar.info, bazaar.schema);
   }
+}
+
+/**
+ * The WRONG-BAG refinement of V2_BAZAAR_INFO_VALIDATES, from the live census on
+ * x402#3104: a listing whose schema marks a key `required` in one parameter bag
+ * while its own worked example supplies that key in a DIFFERENT bag. Generic
+ * schema validation reports only "required key missing", which sends the seller
+ * hunting for a key they can see is right there in the declaration — this check
+ * names both bags, and the pair of names IS the fix.
+ *
+ * Statically decidable, and only statically decidable: on most hosts the 402
+ * gate answers before parameter validation, so no probe can settle which bag
+ * the route actually reads. The declaration is the only contract a buyer sees
+ * before paying, and in this shape it contradicts itself.
+ *
+ * `PARAM_BAGS` is a closed list on purpose. `body` keys are payload, not
+ * parameters — a body field that happens to share a name with a required query
+ * parameter is not evidence of a wrong bag, and including it manufactured
+ * exactly the false positive this check exists to be sharper than.
+ */
+const PARAM_BAGS = ['pathParams', 'queryParams', 'headers'];
+
+function lintBazaarBags(report, info, schema) {
+  const bagSchemas = isObject(schema.properties?.input) ? schema.properties.input.properties : undefined;
+  const inputInfo = info.input;
+  const mismatches = [];
+  if (isObject(bagSchemas) && isObject(inputInfo)) {
+    for (const bag of PARAM_BAGS) {
+      const bagSchema = bagSchemas[bag];
+      if (!isObject(bagSchema) || !Array.isArray(bagSchema.required)) continue;
+      for (const key of bagSchema.required) {
+        if (typeof key !== 'string') continue;
+        if (isObject(inputInfo[bag]) && inputInfo[bag][key] !== undefined) continue;
+        for (const other of PARAM_BAGS) {
+          if (other !== bag && isObject(inputInfo[other]) && inputInfo[other][key] !== undefined) {
+            mismatches.push(`\`${key}\` is required in ${bag} but info supplies it in ${other}`);
+          }
+        }
+      }
+    }
+  }
+  report.check(
+    'V2_BAZAAR_BAG_MISMATCH',
+    mismatches.length === 0,
+    `The two halves of the declaration disagree about which bag a parameter lives in: ${clip(mismatches.slice(0, 3).join('; '), 300)}` +
+      (mismatches.length > 3 ? ` (+${mismatches.length - 3} more)` : '') + '.',
+    'Move the key so both halves agree: either the schema names the bag the worked example ' +
+      'really uses, or the example moves the key into the bag the schema requires. Both ' +
+      'consumers of this declaration lose as published — one that validates info against ' +
+      'schema (bazaar.md:322) rejects your own example, and one that builds a request from ' +
+      'the schema sends the parameter where your route will not read it. No buyer can probe ' +
+      'their way out: the 402 answers before parameter validation, so the declaration is the ' +
+      'only contract available before payment.'
+  );
 }
 
 /**

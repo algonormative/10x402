@@ -4,12 +4,12 @@
     "repo": "https://github.com/chronick/10x402",
     "commit": "2a0f2fb628e4ccfaa335911316a39002bad85f37",
     "blobs": {
-      "worker/lint.js": "c048f9f775232062f7dfb9f3d879340c6572d729",
+      "worker/lint.js": "241382f706c7420dba0967cb1f670c673f89cc22",
       "worker/json-schema.js": "852ff5546384c03cf7f3251b372d804dad7a6ab0",
       "worker/envelope.js": "b0fb321146fa0a53b22844d2b88ad9728a1230af",
       "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
-      "test/fixtures/envelopes.mjs": "747819569f2a2fcf57ae98ea3827d45c56682b90",
-      "corpus/vocabulary.mjs": "a554ac76db053c6fad6c1bcbf0f4e3a8c8f998c3",
+      "test/fixtures/envelopes.mjs": "0c333e124ad665cdf053bbf0c843b08415531b36",
+      "corpus/vocabulary.mjs": "ef61b617cbfe537cf9de56f75742c5a74f0ccb5b",
       "corpus/run-10x402.mjs": "f437405d5ec41d22cdbab1304f6e665cea5757ad",
       "corpus/client-probe.json": "8f80dc795b51f80fbae49172a13f62ecee7de1d3",
       "corpus/client-probe.lock.json": "c42b926aa770c49fa3e5e4d94eb18b5f40e2d174"
@@ -169,7 +169,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": []
       }
     },
@@ -200,7 +200,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 52,
+        "checks_run": 53,
         "findings": [
           {
             "code": "V1_ABSENT",
@@ -618,7 +618,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": []
       }
     },
@@ -647,7 +647,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 53,
+        "checks_run": 54,
         "findings": [
           {
             "code": "V1_ABSENT",
@@ -765,7 +765,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": []
       }
     },
@@ -1050,7 +1050,7 @@
         "blockers": [
           "V2_NETWORK_SUPPORTED"
         ],
-        "checks_run": 69,
+        "checks_run": 70,
         "findings": [
           {
             "code": "V2_NETWORK_CAIP2",
@@ -1140,7 +1140,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 74,
+        "checks_run": 75,
         "findings": [
           {
             "code": "V1_NETWORK_NAME",
@@ -1210,7 +1210,7 @@
         "blockers": [
           "V2_INDEX_AMOUNT"
         ],
-        "checks_run": 74,
+        "checks_run": 75,
         "findings": [
           {
             "code": "V2_INDEX_AMOUNT",
@@ -1319,7 +1319,7 @@
         "grade": "F",
         "bazaar_ready": "n/a",
         "blockers": [],
-        "checks_run": 68,
+        "checks_run": 69,
         "findings": [
           {
             "code": "V2_RESOURCE_OBJECT",
@@ -1382,7 +1382,7 @@
         "grade": "B",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 53,
+        "checks_run": 54,
         "findings": [
           {
             "code": "VERSION_BODY_SAYS_V2",
@@ -1471,7 +1471,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_MAX_TIMEOUT",
@@ -1547,7 +1547,7 @@
         "blockers": [
           "V2_INDEX_TIMEOUT"
         ],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_INDEX_TIMEOUT",
@@ -1644,7 +1644,7 @@
         "blockers": [
           "V2_INDEX_ASSET"
         ],
-        "checks_run": 53,
+        "checks_run": 54,
         "findings": [
           {
             "code": "V2_INDEX_ASSET",
@@ -1756,7 +1756,7 @@
         "grade": "D",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_EXTRA_EIP712",
@@ -1868,7 +1868,7 @@
         "blockers": [
           "V2_INDEX_PAYTO"
         ],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_INDEX_PAYTO",
@@ -1962,7 +1962,7 @@
         "grade": "F",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "DUAL_PAYTO",
@@ -2013,7 +2013,7 @@
         "grade": "D",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 72,
+        "checks_run": 73,
         "findings": [
           {
             "code": "V1_NETWORK_KNOWN",
@@ -2272,7 +2272,7 @@
         "blockers": [
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_BAZAAR_INFO_VALIDATES",
@@ -2339,7 +2339,7 @@
           "V2_BAZAAR_SCHEMA_CONTENT",
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 53,
+        "checks_run": 54,
         "findings": [
           {
             "code": "V2_BAZAAR_SCHEMA_CONTENT",
@@ -2456,7 +2456,7 @@
           "V2_BAZAAR_INPUT_TYPE",
           "V2_BAZAAR_INFO_VALIDATES"
         ],
-        "checks_run": 52,
+        "checks_run": 53,
         "findings": [
           {
             "code": "V2_BAZAAR_INPUT_TYPE",
@@ -2574,7 +2574,7 @@
         "blockers": [
           "V2_BAZAAR_INPUT_METHOD"
         ],
-        "checks_run": 53,
+        "checks_run": 54,
         "findings": [
           {
             "code": "V2_BAZAAR_INPUT_METHOD",
@@ -2654,7 +2654,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_BAZAAR_OUTPUT_EXAMPLE",
@@ -2714,7 +2714,7 @@
         "blockers": [
           "V2_AMOUNT_MINIMUM"
         ],
-        "checks_run": 76,
+        "checks_run": 77,
         "findings": [
           {
             "code": "V2_AMOUNT_MINIMUM",
@@ -2770,7 +2770,7 @@
         "grade": "A",
         "bazaar_ready": true,
         "blockers": [],
-        "checks_run": 71,
+        "checks_run": 72,
         "findings": [
           {
             "code": "DUAL_NETWORK",

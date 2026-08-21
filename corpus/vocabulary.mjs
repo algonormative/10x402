@@ -119,6 +119,13 @@ export const TENX402_TAGS = {
   V2_BAZAAR_SCHEMA: 'bazaar-extension-absent',
   V2_BAZAAR_SCHEMA_CONTENT: 'bazaar-schema-unresolvable',
   V2_BAZAAR_INFO_VALIDATES: 'bazaar-info-schema-mismatch',
+  // The wrong-bag diagnosis (x402#3104) is a strict specialization of the
+  // info/schema mismatch — a key required in one parameter bag and supplied in
+  // a sibling necessarily fails validation of the bag that requires it, so the
+  // two checks co-fire by construction. It shares the tag ON PURPOSE: the
+  // vocabulary stays stable while another adapter is being built against it. A
+  // dedicated tag belongs to the corpus version that adds wrong-bag fixtures.
+  V2_BAZAAR_BAG_MISMATCH: 'bazaar-info-schema-mismatch',
   V2_BAZAAR_INPUT: 'bazaar-input-shape',
   V2_BAZAAR_INPUT_TYPE: 'bazaar-input-shape',
   V2_BAZAAR_INPUT_METHOD: 'bazaar-input-method',
