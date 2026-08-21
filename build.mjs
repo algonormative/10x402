@@ -726,7 +726,7 @@ ${FONT_FILES.filter((f) => f.preload)
     <div class="topnav">
       <a href="#start">Start here</a><a href="#worked-examples">Worked requests</a>
       <a href="#trust">Trust boundaries</a><a href="#checklist">Full checklist</a>
-      <a href="#faq">FAQ</a>
+      <a href="#faq">FAQ</a><a href="/guides/">Guides</a>
     </div>
   </div>
 </nav>
@@ -976,6 +976,135 @@ ${FAQS.map(({ question, answer }) => `    <details class="faq">
 <script>${COPY_JS}</script>
 </body>
 </html>
+`;
+
+// ------------------------------------------------------------------ guides
+//
+// Field manuals, same shell as the page: fonts, palette, copy buttons. The
+// content lives in guides.mjs; this is only the chrome. Each guide is its own
+// URL under /guides/<slug>/ so a stuck seller's search lands on the one page
+// about their exact situation, with the free path named before the paid one.
+
+const GUIDE_CSS = `
+main.guide { max-width: 46rem; padding: 2.5rem 1.25rem 4rem; }
+.guide .crumbs { font-family: var(--mono); font-size: .78rem; margin: 0 0 1.5rem; color: var(--dim); }
+.guide .crumbs a { color: var(--dim); }
+.guide h1 { font-size: clamp(1.6rem, 3.4vw, 2.2rem); line-height: 1.2; letter-spacing: -.02em; margin: 0 0 .75rem; }
+.guide .byline { font-family: var(--mono); font-size: .78rem; color: var(--dim); margin: 0 0 2rem; }
+.guide h2 { margin-top: 2.5rem; }
+.guide-list { list-style: none; padding: 0; max-width: none; }
+.guide-list li { margin: 1.25rem 0; }
+.guide-list a { font-weight: 700; }
+.guide-list p { margin: .35rem 0 0; color: var(--muted); }
+`;
+
+const guideShell = ({ title, description, canonical, jsonld, body }) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} | ${esc(SERVICE_NAME)}</title>
+<meta name="description" content="${esc(description)}">
+<link rel="canonical" href="${canonical}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="${esc(SERVICE_NAME)}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${canonical}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(description)}">
+<meta name="theme-color" content="#0a0c12">
+<link rel="icon" href="${FAVICON}" type="image/svg+xml">
+${FONT_FILES.filter((f) => f.preload)
+  .map((f) => `<link rel="preload" as="font" type="font/woff2" href="/fonts/${f.file}" crossorigin>`)
+  .join('\n')}
+${jsonld ? `<script type="application/ld+json">${jsonForHtml(jsonld)}</script>` : ''}
+<style>${CSS}${GUIDE_CSS}</style>
+</head>
+<body>
+<nav class="topbar" aria-label="Site">
+  <div class="topbar-inner">
+    <a class="brand" href="/">${MARK_SVG(24)}<span>${esc(SERVICE_NAME)}</span><span class="say">ten-ex-four-oh-two</span></a>
+    <div class="topnav">
+      <a href="/guides/">Guides</a><a href="/#checklist">Full checklist</a>
+      <a href="/#start">Start here</a>
+    </div>
+  </div>
+</nav>
+<main class="guide">
+${body}
+  <footer>
+    <p class="foot-mark">${MARK_SVG(20)}<span>${esc(SERVICE_NAME)}</span></p>
+    <p><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> &middot;
+    machine surfaces: <a href="/openapi.json">openapi.json</a>,
+    <a href="/llms.txt">llms.txt</a>, <a href="/skill.md">skill.md</a>,
+    <a href="/.well-known/x402">.well-known/x402</a></p>
+  </footer>
+</main>
+<script>${COPY_JS}</script>
+</body>
+</html>
+`;
+
+const guidePage = (guide) =>
+  guideShell({
+    title: guide.title,
+    description: guide.description,
+    canonical: `${CANONICAL_BASE}/guides/${guide.slug}/`,
+    jsonld: {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: guide.title,
+      description: guide.description,
+      datePublished: guide.published,
+      dateModified: guide.updated,
+      url: `${CANONICAL_BASE}/guides/${guide.slug}/`,
+      author: { '@type': 'Organization', name: SERVICE_NAME, url: `${CANONICAL_BASE}/` },
+    },
+    body: `
+  <p class="crumbs"><a href="/">${esc(SERVICE_NAME)}</a> / <a href="/guides/">guides</a> / ${esc(guide.slug)}</p>
+  <article>
+    <h1>${esc(guide.title)}</h1>
+    <p class="byline">published ${guide.published}${guide.updated !== guide.published ? ` &middot; updated ${guide.updated}` : ''} &middot; field manual</p>
+${guide.body}
+  </article>`,
+  });
+
+const guidesIndex = guideShell({
+  title: 'Guides — x402 seller field manuals',
+  description:
+    'Field manuals for x402 sellers: why a working endpoint stays out of the Bazaar, the wrong-bag declaration contradiction, and the registry coverage playbook.',
+  canonical: `${CANONICAL_BASE}/guides/`,
+  jsonld: {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'x402 seller field manuals',
+    url: `${CANONICAL_BASE}/guides/`,
+    hasPart: GUIDES.map((g) => ({ '@type': 'Article', headline: g.title, url: `${CANONICAL_BASE}/guides/${g.slug}/` })),
+  },
+  body: `
+  <p class="crumbs"><a href="/">${esc(SERVICE_NAME)}</a> / guides</p>
+  <h1>Field manuals</h1>
+  <p class="section-lede">Written from operating x402 endpoints and the checks built out of what
+  broke. Everything claimed is sourced; nothing is promised.</p>
+  <ul class="guide-list">
+${GUIDES.map(
+    (g) => `    <li><a href="/guides/${g.slug}/">${esc(g.title)}</a><p>${esc(g.description)}</p></li>`
+  ).join('\n')}
+  </ul>`,
+});
+
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${[
+  { loc: `${CANONICAL_BASE}/`, lastmod: null },
+  { loc: `${CANONICAL_BASE}/guides/`, lastmod: null },
+  ...GUIDES.map((g) => ({ loc: `${CANONICAL_BASE}/guides/${g.slug}/`, lastmod: g.updated })),
+]
+  .map(({ loc, lastmod }) => `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`)
+  .join('\n')}
+</urlset>
 `;
 
 // ---------------------------------------------------------------- openapi
@@ -1297,6 +1426,11 @@ client source line or CDP requirement its rule comes from.
 GET ${FREE_ENDPOINT.path} — free. Start here: service info, prices, grades, full check catalogue.
 ${ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}. ${e.description}.\n  takes: ${e.inputDescription}\n  returns: ${e.outputDescription}`).join('\n')}
 
+## Guides
+
+Field manuals written from operating x402 endpoints — sourced, no promises:
+${GUIDES.map((g) => `- ${CANONICAL_BASE}/guides/${g.slug}/ — ${g.title}`).join('\n')}
+
 ## Paying
 
 Every paid call answers 402 first, with an x402 envelope in both protocol
@@ -1582,7 +1716,7 @@ Contact: ${SUPPORT_EMAIL}
 
 // robots.txt: allow everything. It exists so a prober gets a real 200 rather
 // than a fallback, which is indistinguishable from a misconfigured site.
-const robots = ['User-agent: *', 'Allow: /', ''].join('\n');
+const robots = ['User-agent: *', 'Allow: /', '', `Sitemap: ${CANONICAL_BASE}/sitemap.xml`, ''].join('\n');
 
 // ---------------------------------------------------------------- write
 //
@@ -1591,6 +1725,7 @@ const robots = ['User-agent: *', 'Allow: /', ''].join('\n');
 // that fails its own lint should not produce output at all.
 
 import { lint } from './worker/lint.js';
+import { GUIDES } from './guides.mjs';
 import { build402 } from './worker/envelope.js';
 
 const SELF_LINT_PAYTO = '0x000000000000000000000000000000000000dEaD';
@@ -1630,6 +1765,13 @@ writeFileSync(join(DIST, 'openapi.json'), `${JSON.stringify(openapi, null, 2)}\n
 writeFileSync(join(DIST, '.well-known', 'x402'), `${JSON.stringify(wellKnown, null, 2)}\n`);
 writeFileSync(join(DIST, 'llms.txt'), llms);
 writeFileSync(join(DIST, 'skill.md'), skill);
+mkdirSync(join(DIST, 'guides'), { recursive: true });
+writeFileSync(join(DIST, 'guides', 'index.html'), guidesIndex);
+for (const guide of GUIDES) {
+  mkdirSync(join(DIST, 'guides', guide.slug), { recursive: true });
+  writeFileSync(join(DIST, 'guides', guide.slug, 'index.html'), guidePage(guide));
+}
+writeFileSync(join(DIST, 'sitemap.xml'), sitemap);
 writeFileSync(join(DIST, 'robots.txt'), robots);
 
 // 404.html: WITHOUT this file, Cloudflare Pages treats the site as an SPA and
@@ -1662,4 +1804,5 @@ if (HOST !== CANONICAL_HOST) {
   );
 }
 console.log(`build: bundled ${FONT_FILES.length} self-hosted OFL font files into dist/fonts/ (licences alongside)`);
-console.log('build: wrote dist/index.html dist/openapi.json dist/.well-known/x402 dist/llms.txt dist/skill.md dist/robots.txt');
+console.log('build: wrote dist/index.html dist/openapi.json dist/.well-known/x402 dist/llms.txt dist/skill.md dist/robots.txt dist/sitemap.xml');
+console.log(`build: wrote ${GUIDES.length} guides under dist/guides/`);
