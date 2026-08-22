@@ -17,6 +17,17 @@
 //   chain    Blockscout's public tokentx for the payTo — has anything ever
 //            actually settled here, and when most recently.
 //
+//   self_published
+//            the seller's OWN _x402 TXT record and /.well-known/x402 manifest,
+//            read directly with no index in between. The other three are
+//            indexes a seller has to earn — Bazaar by settling, x402scan by
+//            registering, the chain by being paid — so a seller who has done
+//            none of it gets three not_founds and three fixes that all start
+//            "first go do something else". This one they control outright and
+//            can fix this afternoon. See worker/presence-discovery.js for what
+//            the deployed population actually looks like, which is the reason
+//            it is worth asking.
+//
 // VERDICTS DECLINE, NEVER GUESS. A read that fails or times out yields
 // `unknown` with the failure named, not a `not_found` — being unable to see a
 // registry is not evidence about the registry. This is the same decline
@@ -27,6 +38,7 @@
 
 import { fetchTarget, timeoutMs } from './fetch-target.js';
 import { base64Text, PAYMENT_REQUIRED_HEADER } from './envelope.js';
+import { observeSelfPublished, assembleSelfPublished } from './presence-discovery.js';
 
 // Env-overridable bases: production defaults, mock servers in tests. Tests
 // never touch the live registries (house rule), so the seam is the base URL.
@@ -234,7 +246,7 @@ const FIXES = {
  * it over the frozen PRESENCE_CONTROL capture so the published output example
  * is this real code over real observations with no network at build time.
  */
-export function assemblePresence({ target, identity, bazaar, scan, chain }) {
+export function assemblePresence({ target, identity, bazaar, scan, chain, selfPublished }) {
   const registries = {};
 
   registries.bazaar = !bazaar.ok
@@ -274,6 +286,15 @@ export function assemblePresence({ target, identity, bazaar, scan, chain }) {
           fix: FIXES.x402scan,
         };
 
+  // The fourth surface. `selfPublished` is the raw observation; the assembly is
+  // in its own module and is pure, so every branch of it is reachable from the
+  // suite with no network. An observation that is absent entirely — an older
+  // caller, a replayed capture from before this surface existed — is `unknown`
+  // with the reason named, never a `not_found` inferred from a missing field.
+  registries.self_published = assembleSelfPublished(
+    selfPublished ?? { ok: false, why: 'the self-published surface was not observed on this run' }
+  );
+
   const onchain = !chain.ok
     ? { verdict: 'unknown', why: chain.why, evidence: null, fix: null }
     : chain.transfers > 0
@@ -307,6 +328,9 @@ export function assemblePresence({ target, identity, bazaar, scan, chain }) {
       'Verdicts are observations of public read surfaces at one moment, not guarantees. An ' +
         '`unknown` means the surface could not be read and says nothing about the listing.',
       'x402-list (manual registry) is not machine-checkable and is not covered here.',
+      'bazaar and x402scan are indexes you have to earn; self_published is the surface you own. ' +
+        'A `not_found` there is the only one on this report you can clear without waiting for ' +
+        'anybody — no settlement, no registration, no crawl latency.',
     ],
   };
 }
@@ -342,10 +366,24 @@ export async function runPresence(body, env) {
   const targetUrls = [input.url, ...(identity.declaredUrl ? [identity.declaredUrl] : [])];
 
   const payToSet = new Set(identity.payTo);
-  const [bazaar, scan, chain] = await Promise.all([
+  // The self-published surface is keyed on the HOST that was probed, not on the
+  // payTo: DNS and the well-known path are properties of a name, and the same
+  // wallet can be paid at several of them.
+  const probedHost = (() => {
+    try {
+      return new URL(input.url).hostname;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [bazaar, scan, chain, selfPublished] = await Promise.all([
     observeBazaar(env, targetUrls, payToSet),
     observeScan(env, identity.payTo),
     observeChain(env, identity.payTo),
+    probedHost
+      ? observeSelfPublished(probedHost, env)
+      : Promise.resolve({ ok: false, why: 'the probed URL carries no hostname to look up' }),
   ]);
 
   return assemblePresence({
@@ -354,5 +392,6 @@ export async function runPresence(body, env) {
     bazaar,
     scan,
     chain,
+    selfPublished,
   });
 }
