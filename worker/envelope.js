@@ -153,9 +153,11 @@ export function sampleOutput(endpoint) {
  */
 export function runSample(endpoint) {
   // The presence sample is the real assembly code over the frozen
-  // PRESENCE_CONTROL capture — three registry observations of this service's
-  // own /lint/one resource, recorded on the capture date. Same discipline as
-  // the lint samples below: real code path, frozen input, no network.
+  // PRESENCE_CONTROL capture — four surface observations of this service's own
+  // resource and name, recorded on the capture date. Same discipline as the
+  // lint samples below: real code path, frozen input, no network. The fourth
+  // surface reports a finding against this service, deliberately left in — see
+  // the header of worker/presence-control.js.
   if (endpoint.kind === 'presence') {
     return assemblePresence({
       target: { url: PRESENCE_CONTROL.target.url, method: 'POST', status: 402 },
@@ -163,6 +165,7 @@ export function runSample(endpoint) {
       bazaar: PRESENCE_CONTROL.bazaar,
       scan: PRESENCE_CONTROL.scan,
       chain: PRESENCE_CONTROL.chain,
+      selfPublished: PRESENCE_CONTROL.selfPublished,
     });
   }
 

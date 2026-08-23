@@ -1,0 +1,115 @@
+{
+  "schema": "x402-discovery-txt-vectors/1",
+  "imported_from": "https://github.com/whawk46/x402-discovery-checks — vectors/txt-grammar-vectors.json",
+  "imported_on": "2026-08-22",
+  "verdictSource": "diagnoseX402TxtRecord in @flareclaw/x402-trust src/discovery.ts; reproduced here by worker/discovery-grammar.js, which is a PORT and not a copy — see that file's header",
+  "authority": "draft-hawkins-x402-dns-discovery-02; _x402 allocated in the IANA Underscored and Globally Scoped DNS Node Names registry 2026-08-11",
+  "note": "Fixtures naming a host and date are REAL records observed in the wild. Synthetic ones say so. The two `foreign` cases are genuine zone-wildcard replies: a resolver that reads them as x402 records invents adopters.",
+  "vectors": [
+    {
+      "id": "conformant-sirenic",
+      "txt": "v=x402-1; wk=https://api.sirenic.eu/.well-known/x402",
+      "provenance": "api.sirenic.eu, observed 2026-08-22",
+      "expected": {
+        "kind": "conformant",
+        "record": {
+          "v": "x402-1",
+          "wk": "https://api.sirenic.eu/.well-known/x402"
+        }
+      }
+    },
+    {
+      "id": "nearmiss-telemost-url-key",
+      "txt": "v=x4021;descriptor=api;url=https://api.telemost.io/.well-known/x402",
+      "provenance": "api.telemost.io, observed 2026-08-22",
+      "expected": {
+        "kind": "near-miss",
+        "hints": [
+          "version token is \"x4021\"; it must be exactly \"x402-1\"",
+          "manifest URL is carried in \"url=\"; the grammar names it \"wk=\""
+        ],
+        "manifestUrl": "https://api.telemost.io/.well-known/x402"
+      }
+    },
+    {
+      "id": "nearmiss-tablint-url-key",
+      "txt": "v=x4021;url=https://tablint.dev/.well-known/x402",
+      "provenance": "tablint.dev, observed 2026-08-22",
+      "expected": {
+        "kind": "near-miss",
+        "hints": [
+          "version token is \"x4021\"; it must be exactly \"x402-1\"",
+          "manifest URL is carried in \"url=\"; the grammar names it \"wk=\""
+        ],
+        "manifestUrl": "https://tablint.dev/.well-known/x402"
+      }
+    },
+    {
+      "id": "nearmiss-vibesprings-manifest-key",
+      "txt": "x402-manifest=https://vibesprings.net/.well-known/x402.json",
+      "provenance": "vibesprings.net, observed 2026-08-22",
+      "expected": {
+        "kind": "near-miss",
+        "hints": [
+          "manifest URL is carried in \"x402-manifest=\"; the grammar names it \"wk=\""
+        ],
+        "manifestUrl": "https://vibesprings.net/.well-known/x402.json"
+      }
+    },
+    {
+      "id": "nearmiss-auor-bare-url",
+      "txt": "https://api.auor.io/.well-known/x402",
+      "provenance": "auor.io, observed 2026-08-22",
+      "expected": {
+        "kind": "near-miss",
+        "hints": [
+          "record is a bare URL; the grammar is `v=x402-1; wk=<url>`"
+        ],
+        "manifestUrl": "https://api.auor.io/.well-known/x402"
+      }
+    },
+    {
+      "id": "foreign-spf-from-wildcard",
+      "txt": "v=spf1 include:spf.efwd.registrar-servers.com ~all",
+      "provenance": "what _x402.acu.run actually returns — a zone wildcard, observed 2026-08-22",
+      "expected": {
+        "kind": "foreign"
+      }
+    },
+    {
+      "id": "foreign-site-verification-from-wildcard",
+      "txt": "google-site-verification=EbixDOQqQB-KFP_P_sXTuQXxbULzEgIlvvxCzZYn4_Y",
+      "provenance": "what _x402.clashofcoins.com actually returns — a zone wildcard, observed 2026-08-22",
+      "expected": {
+        "kind": "foreign"
+      }
+    },
+    {
+      "id": "malformed-http-wk",
+      "txt": "v=x402-1; wk=http://insecure.example.com/x",
+      "provenance": "synthetic — claims the version, breaks the HTTPS rule",
+      "expected": {
+        "kind": "malformed",
+        "message": "[x402-discovery] wk must be HTTPS: http://insecure.example.com/x"
+      }
+    },
+    {
+      "id": "malformed-missing-wk",
+      "txt": "v=x402-1; k=facilitator",
+      "provenance": "synthetic — claims the version, no manifest URL",
+      "expected": {
+        "kind": "malformed",
+        "message": "[x402-discovery] TXT record missing wk=<manifest url>"
+      }
+    },
+    {
+      "id": "malformed-duplicate-key",
+      "txt": "v=x402-1; wk=https://a.example.com/.well-known/x402; wk=https://b.example.com/.well-known/x402",
+      "provenance": "synthetic — two wk values in one record, ambiguous",
+      "expected": {
+        "kind": "malformed",
+        "message": "[x402-discovery] duplicate key \"wk\" in one TXT record — ambiguous, refusing"
+      }
+    }
+  ]
+}

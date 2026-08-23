@@ -178,7 +178,16 @@ describe('POST /presence', () => {
     assert.equal(r.registries.x402scan.verdict, 'listed');
     assert.equal(r.onchain.verdict, 'active');
     assert.equal(r.onchain.evidence.latest.tokenSymbol, 'USDC');
-    assert.deepEqual(r.summary, { listed: 2, of: 2, unknown: 0, settlement_seen: true });
+    // The self-published surface is the fourth entry, and against this mock
+    // target it is honestly UNANSWERABLE: the target is an address literal, so
+    // there is no DNS name to query and no origin to read a well-known path
+    // from. It costs no network call at all — discoveryNamesFor() refuses an
+    // IP literal before anything is fetched — which is why this suite still
+    // touches nothing beyond 127.0.0.1. Its own coverage is in
+    // test/discovery-presence.test.mjs, against mock DNS and a mock origin.
+    assert.equal(r.registries.self_published.verdict, 'unknown');
+    assert.equal(r.registries.self_published.fix, null, 'an unreadable surface must not hand out a fix');
+    assert.deepEqual(r.summary, { listed: 2, of: 3, unknown: 1, settlement_seen: true });
     assert.equal(r.identity.payTo[0], PAYTO);
   });
 
@@ -198,7 +207,8 @@ describe('POST /presence', () => {
     assert.match(r.registries.x402scan.fix, /resources\/register/);
     assert.equal(r.onchain.verdict, 'none_seen');
     assert.match(r.onchain.fix, /different address/);
-    assert.deepEqual(r.summary, { listed: 0, of: 2, unknown: 0, settlement_seen: false });
+    assert.equal(r.registries.self_published.verdict, 'unknown');
+    assert.deepEqual(r.summary, { listed: 0, of: 3, unknown: 1, settlement_seen: false });
   });
 
   test('the catalog scan really pages: the match on page two is found', async () => {
@@ -234,7 +244,13 @@ describe('POST /presence', () => {
     assert.equal(r.registries.bazaar.fix, null, 'an unreadable surface must not hand out a fix');
     assert.equal(r.registries.x402scan.verdict, 'listed');
     assert.equal(r.onchain.verdict, 'active');
-    assert.equal(r.summary.unknown, 1);
+    // Two unknowns, for two unrelated reasons, and that is the claim: the
+    // Bazaar 500 did not spread. The self-published surface is unknown against
+    // every target in this suite because the target is an address literal, and
+    // it says so in its own words rather than borrowing the catalog's.
+    assert.equal(r.registries.self_published.verdict, 'unknown');
+    assert.doesNotMatch(r.registries.self_published.why, /answered 500/);
+    assert.equal(r.summary.unknown, 2);
   });
 
   test('an unreadable chain makes settlement_seen null — a non-claim, not a no', async () => {
@@ -304,10 +320,22 @@ describe('the presence engine, pure', () => {
       bazaar: PRESENCE_CONTROL.bazaar,
       scan: PRESENCE_CONTROL.scan,
       chain: PRESENCE_CONTROL.chain,
+      selfPublished: PRESENCE_CONTROL.selfPublished,
     });
     assert.equal(report.registries.bazaar.verdict, 'listed');
     assert.equal(report.registries.x402scan.verdict, 'listed');
     assert.equal(report.onchain.verdict, 'active');
-    assert.deepEqual(report.summary, { listed: 2, of: 2, unknown: 0, settlement_seen: true });
+    // The house's own name, on the capture date: a manifest is served and no
+    // _x402 record is published, and the manifest fails on exactly one field.
+    // Asserted rather than glossed — if this service fixes it, this test is
+    // what makes updating the published sample mandatory rather than optional.
+    assert.equal(report.registries.self_published.verdict, 'not_found');
+    assert.equal(report.registries.self_published.evidence.dns.verdict, 'not_found');
+    assert.equal(report.registries.self_published.evidence.manifest.verdict, 'one_edit_away');
+    assert.deepEqual(
+      report.registries.self_published.evidence.manifest.violations.map((v) => v.field),
+      ['kind']
+    );
+    assert.deepEqual(report.summary, { listed: 2, of: 3, unknown: 0, settlement_seen: true });
   });
 });

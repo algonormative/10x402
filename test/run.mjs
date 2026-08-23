@@ -59,7 +59,23 @@ const PHASES = [
       // so it stays a script (corpus/run-x402-doctor.mjs) and never a test.
       'test/corpus.test.mjs',
       'test/ssrf-rules.test.mjs',
+      // The `_x402` TXT grammar and the well-known manifest rules, run against
+      // the CANONICAL implementation's published vectors rather than against
+      // themselves — worker/discovery-grammar.js is a port, and the vectors are
+      // what makes "it agrees with the original" a checkable claim instead of a
+      // sentence in a README.
+      'test/discovery-grammar.test.mjs',
     ],
+  },
+  {
+    // No worker, and no wrangler: this suite drives worker/presence-discovery.js
+    // directly and stands up its own mock DoH resolver and mock origin on
+    // 127.0.0.1. It is separate from phase 1 only because phase 1 promises pure
+    // functions and this one opens a socket. Nothing here resolves a real name
+    // or reads a real host.
+    name: 'self-published discovery (mock DNS + mock origin, no worker)',
+    pure: true,
+    files: ['test/discovery-presence.test.mjs'],
   },
   {
     // A free tier so calls are actually SERVED. With no facilitator and no

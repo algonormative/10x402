@@ -16,7 +16,7 @@
       "blobs": {
         "worker/lint.js": "38bb9a4055c1a53bb3082a2c4a9504afcfd61ff7",
         "worker/json-schema.js": "852ff5546384c03cf7f3251b372d804dad7a6ab0",
-        "worker/envelope.js": "ca981a2038d5d566c9f595b0ee16d1b0b95f78de",
+        "worker/envelope.js": "76102124d8e79c8537cb8704977f59e95c8d702a",
         "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
         "test/fixtures/envelopes.mjs": "0c333e124ad665cdf053bbf0c843b08415531b36",
         "corpus/vocabulary.mjs": "ef61b617cbfe537cf9de56f75742c5a74f0ccb5b",
