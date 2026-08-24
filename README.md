@@ -577,10 +577,18 @@ after step 6.
    as a third party, which fails **too loud** — the right direction here.
 8. **Only now** add the routes in `wrangler.toml`, and deploy:
    ```bash
-   node build.mjs          # self-lints, then writes dist/
+   PUBLIC_POSTHOG_KEY=phc_... node build.mjs   # self-lints, then writes dist/
    npx wrangler deploy
-   npx wrangler pages deploy dist --project-name tenx402
+   npx wrangler pages deploy dist --project-name tenx402-site --branch main
    ```
+   The Pages project is `tenx402-site`, NOT `tenx402` — this line said the
+   latter until a deploy on 2026-08-24 answered `Project not found`. `tenx402`
+   is the D1 database in steps 3-4; the two are different things with confusable
+   names, and `wrangler pages project list` is the authority.
+
+   `PUBLIC_POSTHOG_KEY` is optional and build-time only — omit it and `dist/`
+   ships with no analytics, which is the right answer for a local build. See
+   § Measuring the funnel.
    The Pages project must have **zero Functions**: the Worker owns `/check`,
    `/lint` and `/lint/*` through routes, and a Function would shadow them.
 
