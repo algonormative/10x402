@@ -59,6 +59,10 @@ const PHASES = [
       // so it stays a script (corpus/run-x402-doctor.mjs) and never a test.
       'test/corpus.test.mjs',
       'test/ssrf-rules.test.mjs',
+      // What one request turns into, as pure functions: which status is a
+      // quote, which serve was actually paid for, and the assertion that no
+      // linted URL, envelope, report or raw IP can reach an analytics event.
+      'test/analytics.test.mjs',
     ],
   },
   {

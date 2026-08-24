@@ -688,6 +688,34 @@ const structuredData = {
   ],
 };
 
+// ------------------------------------------------------------------ analytics
+//
+// The BROWSER half of this service's measurement, and it is the smaller half.
+// Everything sold here is sold to programs, and a program runs no JavaScript —
+// the calls that matter are counted in the Worker instead (worker/analytics.js,
+// which sends `$http_log` so PostHog's own bot and AI-traffic classification
+// can read them). What this snippet sees is the other audience: a person who
+// searched "x402 402 not showing in bazaar", landed on this page, and either
+// found their answer in the checklist or did not.
+//
+// BUILD-TIME AND OPTIONAL. The token is read from the environment when
+// `node build.mjs` runs and baked into dist/. Unset produces a page with no
+// analytics and no empty <script> — which is what a local build, a fork and a
+// PR preview should produce, and is why this is a plain `if` rather than a
+// required setting. The var is PUBLIC_-prefixed to say out loud what is true of
+// every web analytics token: it ships to the browser and is not a secret.
+//
+// Note the ORIGIN mismatch with the Worker, and that it is deliberate: the page
+// is served by Pages at 10x402.com and the paid routes are the Worker on the
+// same host, so `$host` lines up across both halves and one breakdown covers
+// the whole property.
+const POSTHOG_TOKEN = process.env.PUBLIC_POSTHOG_KEY || '';
+const POSTHOG_HOST = process.env.PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+
+const ANALYTICS = POSTHOG_TOKEN
+  ? `<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_TOKEN)},{api_host:${JSON.stringify(POSTHOG_HOST)},defaults:'2026-01-30'});</script>`
+  : '';
+
 // `<meta charset>` FIRST, before the title, and it has to be in the first 1024
 // bytes or the browser has already guessed. Caught by looking at the rendered
 // page: the tab read "10x402 â€” x402 conformance…" because a host serving
@@ -718,6 +746,7 @@ ${FONT_FILES.filter((f) => f.preload)
   .join('\n')}
 <script type="application/ld+json">${jsonForHtml(structuredData)}</script>
 <style>${CSS}</style>
+${ANALYTICS}
 </head>
 <body>
 <nav class="topbar" aria-label="Site">
@@ -1021,6 +1050,7 @@ ${FONT_FILES.filter((f) => f.preload)
   .join('\n')}
 ${jsonld ? `<script type="application/ld+json">${jsonForHtml(jsonld)}</script>` : ''}
 <style>${CSS}${GUIDE_CSS}</style>
+${ANALYTICS}
 </head>
 <body>
 <nav class="topbar" aria-label="Site">

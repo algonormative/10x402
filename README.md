@@ -622,6 +622,49 @@ already proved the envelope is conformant before `dist/` was written, so what
 these two commands verify is the *deploy*: that the routes are wired, the zone
 resolves, and `PAYTO` is set (a `429` here means it is not).
 
+### Measuring the funnel
+
+The ledger says what was earned. It cannot say what was nearly earned, because
+the interesting failures here never write a row: a 402 that nobody pays, a
+crawler that reads `/check` every hour and never buys, an indexer prober that
+quietly stopped calling. That is what PostHog is for, and it is off by default.
+
+```bash
+npx wrangler secret put POSTHOG_PROJECT_TOKEN   # the Worker: quotes and sales
+PUBLIC_POSTHOG_KEY=phc_... node build.mjs       # the page: humans who read it
+```
+
+Both take the same `phc_` project token. Neither is required — unset is a
+working state on both halves, checked before any network call, and the suite
+never sets either, so `npm test` makes no live PostHog call by construction.
+
+The two halves measure different audiences and the split is the point. The
+snippet in `dist/` sees people: someone who searched *"x402 402 not showing in
+bazaar"*, landed here, and either found the answer in the checklist or did not.
+The Worker sees **customers** — every agent call, sent as `$http_log` so
+PostHog's own traffic classification (`isLikelyBot`, `getBotName`,
+`getTrafficType`) can split AI crawlers from AI assistants from indexer probes.
+On a service whose entire market is programs, the browser half is the smaller
+half; a program runs no JavaScript and appears in no page-based analytics at
+all.
+
+Three business events ride alongside the logs, all derived from the response
+headers the caller was already sent — `handlePaid` has no analytics code in it
+and no new failure mode:
+
+| Event | When | The question it answers |
+| --- | --- | --- |
+| `x402 quote issued` | a `402` from a paid route | how many agents got as far as a price, and whether any of them are *trying* to pay and failing (`reason`) |
+| `x402 report served` | a `200` | how many bought, split by `tier` — `paid`, `free`, or `unverified` (served but the facilitator never confirmed it: revenue leaking) |
+| `x402 call refused` | any other status | clients stuck in a loop of 400s or 429s — wanted to buy, could not, and nothing else records it |
+
+`quote issued → report served (tier: paid)` is the whole business as one funnel.
+
+Everything in `## Privacy` above still holds: no linted URL, pasted envelope,
+report or raw IP leaves this Worker, `test/analytics.test.mjs` asserts it over
+every event the module can emit, and caller grouping is a truncated hash of the
+project token and the address, never stored.
+
 ### Reading the ledger
 
 ```sql

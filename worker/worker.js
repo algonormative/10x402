@@ -112,6 +112,7 @@ import {
   randomHex,
 } from './x402.js';
 import { sendPaymentAlert } from './alerts.js';
+import { analyticsEnabled, captureRequest } from './analytics.js';
 
 // A runaway bound on calls we actually serve, per caller per UTC day. NOT a
 // quota to advertise — publishing it would read as a promise — so it is
@@ -191,27 +192,64 @@ function freeTierDaily(env) {
 
 export default {
   async fetch(request, env, ctx) {
-    const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, '') || '/';
 
+    // A CORS PREFLIGHT IS NOT A CALL. It is answered before anything else and
+    // is never counted: a browser sending OPTIONS then POST would otherwise
+    // read as two requests in every graph, and the market this service serves
+    // does not use browsers anyway.
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-    if (path === '/check') return handleCheck(request, env);
 
     const endpoint = ENDPOINTS_BY_PATH.get(path);
-    if (endpoint) return handlePaid(request, env, ctx, endpoint);
+    const response = await route(request, env, ctx, { path, endpoint });
 
-    return json(
-      {
-        error: `no route ${path}`,
-        service: SERVICE_NAME,
-        routes: [
-          `GET ${FREE_ENDPOINT.path} — free`,
-          ...ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}`),
-        ],
-      },
-      404
-    );
+    // ANALYTICS RIDES IN THE SAME DEFERRED SLOT AS SETTLEMENT AND THE ALERT,
+    // and for the strongest version of the same reason: a graph must never be
+    // able to slow, fail or change a response a buyer already paid for. The
+    // response object is fully formed here, so `captureRequest` derives what
+    // happened from the headers the caller was ALREADY sent rather than from
+    // anything plumbed back out of handlePaid — see worker/analytics.js.
+    //
+    // Guarded on ctx.waitUntil rather than awaited when it is missing, which is
+    // the one place this differs from settlement: a direct invocation with no
+    // ctx is a test or a script, and neither should pay a network round trip to
+    // a live analytics host to get its answer.
+    //
+    // NOT `response.clone()`, and that is deliberate rather than an oversight.
+    // Cloning a Response tees its body, and a tee whose second branch is never
+    // read makes the runtime buffer the ENTIRE body in memory waiting for a
+    // reader that never comes. Analytics reads `.status` and `.headers` and
+    // nothing else — neither touches the body stream — so the original is safe
+    // to hold here and the caller's bytes stream out untouched. That this stays
+    // true is not left to good intentions: the body is the one thing
+    // analytics.js is forbidden to look at, and test/analytics.test.mjs asserts
+    // it cannot reach it.
+    if (ctx?.waitUntil && analyticsEnabled(env)) {
+      ctx.waitUntil(captureRequest(env, { request, response, endpoint, url }).catch(() => {}));
+    }
+
+    return response;
   },
 };
+
+/** The routing table, lifted out so `fetch` above is only about the wrapper. */
+function route(request, env, ctx, { path, endpoint }) {
+  if (path === '/check') return handleCheck(request, env);
+  if (endpoint) return handlePaid(request, env, ctx, endpoint);
+
+  return json(
+    {
+      error: `no route ${path}`,
+      service: SERVICE_NAME,
+      routes: [
+        `GET ${FREE_ENDPOINT.path} — free`,
+        ...ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}`),
+      ],
+    },
+    404
+  );
+}
 
 // ------------------------------------------------------------------ GET /check
 //

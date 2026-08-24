@@ -134,6 +134,39 @@ HOUSE_PAYERS = "0x632ff2f904cc6ab6d741a42014c4c483f328e92f"
 # TELEGRAM_API_BASE is an OPTIONAL var defaulting to https://api.telegram.org.
 # Only the suite sets it, to reach a local mock. Deliberately not set here.
 
+# ------------------------------------------------------------------ analytics
+#
+# PostHog, and it is the FUNNEL, not the ledger. `settlements` and `lints` stay
+# the source of truth for anything about money or volume — they are written on
+# the request path and survive PostHog being down for a week. What this answers
+# is the question no table can: who knocked and where they stopped. A 402 nobody
+# ever pays, an AI crawler that reads /check hourly and never buys, an indexer
+# prober that quietly stopped calling — none of those write a row anywhere.
+#
+#   npx wrangler secret put POSTHOG_PROJECT_TOKEN   # phc_... from PostHog
+#
+# A SECRET RATHER THAN A VAR, and for the same reason ALERT_EMAIL_TO is: not
+# cryptography, repo hygiene. A `phc_` project token is genuinely public — it
+# ships in the HTML of every page on this domain — but this repo is public too,
+# and a committed ingestion token is a spam target forever. Nothing is protected
+# by putting it in the secret store; something is avoided.
+#
+# POSTHOG_HOST is an OPTIONAL var, default https://us.i.posthog.com. Set it only
+# for EU cloud or a self-hosted instance. Deliberately not set here.
+#
+# UNSET IS A WORKING STATE, and the check happens before any network call: a
+# deployment that never sets the token behaves exactly as if worker/analytics.js
+# did not exist. The suite never sets it, which is why `npm test` makes no live
+# PostHog call — analytics is off in every phase, by construction rather than by
+# a mock.
+#
+# WHAT IT SENDS, and the boundary is worth reading before adding a property: one
+# `$http_log` per request (method, path, status, user agent — so PostHog's own
+# bot and AI-traffic classification can read it) plus at most one business event
+# per paid call (quote issued / report served / call refused). NEVER the linted
+# URL, the pasted envelope, the report, or the raw IP — the same line
+# recordLintSafely draws, and `test/analytics.test.mjs` fails if it moves.
+
 # The email channel's binding. UNRESTRICTED — deliberately no
 # `destination_address` field, because that would put a personal inbox in a
 # public repo. The recipient comes from the ALERT_EMAIL_TO secret instead, and
