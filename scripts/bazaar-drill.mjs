@@ -121,7 +121,16 @@ if (!DRY_RUN) {
   }
   const account = privateKeyToAccount(env.BUYER_PRIVATE_KEY);
   console.log(`\n  buyer   ${account.address}  (must be listed in wrangler.toml HOUSE_PAYERS)`);
-  payFetch = wrapFetchWithPayment(fetch, account);
+  // x402-fetch's third argument is the client's own spending ceiling, and its
+  // DEFAULT is $0.10 (100000 atomic) — below /lint's $0.25, so the first live
+  // run refused to sign and threw "Payment amount exceeds maximum allowed"
+  // before anything was spent. Exactly the right failure, from exactly the
+  // right layer; the ceiling just has to match this drill's known price
+  // sheet. $0.25 covers the most expensive route and still means a wrong or
+  // hijacked envelope demanding more than the published price gets refused
+  // by the CLIENT, before any signature exists.
+  const MAX_ATOMIC = 250000n; // $0.25 — the highest price on the sheet
+  payFetch = wrapFetchWithPayment(fetch, account, MAX_ATOMIC);
 }
 
 console.log(`  mode    ${DRY_RUN ? 'DRY RUN — nothing will be spent' : 'LIVE — this spends real USDC'}
