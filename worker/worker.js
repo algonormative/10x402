@@ -260,13 +260,18 @@ function route(request, env, ctx, { path, endpoint }) {
 // read what will be checked before spending a cent.
 
 function handleCheck(request, env) {
-  if (request.method !== 'GET') {
-    return json({ error: 'GET only' }, 405, { allow: 'GET' });
+  // HEAD IS NOT OPTIONAL. RFC 9110 §9.1: a general-purpose server MUST support
+  // GET and HEAD — and the funnel showed real liveness probers HEADing this
+  // route and being told 405 for it. The body is built either way and dropped
+  // for HEAD, which is exactly what the RFC describes: same status, same
+  // headers, no content.
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return wrongMethodFree(request);
   }
 
   const tier = freeTierDaily(env);
 
-  return json({
+  const res = json({
     service: SERVICE_NAME,
     tagline: SERVICE_TAGLINE,
     home: SITE_BASE,
@@ -362,6 +367,9 @@ function handleCheck(request, env) {
       'A single-check answer distinguishes THREE outcomes: passed true, passed false with the finding and its fix, and applied false — the named check did not run against this response, which is not a pass and is never reported as one.',
     ],
   });
+
+  if (request.method === 'HEAD') return new Response(null, { status: 200, headers: res.headers });
+  return res;
 }
 
 // ------------------------------------------------------------------ the paid routes
@@ -371,9 +379,7 @@ function handleCheck(request, env) {
 // that happens before the rate-limit round trip, the body read and the work.
 
 async function handlePaid(request, env, ctx, endpoint) {
-  if (request.method !== endpoint.method) {
-    return json({ error: `${endpoint.method} only` }, 405, { allow: endpoint.method });
-  }
+  if (request.method !== endpoint.method) return wrongMethod(request, endpoint);
 
   const declared = Number(request.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > MAX_REQUEST_BODY) return tooLarge();
@@ -958,6 +964,73 @@ const tooLarge = () =>
  * is not — so there is deliberately no Retry-After on the second, since a
  * header promising that midnight fixes it would be a lie a client would obey.
  */
+/**
+ * The machine surfaces, for any refusal that should end in a pointer rather
+ * than a dead end. One object, reused, so a new surface (or a moved one) is a
+ * one-line change everywhere a 405 mentions it.
+ */
+const machineSurfaces = () => ({
+  catalog: `${SITE_BASE}/check`,
+  openapi: `${SITE_BASE}/openapi.json`,
+  discovery: `${SITE_BASE}/.well-known/x402`,
+  agent_instructions: `${SITE_BASE}/skill.md`,
+});
+
+/**
+ * The wrong verb on a paid route, answered as a SIGNPOST rather than a shrug.
+ *
+ * STILL A 405, DELIBERATELY, and the authority is this service's own catalogue:
+ * the HTTP_STATUS_402 check in worker/lint.js grades other sellers on exactly
+ * this situation and its note reads "a GET-only endpoint answering 405 to it is
+ * a conformant endpoint and a wrong guess about the verb". Answering 402 here
+ * instead would fail this repo's own reading of the spec — and worse, it would
+ * be dishonest in the way verifyCeilingReached() refuses to be: real x402
+ * clients retry the SAME request with a payment attached, so a 402 on a GET
+ * invites signing a payment for a request shape that can never be served.
+ *
+ * WHY THE BODY GREW. The funnel (2026-08-26, three days after instrumentation)
+ * showed ~1,200 of ~9,600 edge requests were 405s, and three named trust
+ * probers — kkj-x402-trust-index, AgentReeve, MainstreetHealthProbe — had
+ * GETted or HEADed these routes hundreds of times without ONCE seeing a 402.
+ * A liveness checker that only reads the status will still record 405, and
+ * that is correct; one that reads the body now learns three things: the verb
+ * that works, that an unauthenticated call on that verb answers a payable 402
+ * (the healthy state for a paid route, not an error), and where the machine
+ * descriptions live. The ledger could never have shown any of this — a 405
+ * settles nothing and writes no row, which is why it took a funnel to see.
+ *
+ * It writes nothing and reads nothing: the method check runs before any store
+ * access, and this answer must keep that property.
+ */
+function wrongMethod(request, endpoint) {
+  return json(
+    {
+      error: `${endpoint.path} answers ${endpoint.method} only — this was a ${request.method}`,
+      fix:
+        `${endpoint.method} ${endpoint.path} with a JSON body. An unauthenticated ${endpoint.method} ` +
+        'answers a payable 402 carrying the exact terms — for a paid x402 route, that 402 is the ' +
+        'healthy liveness signal, not this 405.',
+      price: priceLabel(endpoint.price_usd),
+      see: machineSurfaces(),
+    },
+    405,
+    { allow: endpoint.method }
+  );
+}
+
+/** The same signpost for the free route, whose verb set is GET and HEAD. */
+function wrongMethodFree(request) {
+  return json(
+    {
+      error: `${FREE_ENDPOINT.path} answers GET (or HEAD) only — this was a ${request.method}`,
+      fix: `GET ${FREE_ENDPOINT.path} is free and lists every endpoint, verb, price and check.`,
+      see: machineSurfaces(),
+    },
+    405,
+    { allow: 'GET, HEAD' }
+  );
+}
+
 function unpaid(endpoint, { payTo, tier, now, dayStart }) {
   if (payTo) {
     return paymentRequired(endpoint.id, payTo, {

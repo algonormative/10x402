@@ -208,10 +208,23 @@ describe('GET /check', () => {
     assert.ok(!/2000|paid_daily|PAID_DAILY/i.test(text), 'the paid ceiling appears in /check');
   });
 
-  test('answers 405 to anything but GET', async () => {
+  test('answers 405 to anything but GET or HEAD, pointing at the free route', async () => {
     const res = await api.post('/check', {}, { ip: ips.next() });
     assert.equal(res.status, 405);
-    assert.equal(res.headers.get('allow'), 'GET');
+    assert.equal(res.headers.get('allow'), 'GET, HEAD');
+    // A refusal that ends in a pointer, not a shrug: the machine surfaces ride
+    // in every 405 so a prober that reads bodies can find the payable form.
+    assert.ok(res.body.see.catalog.endsWith('/check'), res.text);
+    assert.ok(res.body.see.openapi.endsWith('/openapi.json'), res.text);
+  });
+
+  test('HEAD answers 200 with the GET headers and no body', async () => {
+    // RFC 9110 §9.1: GET and HEAD are mandatory. The funnel caught real
+    // liveness probers HEADing this route and being told 405 for it.
+    const res = await api.request('/check', { method: 'HEAD', ip: ips.next() });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /json/);
+    assert.equal(await res.text(), '');
   });
 
   test('is CORS-open, because a browser is a legitimate caller of a free route', async () => {
@@ -236,10 +249,20 @@ describe('routing', () => {
     assert.match(res.body.error, /`status` is required/);
   });
 
-  test('GET on a POST endpoint says which verb to use', async () => {
+  test('GET on a POST endpoint is a 405 that reads as a signpost', async () => {
+    // STILL 405 — this repo's own HTTP_STATUS_402 check calls a 405 on the
+    // wrong verb conformant, and a 402 here would invite an x402 client to
+    // sign a payment for a request shape (GET, no body) that can never be
+    // served. But the trust probers the funnel caught GETting these routes
+    // for liveness deserve a body that says what the healthy signal is.
     const res = await api.request('/lint', { method: 'GET', ip: ips.next() });
     assert.equal(res.status, 405);
     assert.equal(res.headers.get('allow'), 'POST');
+    const body = JSON.parse(await res.text());
+    assert.match(body.fix, /402/);
+    assert.match(body.fix, /POST \/lint/);
+    assert.ok(body.see.catalog.endsWith('/check'), JSON.stringify(body.see));
+    assert.ok(body.price, 'the wrong-verb answer no longer names the price');
   });
 
   test('OPTIONS preflight is answered', async () => {
