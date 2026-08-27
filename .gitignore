@@ -3,3 +3,5 @@ dist/
 .wrangler/
 .DS_Store
 .groundtruth/
+# The buyer test wallet key. Never committed; see scripts/bazaar-drill.mjs.
+.buyer.env
