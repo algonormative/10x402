@@ -261,12 +261,11 @@ describe('routing', () => {
     assert.match(res.body.error, /`status` is required/);
   });
 
-  test('GET on a POST endpoint is a 405 that reads as a signpost', async () => {
-    // STILL 405 — this repo's own HTTP_STATUS_402 check calls a 405 on the
-    // wrong verb conformant, and a 402 here would invite an x402 client to
-    // sign a payment for a request shape (GET, no body) that can never be
-    // served. But the trust probers the funnel caught GETting these routes
-    // for liveness deserve a body that says what the healthy signal is.
+  test('GET on a POST endpoint keeps the 405 signpost when no payTo is configured', async () => {
+    // The probe surface (GET answering the payable 402 — 2026-08-27
+    // reversal, tested in x402.test.mjs under the production vars) needs
+    // terms to advertise. This phase has no PAYTO, so there is no envelope
+    // to serve and the signpost is the honest answer.
     const res = await api.request('/lint', { method: 'GET', ip: ips.next() });
     assert.equal(res.status, 405);
     assert.equal(res.headers.get('allow'), 'POST');
@@ -274,6 +273,28 @@ describe('routing', () => {
     assert.match(body.fix, /402/);
     assert.match(body.fix, /POST \/lint/);
     assert.ok(body.see.catalog.endsWith('/check'), JSON.stringify(body.see));
+    assert.ok(body.price, 'the wrong-verb answer no longer names the price');
+  });
+
+  test('a payment on the wrong verb is a 405 that settles nothing', async () => {
+    const res = await api.request('/lint', {
+      method: 'GET',
+      ip: ips.next(),
+      headers: { 'x-payment': 'anything-at-all' },
+    });
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.get('allow'), 'POST');
+    const body = JSON.parse(await res.text());
+    assert.equal(body.settled, false);
+    assert.match(body.fix, /Nothing was verified, settled, or charged/);
+  });
+
+  test('a verb that is neither the declared one nor GET/HEAD keeps the 405 signpost', async () => {
+    const res = await api.request('/lint', { method: 'DELETE', ip: ips.next() });
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.get('allow'), 'POST');
+    const body = JSON.parse(await res.text());
+    assert.match(body.fix, /POST \/lint/);
     assert.ok(body.price, 'the wrong-verb answer no longer names the price');
   });
 

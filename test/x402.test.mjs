@@ -105,6 +105,55 @@ describe('the first unauthenticated call', () => {
   });
 });
 
+describe('the wrong-verb probe surface (2026-08-27 reversal)', () => {
+  // Status-only liveness monitors never read a 405 body — the prime rating
+  // surface scored this host uptime 0.0 / tier D for it while it settled
+  // revenue. GET/HEAD now answer the SAME 402 the declared verb gets; the
+  // verb travels in accepts[0].outputSchema.input.method and in `execute`,
+  // and a payment on the wrong verb settles nothing.
+  test('an unauthenticated GET answers the same 402 terms as the declared verb', async () => {
+    const res = await api.request('/lint', { method: 'GET', ip: ips.next() });
+    assert.equal(res.status, 402);
+    const body = JSON.parse(await res.text());
+    assert.equal(body.x402Version, 1);
+    assert.equal(body.accepts[0].outputSchema.input.method, 'POST');
+    assert.match(body.execute, /POST \/lint/);
+    assert.match(body.execute, /settles nothing/);
+    assert.ok(res.headers.get('payment-required'), 'the v2 envelope must ride the probe 402 too');
+    const postRes = await unpaid(ENDPOINTS[0]);
+    assert.equal(postRes.status, 402);
+    assert.deepEqual(body.accepts, postRes.body.accepts);
+  });
+
+  test('HEAD is the same 402, headers only', async () => {
+    const res = await api.request('/lint', { method: 'HEAD', ip: ips.next() });
+    assert.equal(res.status, 402);
+    assert.ok(res.headers.get('payment-required'));
+    assert.equal(await res.text(), '');
+  });
+
+  test('a payment on the wrong verb is a 405 that settles nothing and writes nothing', async () => {
+    const before = await storeCounts();
+    const res = await api.request('/lint', {
+      method: 'GET',
+      ip: ips.next(),
+      headers: { 'x-payment': 'anything-at-all' },
+    });
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.get('allow'), 'POST');
+    const body = JSON.parse(await res.text());
+    assert.equal(body.settled, false);
+    assert.match(body.fix, /Nothing was verified, settled, or charged/);
+    assert.deepEqual(await storeCounts(), before, 'the refusal wrote a row');
+  });
+
+  test('the probe 402 touches no store', async () => {
+    const before = await storeCounts();
+    for (let i = 0; i < 5; i++) await api.request('/lint/envelope', { method: 'GET', ip: ips.next() });
+    assert.deepEqual(await storeCounts(), before, 'a probe cost a row');
+  });
+});
+
 describe('the v1 envelope, in the body', () => {
   test('is a complete, conformant v1 accepts entry', async () => {
     const res = await unpaid(ENDPOINTS[0]);

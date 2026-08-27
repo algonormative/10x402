@@ -384,7 +384,16 @@ function handleCheck(request, env) {
 // that happens before the rate-limit round trip, the body read and the work.
 
 async function handlePaid(request, env, ctx, endpoint) {
-  if (request.method !== endpoint.method) return wrongMethod(request, endpoint);
+  if (request.method !== endpoint.method) {
+    // GET/HEAD are how liveness monitors probe: answer the same payable 402
+    // the declared verb would get (see the reversal note on probeChallenge).
+    // A payment on the wrong verb is refused without settling. Anything else
+    // keeps the 405 signpost.
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      return paymentPresented(request) ? paidWrongVerb(request, endpoint) : probeChallenge(request, endpoint, env);
+    }
+    return wrongMethod(request, endpoint);
+  }
 
   const declared = Number(request.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > MAX_REQUEST_BODY) return tooLarge();
@@ -1007,31 +1016,84 @@ const machineSurfaces = () => ({
 });
 
 /**
- * The wrong verb on a paid route, answered as a SIGNPOST rather than a shrug.
+ * The wrong verb on a paid route: a 402 probe surface for GET/HEAD, a 405
+ * signpost for everything else.
  *
- * STILL A 405, DELIBERATELY, and the authority is this service's own catalogue:
- * the HTTP_STATUS_402 check in worker/lint.js grades other sellers on exactly
- * this situation and its note reads "a GET-only endpoint answering 405 to it is
- * a conformant endpoint and a wrong guess about the verb". Answering 402 here
- * instead would fail this repo's own reading of the spec — and worse, it would
- * be dishonest in the way verifyCeilingReached() refuses to be: real x402
- * clients retry the SAME request with a payment attached, so a 402 on a GET
- * invites signing a payment for a request shape that can never be served.
+ * THIS REVERSES THE 2026-08-26 STANCE, BY OWNER DECISION (2026-08-27), ON NEW
+ * EVIDENCE. The old block held the 405 "deliberately" and bet that liveness
+ * probers would read the body. Measured outcome: they did not. The prime
+ * rating surface (agenteconomy.report) reads this host at uptime 0.0 / score
+ * 0.0 / tier D while both properties settle real revenue, and a two-verb
+ * probe over its population verified the mechanism — its liveness probe is
+ * GET-shaped, healthy hosts are exactly the ones answering 402 on GET, and
+ * 10/10 top "dead"-rated sellers answered 402 on their declared verb
+ * (tradewind: 2026-08-27--get-only-prober-mechanism-verified). A body-only
+ * signal on a 405 is invisible to every status-reading monitor; the owner's
+ * call is to play nice with the catalogs.
  *
- * WHY THE BODY GREW. The funnel (2026-08-26, three days after instrumentation)
- * showed ~1,200 of ~9,600 edge requests were 405s, and three named trust
- * probers — kkj-x402-trust-index, AgentReeve, MainstreetHealthProbe — had
- * GETted or HEADed these routes hundreds of times without ONCE seeing a 402.
- * A liveness checker that only reads the status will still record 405, and
- * that is correct; one that reads the body now learns three things: the verb
- * that works, that an unauthenticated call on that verb answers a payable 402
- * (the healthy state for a paid route, not an error), and where the machine
- * descriptions live. The ledger could never have shown any of this — a 405
- * settles nothing and writes no row, which is why it took a funnel to see.
+ * The old block's real hazard is kept, and answered structurally rather than
+ * by refusing the 402: "a 402 on a GET invites signing a payment for a
+ * request shape that can never be served." Three mitigations. (1) The
+ * envelope this 402 carries is the SAME build402 output as the POST
+ * challenge, and its accepts[0].outputSchema.input.method says POST — a
+ * client that reads what it pays for pays on the right verb. (2) The v1 body
+ * carries an `execute` field naming the verb in prose. (3) A payment that
+ * arrives on GET/HEAD anyway hits paidWrongVerb() below: 405, nothing
+ * verified, nothing settled — settlement in this worker only ever follows a
+ * served report, so no money can move on this path by construction. A wasted
+ * signature expires unspent; that is the whole cost of a client that ignores
+ * both signals.
  *
- * It writes nothing and reads nothing: the method check runs before any store
- * access, and this answer must keep that property.
+ * Both paths keep the old block's invariant: they write nothing and read
+ * nothing — the method check runs before any store access, probeChallenge()
+ * builds the envelope from config alone, and neither touches D1 or the
+ * facilitator. (The HTTP_STATUS_402 lint note that a 405 to the wrong verb
+ * is conformant remains true — this is not a conformance correction, it is
+ * a legibility choice the spec leaves open.)
  */
+function probeChallenge(request, endpoint, env) {
+  const payTo = env.PAYTO || '';
+  // With no receiving address there are no terms to advertise; the signpost
+  // is the honest answer.
+  if (!payTo) return wrongMethod(request, endpoint);
+  const res = paymentRequired(endpoint.id, payTo, {
+    error:
+      `X-PAYMENT header is required — and ${endpoint.path} executes on ` +
+      `${endpoint.method}, not ${request.method}`,
+    v2Error: 'Payment required',
+    execute:
+      `${endpoint.method} ${endpoint.path} with a JSON body and the X-PAYMENT header. ` +
+      `This 402 is the liveness/terms surface for ${request.method} probes; paying on ` +
+      `${request.method} settles nothing and is answered 405.`,
+    see: machineSurfaces(),
+  });
+  if (request.method === 'HEAD') return new Response(null, { status: 402, headers: res.headers });
+  return res;
+}
+
+/**
+ * A payment presented on a verb that cannot be served. Refused BEFORE any
+ * store or facilitator access: nothing is verified, nothing is settled,
+ * nothing is written — the caller re-signs on the right verb having lost
+ * only an unspent signature.
+ */
+function paidWrongVerb(request, endpoint) {
+  return json(
+    {
+      error:
+        `a payment arrived on ${request.method}, but ${endpoint.path} executes on ` +
+        `${endpoint.method} only`,
+      settled: false,
+      fix:
+        `re-send as ${endpoint.method} ${endpoint.path} with the JSON body contract and a ` +
+        'fresh X-PAYMENT. Nothing was verified, settled, or charged on this request.',
+      see: machineSurfaces(),
+    },
+    405,
+    { allow: endpoint.method }
+  );
+}
+
 function wrongMethod(request, endpoint) {
   return json(
     {

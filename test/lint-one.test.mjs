@@ -212,7 +212,9 @@ describe('the telemetry a single check leaves behind', () => {
 });
 
 describe('the route itself', () => {
-  test('answers 405 to a GET, naming the verb', async () => {
+  test('answers 405 to a GET in this payTo-less phase, naming the verb', async () => {
+    // Production (PAYTO set) answers the payable 402 probe surface instead —
+    // the 2026-08-27 reversal, tested in x402.test.mjs.
     const res = await api.request('/lint/envelope/one', { method: 'GET', ip: ips.next() });
     assert.equal(res.status, 405);
     assert.equal(res.headers.get('allow'), 'POST');
