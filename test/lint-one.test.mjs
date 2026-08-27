@@ -48,6 +48,23 @@ describe('the served single-check answer', () => {
     assert.ok(Array.isArray(res.body.sources) && res.body.sources.length, 'the rule arrived with no citation');
   });
 
+  test('the receipt names the fuller product, with a free sample of it', async () => {
+    // Every sale to date was a single check; the full report never sold once —
+    // and no buyer had ever been TOLD, on the receipt, what it costs or looks
+    // like. This asserts that sentence exists and is honest: the paired
+    // route's real path, a price string, the total check count, and a sample
+    // URL a buyer can read for free before deciding.
+    const res = await one(asPayload(dual(), 'V2_B64_URLSAFE'));
+    assert.equal(res.status, 200, res.text);
+    const up = res.body.full_report;
+    assert.ok(up, 'the single-check receipt carries no full_report');
+    assert.equal(up.path, '/lint/envelope');
+    assert.match(up.price, /^\$0\.\d+$/);
+    assert.ok(up.checks_total > 50, 'checks_total is not the real catalogue size');
+    assert.ok(up.sample.endsWith('/samples/lint-envelope.json'), up.sample);
+    assert.match(up.note, /one check/);
+  });
+
   test('a check that fails, with the fix attached', async () => {
     const res = await one(asPayload(v1Only(), 'V2_HEADER_PRESENT'));
     assert.equal(res.status, 200, res.text);

@@ -1795,6 +1795,16 @@ writeFileSync(join(DIST, 'openapi.json'), `${JSON.stringify(openapi, null, 2)}\n
 writeFileSync(join(DIST, '.well-known', 'x402'), `${JSON.stringify(wellKnown, null, 2)}\n`);
 writeFileSync(join(DIST, 'llms.txt'), llms);
 writeFileSync(join(DIST, 'skill.md'), skill);
+// dist/samples/<id>.json — the goods, visible before anyone pays. Each file is
+// runSample(): the endpoint's published sample input through the REAL engine,
+// so it cannot drift from what a paid call returns. The funnel showed why this
+// matters: an agent holding a 402 had no way to see what a report looks like —
+// the sample outputs existed only inside rendered guide HTML, unreachable from
+// any machine surface. GET /check now points sample_report at these files.
+mkdirSync(join(DIST, 'samples'), { recursive: true });
+for (const e of ENDPOINTS) {
+  writeFileSync(join(DIST, 'samples', `${e.id}.json`), `${JSON.stringify(runSample(e), null, 2)}\n`);
+}
 mkdirSync(join(DIST, 'guides'), { recursive: true });
 writeFileSync(join(DIST, 'guides', 'index.html'), guidesIndex);
 for (const guide of GUIDES) {

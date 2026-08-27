@@ -227,6 +227,18 @@ describe('GET /check', () => {
     assert.equal(await res.text(), '');
   });
 
+  test('every paid endpoint publishes a sample_report URL', async () => {
+    // The goods, visible before paying: each entry points at a static file
+    // holding the endpoint's sample input run through the real engine.
+    const { body } = await api.check({ ip: ips.next() });
+    for (const e of body.endpoints.filter((x) => x.price !== 'free')) {
+      assert.ok(
+        typeof e.sample_report === 'string' && /\/samples\/[a-z-]+\.json$/.test(e.sample_report),
+        `${e.path} publishes no sample_report: ${e.sample_report}`
+      );
+    }
+  });
+
   test('is CORS-open, because a browser is a legitimate caller of a free route', async () => {
     const { headers } = await api.check({ ip: ips.next() });
     assert.equal(headers.get('access-control-allow-origin'), '*');
