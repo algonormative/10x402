@@ -527,7 +527,7 @@ export function freshness({ day, probe, now }) {
     days_behind_utc_today: daysBehind,
     reads: stale
       ? `STALE: the stored probe is ${ageHours} h old, past the ${STALE_AFTER_HOURS} h bound. The ` +
-        'probe cron runs daily at 11:47 UTC, so this means a run was missed — read this as history, ' +
+        'probe cron runs every six hours, so this means runs were missed — read this as history, ' +
         'not as a current reading.'
       : `the stored probe is ${ageHours} h old, inside the ${STALE_AFTER_HOURS} h bound.`,
   };
@@ -693,7 +693,7 @@ export function assembleReceipt({ subject, series, now }) {
       'access log of the host it was made against. It sent one unauthenticated request on the verb ' +
       'the subject\'s own CDP Bazaar row declares and one on GET, followed no redirects, and read ' +
       'at most 4 KB of each response. NO PAYMENT WAS SENT ON ANY OF THEM: a prober that pays is ' +
-      'buying the answer it publishes. Instruments are captured daily at ' +
+      'buying the answer it publishes. Instruments are captured every six hours at ' +
       `${CAPTURE_CRON} UTC and probes taken at ${PROBE_CRON} UTC; the readings are re-served from ` +
       'storage, never re-fetched to answer a call.',
   };
@@ -773,7 +773,7 @@ export function assembleIndex({ day, counts, contradictions, cap, now }) {
 
   const what_this_is =
     'Three free instruments read the x402 seller economy, and they disagree about who is alive. ' +
-    'This wing captures all three every day, then asks the endpoint itself — on the verb its own ' +
+    'This wing captures all three every six hours, then asks the endpoint itself — on the verb its own ' +
     'catalogue row declares, which is the question nobody else asks — and keeps the answer. ' +
     'Nothing here is fetched to answer a request: every surface re-serves what the crons stored.';
 
@@ -1322,7 +1322,7 @@ const page = (title, description, body) =>
 <style>${CSS}</style>
 </head><body><main>
 <header class="top"><a class="brand" href="${SITE_BASE}/">${esc(SERVICE_NAME)} <span>/ parallax</span></a>
-<span class="stamp">three instruments · one probe · every day</span></header>
+<span class="stamp">three instruments · one probe · every six hours</span></header>
 ${body}
 <footer>Every value on this page is a stored observation of a public surface, re-served — nothing was
 fetched to build it. NULL and 0 are different claims here: a NULL means an instrument had no row, or
@@ -1394,7 +1394,7 @@ export function renderIndexHtml(payload) {
   if (payload.state === 'no-capture') {
     return page(
       'Parallax — the 10x402 monitoring wing',
-      'Three rating instruments, one declared-verb probe, every day.',
+      'Three rating instruments, one declared-verb probe, every six hours.',
       `<h1>Parallax</h1><p class="lede">${esc(payload.what_this_is)}</p>
 <h2>No capture yet</h2><p>${esc(payload.notes[0])}</p>
 <h2>What it sells</h2><div class="scroll"><table class="pricing"><caption>the monitor routes</caption>
@@ -1422,7 +1422,7 @@ export function renderIndexHtml(payload) {
 
   return page(
     'Parallax — the 10x402 monitoring wing',
-    'Three rating instruments, one declared-verb probe, every day. The disagreement is the product.',
+    'Three rating instruments, one declared-verb probe, every six hours. The disagreement is the product.',
     `<h1>Parallax</h1>
 <p class="lede">${esc(payload.what_this_is)}</p>
 <p class="stamp">as of ${esc(payload.as_of.day)} · captured: agenteconomy ${payload.as_of.captured.agenteconomy ? 'yes' : 'NO'} ·

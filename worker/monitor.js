@@ -76,8 +76,8 @@ export const MONITOR_UA = '10x402-monitor/0.1 (+https://10x402.com/monitor)';
 
 /** MONITOR.md's schedules. Exported so wrangler.toml cannot drift from them
  *  unnoticed — test/monitor-substrate.test.mjs reads the TOML and compares. */
-export const CAPTURE_CRON = '17 11 * * *';
-export const PROBE_CRON = '47 11 * * *';
+export const CAPTURE_CRON = '17 */6 * * *';
+export const PROBE_CRON = '47 */6 * * *';
 
 const PROBE_TIMEOUT_MS = 10_000; // MONITOR.md
 // The ratings file was 1.6 MB at last read and the catalogue is ~16 pages, so

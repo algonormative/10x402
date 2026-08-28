@@ -28,7 +28,7 @@ wrong "dead" label.
 
 Two cron triggers (Workers paid plan, 1000 subrequests/invocation):
 
-1. **Capture** (`17 11 * * *`): fetch `MONITOR_AE_BASE`/s/ratings.json
+1. **Capture** (`17 */6 * * *` — four times a day): fetch `MONITOR_AE_BASE`/s/ratings.json
    (default https://agenteconomy.report; 1.6 MB, CC BY 4.0),
    `MONITOR_AT_BASE`/ (default https://apistrust.com; host table
    embedded in HTML as JSON), and the full Bazaar catalogue via
@@ -36,7 +36,7 @@ Two cron triggers (Workers paid plan, 1000 subrequests/invocation):
    pages). Distill into per-host daily rows + one day-meta row. A
    failed instrument records NULLs for its columns, never blocks the
    others.
-2. **Probe** (`47 11 * * *`): derive the day's roster from the day's
+2. **Probe** (`47 */6 * * *`, thirty minutes after each capture): derive the day's roster from the day's
    readings — priority order: house hosts, wrongly-dead-and-settling,
    liveness contradictions, top settlers, fill with healthy sample;
    capped at `MONITOR_PROBE_CAP` (default 400). Probe each host's
@@ -47,6 +47,12 @@ Two cron triggers (Workers paid plan, 1000 subrequests/invocation):
    UA: `10x402-monitor/0.1 (+https://10x402.com/monitor)`. Every probe
    URL passes fetch-target.js's `checkTargetUrl` SSRF rules — catalogue
    rows are third-party-controlled input.
+
+Cadence semantics (2026-08-28, owner bump from daily): rows are keyed
+by UTC day and each run REPLACES its day's rows, so four runs a day
+means the pages refresh every six hours while the archive stays one
+row per host per day — the day's row is the day's LATEST observation,
+and `monitor_probes.ts` carries the actual probe time.
 
 D1 tables (additive, schema.sql): `monitor_readings` (host, day,
 ae_uptime, ae_score, ae_tier, ae_settled_14d, ae_organic, ae_flag,

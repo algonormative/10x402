@@ -683,7 +683,7 @@ part-way; the wing assumes the paid plan this account is already on.
 
 **First-day behaviour is a real state and is served as one.** Before the first
 capture, `GET /monitor` answers 200 with `state: "no-capture"` and says so;
-between 11:17 and 11:47 every day, `wrongly_dead` is **null**, which means "not
+between each capture and its probe half an hour later, `wrongly_dead` is **null**, which means "not
 probed yet" and never zero. Watching a deploy:
 
 ```bash

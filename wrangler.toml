@@ -217,10 +217,10 @@ name = "ALERT_EMAIL"
 # are duplicated as constants in worker/monitor.js, which is how `scheduled`
 # dispatches — a test reads this file and fails if the two drift apart.
 #
-#   17 11 * * *  CAPTURE. Read agenteconomy.report/s/ratings.json, apistrust.com
+#   17 */6 * * *  CAPTURE (00:17, 06:17, 12:17, 18:17 UTC). Read agenteconomy.report/s/ratings.json, apistrust.com
 #                and the full CDP Bazaar catalogue; join per host; write the
 #                day's monitor_readings and the capture half of monitor_days.
-#   47 11 * * *  PROBE. Derive the day's roster from those readings and ask each
+#   47 */6 * * *  PROBE (thirty minutes after each capture). Derive the day's roster from those readings and ask each
 #                host's most-recently-called resource what it does — on the verb
 #                it DECLARED and on GET. Writes monitor_probes and the probe half
 #                of monitor_days. Never sends X-PAYMENT. Never pays.
@@ -251,7 +251,7 @@ name = "ALERT_EMAIL"
 # the capture would die mid-catalogue and the probe after ~25 hosts. This wing
 # assumes the paid plan, which this account is already on for the request path.
 [triggers]
-crons = ["17 11 * * *", "47 11 * * *"]
+crons = ["17 */6 * * *", "47 */6 * * *"]
 
 [[d1_databases]]
 binding = "DB"

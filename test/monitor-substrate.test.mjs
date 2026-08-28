@@ -1051,11 +1051,15 @@ describe('the schedule itself', () => {
     assert.deepEqual(crons, [CAPTURE_CRON, PROBE_CRON]);
   });
 
-  test('the two crons are half an hour apart, capture first', () => {
-    const minutes = (cron) => {
-      const [m, h] = cron.split(' ');
-      return Number(h) * 60 + Number(m);
-    };
-    assert.equal(minutes(PROBE_CRON) - minutes(CAPTURE_CRON), 30);
+  test('the two crons share an hour schedule, probe thirty minutes after capture', () => {
+    // The hour field went from a literal (11) to a step (*/6) on 2026-08-28
+    // when the owner bumped the cadence — so the assertion is in two parts:
+    // identical hour expressions (whatever their shape, both crons fire in the
+    // same hours), and a 30-minute gap in the minute field, capture first.
+    // The gap is what the probe depends on: its roster is derived from the
+    // capture that just ran.
+    const fields = (cron) => cron.split(' ');
+    assert.equal(fields(CAPTURE_CRON)[1], fields(PROBE_CRON)[1], 'the crons fire in different hours');
+    assert.equal(Number(fields(PROBE_CRON)[0]) - Number(fields(CAPTURE_CRON)[0]), 30);
   });
 });

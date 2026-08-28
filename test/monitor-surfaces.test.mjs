@@ -763,8 +763,11 @@ describe('the paid routes, served', () => {
     assert.match(res.body.attestation.statement, /10x402-monitor\/0\.1/);
     assert.match(res.body.attestation.statement, /NO PAYMENT WAS SENT/);
     assert.match(res.body.attestation.no_payment, /X-PAYMENT/);
-    assert.equal(res.body.attestation.schedule.capture, '17 11 * * *');
-    assert.equal(res.body.attestation.schedule.probe, '47 11 * * *');
+    // Literals on purpose — the attestation is built from the constants, so
+    // asserting the constants back would be circular; this pins the PUBLISHED
+    // schedule a disputing seller quotes. Bumped daily → 6-hourly 2026-08-28.
+    assert.equal(res.body.attestation.schedule.capture, '17 */6 * * *');
+    assert.equal(res.body.attestation.schedule.probe, '47 */6 * * *');
   });
 
   test('a stale stored probe is reported as stale rather than as current', async () => {
