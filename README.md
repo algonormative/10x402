@@ -100,7 +100,7 @@ form of either when there is exactly one check you want the answer to.
 |---|---|---|
 | `POST /lint` | **$0.25** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
 | `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
-| `POST /presence` | **$0.15** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and USDC settlement activity on Base. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
+| `POST /presence` | **$0.15** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and the payTo's own chain — USDC settlement activity on Base for a `0x` address, recent signature activity on Solana for a base58 one. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
 | `POST /lint/envelope` | **$0.10** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
 | `POST /monitor/verdict` | **$0.005** | Parallax: what the three rating instruments said about a host on the latest stored day, what the endpoint answered to an unpaid request on its **declared verb** and on GET, and the read-time flags. `as_of`-stamped; a stored probe older than 36 h is reported as stale rather than as current. |
@@ -409,7 +409,8 @@ worker/
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes
   positive-control.js  a real 402 captured from a live seller (frozen)
-  presence.js          POST /presence — the three registry reads
+  presence.js          POST /presence — two registry reads and a chain read
+                       chosen by the payTo's address family (Base, or Solana)
   presence-control.js  a real registry observation, frozen, for the sample
   monitor.js           PARALLAX SUBSTRATE: the two crons. Fetches, probes,
                        writes. Never reached from the request path.
@@ -429,7 +430,7 @@ worker/
 build.mjs              generates dist/ and runs the self-lint
 mcp/server.mjs         MCP server; a 402 is a price quote, never isError
 skills/10x402/         a drop-in agent skill
-test/                  nine phases, 1073 tests, no live or billed calls
+test/                  nine phases, 1086 tests, no live or billed calls
 ```
 
 **The Worker has no production npm dependencies.** The lint engine, the JSON
@@ -444,17 +445,18 @@ npm install
 npm test
 ```
 
-1073 tests in nine phases, in two to three minutes. **No live network calls and no
-billed calls, ever** — the facilitator, Telegram, the lint targets, the three
-rating instruments and the probed sellers are all http servers the suite runs on
-127.0.0.1, and the CDP credentials are generated per run and worth nothing.
+1086 tests in nine phases, in two to three minutes. **No live network calls and no
+billed calls, ever** — the facilitator, Telegram, the lint targets, the registries
+and chain RPCs, the three rating instruments and the probed sellers are all http
+servers the suite runs on 127.0.0.1, and the CDP credentials are generated per run
+and worth nothing.
 
 | phase | tests | what |
 |---|---|---|
 | engine | 605 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control, the price sheet. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
 | served calls | 135 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
 | outbound lint | 71 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
-| presence | 10 | `/presence` against mock registries on 127.0.0.1 |
+| presence | 23 | `/presence` against mock registries on 127.0.0.1, including the Solana chain leg: the JSON-RPC request it sends, and that its evidence never borrows the EVM leg's transfer language |
 | monitor substrate | 50 | the Parallax crons: three mock instruments, mock sellers, and both crons through the Worker's real `scheduled()` via `--test-scheduled` |
 | monitor surfaces | 55 | `/monitor`, `/monitor/{host}` and the three paid routes over **seeded** D1 rows — the three host-page states, the NULL-vs-0 vocabulary, and HTML escaping of third-party text |
 | production default | 87 | the 402 front door for all eight paid routes, and **the self-lint invariant** |
@@ -614,6 +616,35 @@ after step 6.
    The Pages project must have **zero Functions**: the Worker owns `/check`,
    `/lint`, `/lint/*`, `/presence*` and `/monitor*` through routes, and a
    Function would shadow them.
+
+### The presence reads
+
+**Nothing to configure.** All four surfaces `POST /presence` reads are free and
+keyless — the CDP discovery catalog, the x402scan explorer, Blockscout, and the
+public Solana JSON-RPC — so the route works on a fresh deploy with no secret set.
+
+**Which chain gets read is decided by the payTo's ADDRESS SHAPE**, never by the
+declared `network`: the declaration is the thing under examination, and a seller
+whose network string is wrong is exactly who buys this report. `0x` + 40 hex is
+read on Base through Blockscout; a base58 address of 32–44 characters is read on
+Solana. Anything else — a role constant like `"merchant"`, an ENS name — reports
+`unknown` with the reason named, because "we did not look" is the honest answer
+and `none_seen` would be a claim about a chain nobody queried.
+
+**The two legs measure different things, and the report says so.** Base is read
+through `tokentx` — USDC transfers that ARRIVED, so `summary.settlement_seen` is
+a real yes or no. Solana is read through `getSignaturesForAddress`, which returns
+transactions that MENTION the address in any role and either direction: that
+shows the address is in use and cannot show that anything settled to it. On a
+Solana payTo `settlement_seen` is therefore **null** whatever the leg saw, the
+evidence carries a `measures` line saying what was counted, and a failed
+transaction still counts as activity — it was signed, submitted and paid for.
+
+**Optional vars.** `PRESENCE_BAZAAR_BASE`, `PRESENCE_SCAN_BASE`,
+`PRESENCE_CHAIN_BASE` and `PRESENCE_SOLANA_BASE` are test seams (mock registries
+on 127.0.0.1) and are never set in production. `PRESENCE_SOLANA_BASE` is the
+whole RPC endpoint URL rather than a host, because JSON-RPC posts every method to
+the same address; it defaults to `https://api.mainnet-beta.solana.com`.
 
 ### The monitoring wing (Parallax)
 

@@ -108,6 +108,29 @@ routes = [
 # Neither is set here, on purpose. Both are documented so that finding one set
 # somewhere is immediately legible as a mistake rather than as a feature.
 
+# ------------------------------------------------------------------ the presence reads
+#
+# POST /presence reads four surfaces, all of them free and keyless, so this route
+# needs NO configuration at all — a fresh deploy serves it with nothing set.
+#
+#   PRESENCE_BAZAAR_BASE  default https://api.cdp.coinbase.com
+#   PRESENCE_SCAN_BASE    default https://www.x402scan.com
+#   PRESENCE_CHAIN_BASE   default https://base.blockscout.com
+#   PRESENCE_SOLANA_BASE  default https://api.mainnet-beta.solana.com
+#
+# All four are TEST SEAMS ONLY — the suite points them at mock registries on
+# 127.0.0.1, which is how `npm test` proves the presence path without touching a
+# live registry — and none is set here, exactly like LINT_UNSAFE_TARGETS above.
+#
+# PRESENCE_SOLANA_BASE IS THE WHOLE RPC ENDPOINT URL, not a host to hang a path
+# off: JSON-RPC posts every method to the same address, so the var is used
+# verbatim while the other three have a path appended.
+#
+# WHICH CHAIN IS READ is decided by the payTo's ADDRESS SHAPE and never by the
+# declared network — the declaration is the thing under examination. A `0x`
+# address goes to Blockscout, a base58 one to the Solana RPC, and anything else
+# reports `unknown` rather than a claim about a chain nobody queried.
+
 [vars]
 # The house's own wallets, so the owner's own test buys read as a drill rather
 # than as a sale. Any payer NOT listed here gets the loud third-party message —
