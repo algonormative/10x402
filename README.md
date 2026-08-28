@@ -46,12 +46,12 @@ from — and where the honest answer is a house opinion, it says that instead.
 ## The self-lint invariant
 
 **The test suite lints the 402 that the Worker actually serves. Every build also
-self-lints all five paid endpoint envelopes and fails on any finding.**
+self-lints all eight paid endpoint envelopes and fails on any finding.**
 
-`test/self-lint.test.mjs` takes 10x402's *own* 402 — for all five paid
+`test/self-lint.test.mjs` takes 10x402's *own* 402 — for all eight paid
 endpoints, in the production configuration, off the wire through wrangler and
 workerd — and runs it through 10x402's *own* lint engine. It must grade **A with
-zero findings**, info included. Separately, `node build.mjs` constructs all five
+zero findings**, info included. Separately, `node build.mjs` constructs all eight
 production envelopes, runs the same engine, and refuses to emit `dist/` if any
 of them has a finding.
 
@@ -70,10 +70,14 @@ known-good before trusting any negative verdict.
 ## What you lint is your business
 
 The application store keeps no linted URLs, no pasted envelopes, and no reports.
-It retains the endpoint id (`lint`, `lint-one`, `presence`, `lint-envelope` or
-`lint-envelope-one`), grade (for `presence`, only the count of registries that
-listed the target), and error/warning counts as aggregate product telemetry, plus the quota and payment records needed to operate the service. It
-does not persist the material being linted.
+It retains the endpoint id (`lint`, `lint-one`, `presence`, `lint-envelope`,
+`lint-envelope-one`, or one of the three `monitor-*` routes), grade (for
+`presence`, only the count of registries that listed the target; for the monitor
+routes, only which SHAPE of answer was served — `monitor:probed`,
+`monitor:readings-only`, `monitor:series`, `monitor:receipt`), and error/warning
+counts as aggregate product telemetry, plus the quota and payment records needed
+to operate the service. It does not persist the material being linted, and it
+never records which host a monitor call asked about.
 
 ## Start here
 
@@ -99,6 +103,11 @@ form of either when there is exactly one check you want the answer to.
 | `POST /presence` | **$0.15** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and USDC settlement activity on Base. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
 | `POST /lint/envelope` | **$0.10** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
+| `POST /monitor/verdict` | **$0.005** | Parallax: what the three rating instruments said about a host on the latest stored day, what the endpoint answered to an unpaid request on its **declared verb** and on GET, and the read-time flags. `as_of`-stamped; a stored probe older than 36 h is reported as stale rather than as current. |
+| `POST /monitor/history` | **$0.03** | Every day this wing has held for one host — readings and probes, oldest first. |
+| `POST /monitor/receipt` | **$0.12** | The dispute pack: the series, the contradiction stated in numbers, a SHA-256 digest over the canonical JSON, and an attestation naming the probe method, the UA, and that no payment was ever sent. |
+| `GET /monitor` | **free** | The wing index: the latest capture day, the contradiction and wrongly-dead counts, and the contradictions carrying the most settled volume. JSON, or HTML with `Accept: text/html`. |
+| `GET /monitor/{host}` | **free** | One host, today: the three instruments side by side, the two-verb probe, the flags. No history — that is the paid route. JSON or HTML. |
 | `GET /check` | **free** | Service info, the full check catalogue by code, prices, the grade ladder. |
 
 **The two scopes are two products, bought at two different moments.** A full
@@ -400,17 +409,27 @@ worker/
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes
   positive-control.js  a real 402 captured from a live seller (frozen)
+  presence.js          POST /presence — the three registry reads
+  presence-control.js  a real registry observation, frozen, for the sample
+  monitor.js           PARALLAX SUBSTRATE: the two crons. Fetches, probes,
+                       writes. Never reached from the request path.
+  monitor-surfaces.js  PARALLAX SURFACES: the free reads and the three paid
+                       routes. Reads D1 and NOTHING else — no fetch, ever.
+  monitor-control.js   one real captured day, frozen, for the monitor samples
+  sha256.js            a synchronous SHA-256, for the receipt digest (see the
+                       note in its header — sampleOutput cannot await)
   fetch-target.js      the SSRF-guarded outbound fetch
   x402.js              CDP facilitator verify/settle, the Ed25519 JWT
   quota.js             the atomic daily claim, written once for four ceilings
   alert-message.js     what an alert says (pure; RFC 5322)
   alerts.js            how it is sent (Telegram, send_email binding)
   schema.sql           D1: salt, counters, call_quota, payment_seen,
-                       settlements, lints
+                       settlements, lints, monitor_readings, monitor_probes,
+                       monitor_days
 build.mjs              generates dist/ and runs the self-lint
 mcp/server.mjs         MCP server; a 402 is a price quote, never isError
 skills/10x402/         a drop-in agent skill
-test/                  six phases, 544 tests, no live or billed calls
+test/                  nine phases, 1073 tests, no live or billed calls
 ```
 
 **The Worker has no production npm dependencies.** The lint engine, the JSON
@@ -425,17 +444,20 @@ npm install
 npm test
 ```
 
-544 tests in six phases. **No live network calls and no billed calls, ever** —
-the facilitator, Telegram and the lint targets are all http servers the suite
-runs on 127.0.0.1, and the CDP credentials are generated per run and worth
-nothing.
+1073 tests in nine phases, in two to three minutes. **No live network calls and no
+billed calls, ever** — the facilitator, Telegram, the lint targets, the three
+rating instruments and the probed sellers are all http servers the suite runs on
+127.0.0.1, and the CDP credentials are generated per run and worth nothing.
 
 | phase | tests | what |
 |---|---|---|
-| engine | 236 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
-| served calls | 128 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
-| outbound lint | 65 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
-| production default | 55 | the 402 front door, and **the self-lint invariant** |
+| engine | 605 | pure functions: the lint engine against fixtures, the JSON Schema subset, the SSRF URL rules, the positive control, the price sheet. **Boots no worker** — if the engine is wrong, every later phase is measuring the wrong thing, and 0.1s beats four worker boots. |
+| served calls | 135 | `/check`, `/lint/envelope`, and the SSRF guard through the live Worker in its **shipped** configuration |
+| outbound lint | 71 | `/lint` against mock target servers, with the guard relaxed by `LINT_UNSAFE_TARGETS` |
+| presence | 10 | `/presence` against mock registries on 127.0.0.1 |
+| monitor substrate | 50 | the Parallax crons: three mock instruments, mock sellers, and both crons through the Worker's real `scheduled()` via `--test-scheduled` |
+| monitor surfaces | 55 | `/monitor`, `/monitor/{host}` and the three paid routes over **seeded** D1 rows — the three host-page states, the NULL-vs-0 vocabulary, and HTML escaping of third-party text |
+| production default | 87 | the 402 front door for all eight paid routes, and **the self-lint invariant** |
 | settlement | 29 | verify/settle against a strict per-version mock facilitator |
 | alerts | 31 | mock facilitator + mock Telegram, and the RFC 5322 message |
 
@@ -590,7 +612,71 @@ after step 6.
    ships with no analytics, which is the right answer for a local build. See
    § Measuring the funnel.
    The Pages project must have **zero Functions**: the Worker owns `/check`,
-   `/lint` and `/lint/*` through routes, and a Function would shadow them.
+   `/lint`, `/lint/*`, `/presence*` and `/monitor*` through routes, and a
+   Function would shadow them.
+
+### The monitoring wing (Parallax)
+
+The design doc is [`MONITOR.md`](MONITOR.md); this is the operational half.
+
+**The schema step covers it, but only if you ran step 3 after 2026-08-27.**
+`monitor_readings`, `monitor_probes` and `monitor_days` are additive tables in
+`worker/schema.sql` and every statement in that file is `IF NOT EXISTS`, so
+re-applying it on a live database is safe and is how an existing deployment
+gets them:
+
+```bash
+npx wrangler d1 execute tenx402 --remote --file worker/schema.sql
+```
+
+**Two crons, already in `wrangler.toml`.** `17 11 * * *` captures the three
+instruments; `47 11 * * *` derives the day's roster and probes it. Both are UTC,
+both are idempotent per day, and the strings are duplicated as constants in
+`worker/monitor.js` — a test reads the TOML and fails if they drift apart.
+Nothing prunes: the daily series is what the wing sells.
+
+**The route.** One pattern, `10x402.com/monitor*`, covers the free index, every
+`{host}` lookup and the three paid paths, including query strings. It has to be
+a wildcard because `/monitor/{host}` is dynamic — there is no finite set of
+exact patterns to write.
+
+**Paid-plan assumption.** The capture makes ~18 subrequests and the probe at
+most `MONITOR_PROBE_CAP × 2` (default 400 → 800), against the paid plan's 1000
+per invocation. On the free plan the ceiling is 50 and both crons would die
+part-way; the wing assumes the paid plan this account is already on.
+
+**Optional vars.** `MONITOR_PROBE_CAP` (default 400, clamped to 900),
+`MONITOR_HOUSE_HOSTS` (a comma list added to the always-probed set —
+`10x402.com` is hardcoded), `MONITOR_AE_BASE` / `MONITOR_AT_BASE` /
+`MONITOR_TIMEOUT_MS` (test seams; never set in production).
+
+**First-day behaviour is a real state and is served as one.** Before the first
+capture, `GET /monitor` answers 200 with `state: "no-capture"` and says so;
+between 11:17 and 11:47 every day, `wrongly_dead` is **null**, which means "not
+probed yet" and never zero. Watching a deploy:
+
+```bash
+curl -sS https://10x402.com/monitor | jq '{state, as_of, counts}'
+npx wrangler tail --format pretty        # each cron logs one line: monitor: cron … → {…}
+```
+
+```sql
+-- what the day actually captured, and whether the probe half has run
+SELECT day, population, captured_ae, captured_at, captured_bazaar,
+       roster_size, wrongly_dead, contradictions
+FROM monitor_days ORDER BY day DESC LIMIT 7;
+
+-- the finding, per day: dead at the rater, answering 402 on its declared verb
+SELECT r.day, r.host, r.ae_settled_14d, p.declared_method, p.declared_status, p.get_status
+FROM monitor_readings r JOIN monitor_probes p ON p.day = r.day AND p.host = r.host
+WHERE r.ae_uptime = 0 AND p.declared_status = 402
+ORDER BY r.day DESC, r.ae_settled_14d DESC LIMIT 20;
+```
+
+**The prober is polite and legible on purpose.** Every request carries
+`10x402-monitor/0.1 (+https://10x402.com/monitor)`, follows no redirects, reads
+at most 4 KB, and **never sends a payment**. If an operator complains, that UA
+is greppable in their log and the receipt endpoint publishes the same string.
 
 ### About rate limiting at the edge
 
@@ -696,7 +782,10 @@ that is all F is a catalogue that is wrong.
 
 ### Retention chores
 
-There is no `scheduled` handler by design — zero crons. Prune periodically:
+There are two crons, and **neither of them prunes anything**: they are the
+Parallax capture and probe (`MONITOR.md`), they write only the `monitor_*`
+tables, and that history is the thing the monitoring wing sells. Retention on
+the lint half below is still an operator chore. Prune periodically:
 
 ```sql
 DELETE FROM call_quota  WHERE day < date('now', '-7 days');

@@ -10,6 +10,9 @@
 //   lint_x402_envelope           {status, headers?, body?}  POST {BASE}/lint/envelope
 //   lint_x402_envelope_one_check {status, check, …}         POST {BASE}/lint/envelope/one
 //   check_x402_presence          {url, method?}             POST {BASE}/presence
+//   x402_monitor_verdict         {host}                     POST {BASE}/monitor/verdict
+//   x402_monitor_history         {host}                     POST {BASE}/monitor/history
+//   x402_monitor_receipt         {host}                     POST {BASE}/monitor/receipt
 //   x402_checks                  {}                         GET  {BASE}/check
 //
 // BASE comes from TENX402_URL, defaulting to production.
@@ -199,6 +202,83 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  // ---------------------------------------------------------------- the monitoring wing
+  //
+  // Three tools rather than one with a `scope` argument, for the convention at
+  // the top of this file: a tool is a thing with A PRICE, and an agent picks
+  // between tools by reading exactly that. They also answer three genuinely
+  // different questions — what is true today, what has been true, and what can
+  // be attached to a complaint — at three prices an order of magnitude apart.
+  {
+    name: 'x402_monitor_verdict',
+    description:
+      'Find out what the x402 rating surfaces are saying about a host right now — and what the ' +
+      'host itself answers. Three free instruments read this market (agenteconomy.report, ' +
+      'apistrust.com, the CDP Bazaar quality block) and they DISAGREE about who is alive; this ' +
+      'service captures all three daily and then asks the endpoint directly, on the verb its own ' +
+      'catalogue row declares, which is the question no rater asks. Returns the three readings ' +
+      'side by side, the two-verb probe, and the flags: `liveness-contradiction`, and ' +
+      '`wrongly-dead` — rated at uptime 0.0 while answering 402 on its declared verb, which is ' +
+      'the state 260 of 960 hosts were measured in. Stamped with the day it was measured; a ' +
+      'stored probe older than 36 hours is reported as stale rather than as current. Costs $0.005 ' +
+      'per call — the incumbent rater\'s own price for a rating read — paid over x402; the first ' +
+      'call answers 402 with the terms, which is a price quote and not an error. GET /monitor and ' +
+      'GET /monitor/{host} are the free versions of the summary and of one host\'s day.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: {
+          type: 'string',
+          description:
+            'the hostname to look up, e.g. socialx402.com — or the https URL of an endpoint, whose ' +
+            'host is taken. A bare 0x… wallet address works too: the rating instrument files some ' +
+            'of its rows under one, and those carry readings but never a probe.',
+        },
+      },
+      required: ['host'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'x402_monitor_history',
+    description:
+      'Get every day this service has held for one host: what each rating instrument reported and ' +
+      'what the declared-verb probe found, oldest first, with the flags computed per day. Use it ' +
+      'when one day is not the question — whether a rating is drifting, whether a correction ' +
+      'stuck, or how long a wrong liveness reading has been costing someone money. Costs $0.03 ' +
+      'per call, paid over x402. For today alone, x402_monitor_verdict is $0.005; to attach the ' +
+      'series to a corrections request, x402_monitor_receipt adds the contradiction statement, a ' +
+      'digest and an attestation for $0.12.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: { type: 'string', description: 'the hostname (or endpoint URL, or 0x… wallet key) to pull the series for' },
+      },
+      required: ['host'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'x402_monitor_receipt',
+    description:
+      'Build the dispute pack for a host that is being rated wrongly: the full daily series, a ' +
+      'CONTRADICTION STATEMENT in plain numbers (how many days two instruments disagreed about ' +
+      'whether it was alive, and on how many of those the endpoint answered 402 to an unpaid ' +
+      'request on its declared verb), a SHA-256 digest over the canonical JSON so two copies can ' +
+      'be compared in one line, and an attestation naming the probe method, the exact User-Agent ' +
+      'every request carried — searchable verbatim in the rater\'s own access log — and the fact ' +
+      'that no payment was ever sent. This is the artefact to attach to a corrections request. ' +
+      'The digest is an integrity check, NOT a signature: it proves two copies are the same ' +
+      'document, not who issued it. Costs $0.12 per call, paid over x402.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        host: { type: 'string', description: 'the hostname (or endpoint URL, or 0x… wallet key) the pack is about' },
+      },
+      required: ['host'],
+      additionalProperties: false,
+    },
+  },
   {
     name: 'x402_checks',
     description:
@@ -255,6 +335,25 @@ async function checkPresence(args) {
   if (args.method) payload.method = String(args.method).toUpperCase();
   return post('/presence', payload);
 }
+
+/**
+ * The three monitor tools, which differ only in the path they post to. The
+ * missing-`host` refusal happens HERE, before the request, for the same reason
+ * the missing-`check` one does: the service would answer the same 400 for free,
+ * and a round trip to be told a required field is missing is a round trip
+ * nobody needed.
+ */
+const monitorTool = (path) => async (args) => {
+  const host = String(args.host || '').trim();
+  if (!host) {
+    return fail(
+      '`host` is required — the hostname this wing has been watching, e.g. {"host": ' +
+        '"socialx402.com"}. An endpoint URL works too (its host is taken), and so does a bare 0x… ' +
+        'wallet address. GET /monitor lists the hosts carrying the biggest contradictions, free.'
+    );
+  }
+  return post(path, { host });
+};
 
 async function lintEnvelope(args) {
   if (args.status === undefined) {
@@ -369,6 +468,14 @@ function renderReport(body, res) {
 
   if (report.check) return renderSingle(report, res);
 
+  // NOT EVERY PAID ANSWER IS A LINT REPORT. /presence returns registry verdicts
+  // and the three /monitor routes return stored observations — neither has
+  // `findings`, so the reading guide below does not apply to them and
+  // `report.findings.filter` would throw a TypeError that surfaced to the agent
+  // as "unknown error" with the paid answer thrown away. They get their own
+  // short lead instead, and the whole document underneath it either way.
+  if (!Array.isArray(report.findings)) return renderNonLint(report, res);
+
   const errors = report.findings.filter((f) => f.severity === 'error');
   const warns = report.findings.filter((f) => f.severity === 'warn');
   const infos = report.findings.filter((f) => f.severity === 'info');
@@ -432,6 +539,72 @@ function renderReport(body, res) {
 
   if (report.truncated) lines.push('', `Note: ${report.truncated}`);
   if (report.note) lines.push('', `Note: ${report.note}`);
+
+  lines.push('', JSON.stringify(report, null, 2));
+  if (res.headers.get('x-payment-verified') === 'true') {
+    lines.push('', '[10x402: payment verified and settling — you were charged for this call.]');
+  } else if (res.headers.get('x-pricing') === 'pending') {
+    lines.push(
+      '',
+      `[10x402: served WITHOUT the payment being verified (x-payment-error: ` +
+        `${res.headers.get('x-payment-error') || 'unknown'}). The payment service could not be ` +
+        'reached, so no money moved and you have not been charged. Nothing is owed.]'
+    );
+  }
+  return lines.join('\n');
+}
+
+/**
+ * The answers that are not lint reports: a presence lookup and the three
+ * monitor answers.
+ *
+ * The lead is built from what each shape actually claims — an agent
+ * summarising this keeps the first lines and drops the rest, so those lines
+ * have to carry the finding rather than the field names. `wrongly-dead` is
+ * called out by name because it is the one a seller has to act on: it means a
+ * rating surface is publishing that they are down while their endpoint is
+ * demonstrably answering 402 on the verb it declares.
+ */
+function renderNonLint(report, res) {
+  const lines = [];
+
+  if (report.kind === 'monitor') {
+    const flags = (report.flags || []).map((f) => f.id);
+    lines.push(
+      report.endpoint === 'receipt'
+        ? `Dispute pack for ${report.host} — ${report.days_held} day(s) held, ` +
+          `${report.contradiction.days_in_contradiction} in contradiction, ` +
+          `${report.contradiction.days_wrongly_dead} wrongly dead. Digest ${report.digest.value.slice(0, 16)}….`
+        : report.endpoint === 'history'
+          ? `${report.days_held} day(s) held for ${report.host}, ${report.probed_days} of them probed. ` +
+            'Oldest first; each entry says whether it was probed.'
+          : `${report.host} as of ${report.as_of} — ${report.state}.`
+    );
+    if (report.endpoint === 'receipt') lines.push('', report.contradiction.statement);
+    if (report.freshness) lines.push('', report.freshness.reads);
+    if (flags.length) {
+      lines.push('', `FLAGS: ${flags.join(', ')}.`);
+      for (const flag of report.flags) lines.push(`  ${flag.id} — ${flag.statement}`);
+    } else if (report.endpoint === 'verdict') {
+      lines.push('', 'No flag fired: the instruments that reported agree, and the probe found nothing that contradicts them.');
+    }
+    lines.push(
+      '',
+      'Every value here is a STORED observation of a public surface, re-served — nothing was fetched',
+      'to answer this call. NULL and 0 are different claims throughout: a NULL means an instrument',
+      'had no row, or that the probe never asked; a 0 means it reported zero, or that it asked and',
+      'got no HTTP answer at all.'
+    );
+  } else if (report.summary && report.registries) {
+    lines.push(
+      `${report.summary.listed} of ${report.summary.of} registries list this resource` +
+        (report.summary.unknown ? `, and ${report.summary.unknown} could not be read` : '') +
+        `. On-chain: ${report.onchain?.verdict ?? 'unknown'}.`,
+      '',
+      'An `unknown` verdict means the surface could not be read and says NOTHING about the listing.',
+      'Each miss carries a `fix` naming the specific way in.'
+    );
+  }
 
   lines.push('', JSON.stringify(report, null, 2));
   if (res.headers.get('x-payment-verified') === 'true') {
@@ -654,6 +827,9 @@ const HANDLERS = {
   lint_x402: lint,
   lint_x402_one_check: lintOneCheck,
   check_x402_presence: checkPresence,
+  x402_monitor_verdict: monitorTool('/monitor/verdict'),
+  x402_monitor_history: monitorTool('/monitor/history'),
+  x402_monitor_receipt: monitorTool('/monitor/receipt'),
   lint_x402_envelope: lintEnvelope,
   lint_x402_envelope_one_check: lintEnvelopeOneCheck,
   x402_checks: checks,

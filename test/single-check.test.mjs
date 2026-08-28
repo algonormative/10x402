@@ -215,14 +215,26 @@ describe('the published samples are worked examples, computed by the real engine
 // THE PRICE SHEET
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('the five prices, and the atomic math underneath them', () => {
+describe('the eight prices, and the atomic math underneath them', () => {
   test('the sheet is what it is meant to be', () => {
     // WRITTEN OUT, not derived. A test that computed these from the same
     // constants the Worker reads would agree with any re-price, including one
     // nobody decided on.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, e.price_usd])),
-      { '/lint': 0.25, '/lint/one': 0.02, '/presence': 0.15, '/lint/envelope': 0.1, '/lint/envelope/one': 0.01 }
+      {
+        '/lint': 0.25,
+        '/lint/one': 0.02,
+        '/presence': 0.15,
+        // The monitoring wing. $0.005 is the incumbent rater's own published
+        // price for a rating read, matched deliberately; $0.03 and $0.12 are
+        // the series and the dispute pack.
+        '/monitor/verdict': 0.005,
+        '/monitor/history': 0.03,
+        '/monitor/receipt': 0.12,
+        '/lint/envelope': 0.1,
+        '/lint/envelope/one': 0.01,
+      }
     );
   });
 
@@ -231,7 +243,16 @@ describe('the five prices, and the atomic math underneath them', () => {
     // that reads as plausible in every other assertion in this suite.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, atomicAmount(e.price_usd)])),
-      { '/lint': '250000', '/lint/one': '20000', '/presence': '150000', '/lint/envelope': '100000', '/lint/envelope/one': '10000' }
+      {
+        '/lint': '250000',
+        '/lint/one': '20000',
+        '/presence': '150000',
+        '/monitor/verdict': '5000',
+        '/monitor/history': '30000',
+        '/monitor/receipt': '120000',
+        '/lint/envelope': '100000',
+        '/lint/envelope/one': '10000',
+      }
     );
     // Float division is not exact — 0.1 * 1e6 is 100000.00000000001 — so the
     // conversion has to round rather than truncate. This is that assertion.
@@ -242,7 +263,10 @@ describe('the five prices, and the atomic math underneath them', () => {
   test('a price never renders shorter than cents', () => {
     // "$0.1" on a sheet that also says "$0.02" is a 10x misread a buyer only
     // notices after paying.
-    assert.deepEqual(ENDPOINTS.map((e) => priceLabel(e.price_usd)), ['$0.25', '$0.02', '$0.15', '$0.10', '$0.01']);
+    assert.deepEqual(
+      ENDPOINTS.map((e) => priceLabel(e.price_usd)),
+      ['$0.25', '$0.02', '$0.15', '$0.005', '$0.03', '$0.12', '$0.10', '$0.01']
+    );
     assert.equal(priceLabel(0), 'free');
     assert.equal(priceLabel(0.005), '$0.005', 'sub-cent prices keep the digits they need');
   });
@@ -262,6 +286,39 @@ describe('the copy cannot drift from the sheet', () => {
         Math.round((full.price_usd / one.price_usd) * 1000) / 1000,
         BATCH_MULTIPLES[railOf(one)],
         `${one.path} and ${full.path} disagree with their rail's published multiple`
+      );
+    }
+  });
+
+  test('EVERY PRICE ON THE SHEET IS UNIQUE, in dollars and in atomic units', () => {
+    // THE AMOUNT IS THE ATTRIBUTION MECHANISM, and this is the assertion that
+    // keeps it one. A settlement read from a bare chain explorer shows a
+    // transfer amount and a payer; it does not show which route earned it. As
+    // long as no two routes cost the same, every settlement is attributable to
+    // its endpoint with no other data — no ledger, no logs, no correlation. The
+    // day two routes share a price, that stops being true silently, and the
+    // revenue records of both become guesses.
+    //
+    // Asserted in ATOMIC units as well as dollars because atomic is what
+    // actually moves: two prices that differ in the seventh decimal would round
+    // to one transfer amount, and it is the transfer an explorer shows.
+    // (Sorted COPIES in the failure messages: Array#sort MUTATES, and sorting
+    // `atomic` in place would misalign the index walk below — a test that fails
+    // on the wrong endpoint while its message describes a real problem.)
+    const dollars = ENDPOINTS.map((e) => e.price_usd);
+    assert.equal(new Set(dollars).size, dollars.length, `duplicate price: ${[...dollars].sort().join(', ')}`);
+
+    const atomic = ENDPOINTS.map((e) => atomicAmount(e.price_usd));
+    assert.equal(new Set(atomic).size, atomic.length, `duplicate atomic amount: ${[...atomic].sort().join(', ')}`);
+
+    // And every one is a positive whole number of atomic units. USDC has six
+    // decimals, so a price finer than that is a price nobody can actually pay.
+    for (const [i, endpoint] of ENDPOINTS.entries()) {
+      assert.ok(Number(atomic[i]) > 0, `${endpoint.path} is priced at zero`);
+      assert.equal(
+        Number(atomic[i]),
+        Math.round(endpoint.price_usd * 1e6),
+        `${endpoint.path} is priced finer than USDC's six decimals`
       );
     }
   });
@@ -341,14 +398,14 @@ describe('the copy cannot drift from the sheet', () => {
   test('no hand-written surface still quotes a superseded price', () => {
     // The classic launch bug: the sheet moves and one file keeps the old
     // number. These four files type their prices as prose — nothing generates
-    // them — so they are the ones that drift. $0.005 and $0.05 are the tells:
-    // each was a price here and is now nobody's. ($0.10 is not a tell — it is
-    // still on the sheet, on the other rail.)
+    // them — so they are the ones that drift. $0.05 is the tell: it was a price
+    // here and is now nobody's. ($0.10 is not a tell — it is still on the
+    // sheet, on the other rail. $0.005 STOPPED being a tell when the monitoring
+    // wing landed and took it as /monitor/verdict's price, deliberately
+    // matching the incumbent rater's own published rate for a rating read.)
     for (const file of ['README.md', 'build.mjs', 'mcp/server.mjs', 'skills/10x402/SKILL.md']) {
       const text = readFileSync(join(ROOT, file), 'utf8');
-      for (const gone of ['$0.005', '$0.05']) {
-        assert.ok(!text.includes(gone), `${file} still quotes the superseded ${gone} price`);
-      }
+      assert.ok(!text.includes('$0.05'), `${file} still quotes the superseded $0.05 price`);
     }
 
     // And the three that type their prices as PROSE — build.mjs generates every
@@ -382,6 +439,18 @@ describe('the deployed routes cover every path the catalogue sells', () => {
     }
     assert.ok(covered('/check'), '/check is not covered');
     assert.ok(covered('/check?x=1'), 'a query string on /check is not covered');
+
+    // The monitoring wing's FREE reads are not in the catalogue — nothing is
+    // sold at them — and one of them has a DYNAMIC segment, so there is no
+    // finite set of exact paths to enumerate. A pattern that covered the three
+    // paid /monitor routes but not the host lookup would be a live 404 on the
+    // free page every one of them points at.
+    assert.ok(covered('/monitor'), 'the monitor index is not covered');
+    assert.ok(covered('/monitor?x=1'), 'a query string on the monitor index is not covered');
+    for (const host of ['socialx402.com', '0x07cf5359edb7d8de42973562c54e4c8d583c2396', 'a.very.long.sub.domain.example']) {
+      assert.ok(covered(`/monitor/${host}`), `/monitor/${host} is not covered`);
+    }
+
     assert.ok(!covered('/lintt'), 'the patterns match something they should not');
   });
 });

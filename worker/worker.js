@@ -12,6 +12,12 @@
 //                            paste. No outbound request at all.
 //   POST /lint/envelope/one  $0.01. ONE named check over a response you paste.
 //
+// There is also a `scheduled` handler now, and it is the one part of this
+// Worker that serves nobody: two Parallax crons (worker/monitor.js) that read
+// three public rating instruments and probe catalogued endpoints on the verb
+// they declared. It shares no code with the request path, writes only the
+// monitor_* tables, and can never throw into it. See MONITOR.md.
+//
 // Prices, paths and which route fetches all come from worker/catalog.js, and the
 // routing table is built from it — a new route is a row there, never a branch
 // here. THE DEPLOYED ROUTES ALREADY COVER THE SINGLE-CHECK PATHS: wrangler.toml
@@ -99,6 +105,15 @@ import {
 } from './envelope.js';
 import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
 import { runPresence } from './presence.js';
+import { CAPTURE_CRON, PROBE_CRON, runCaptureCron, runProbeCron } from './monitor.js';
+import {
+  freeRouteList,
+  monitorHostSurface,
+  monitorIndexSurface,
+  renderHostHtml,
+  renderIndexHtml,
+  runMonitorEndpoint,
+} from './monitor-surfaces.js';
 import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
@@ -231,12 +246,67 @@ export default {
 
     return response;
   },
+
+  /**
+   * The Parallax crons. THE ONLY THING IN THIS WORKER THAT IS NOT A REQUEST.
+   *
+   * Two triggers, dispatched on the cron string itself rather than on a
+   * position or a count, so that reordering [triggers] in wrangler.toml cannot
+   * silently swap capture for probe. The strings live in worker/monitor.js and
+   * a test compares them against the TOML.
+   *
+   * NOTHING HERE TOUCHES THE REQUEST PATH. No payment code, no envelope, no
+   * quota; the crons read three public instruments and write three tables that
+   * `fetch` above does not know exist.
+   *
+   * A BROKEN CRON MUST NEVER THROW. An unhandled rejection out of `scheduled`
+   * is a Cloudflare-side error with no caller to tell and no useful log, and
+   * — worse — it is indistinguishable from the service being down. Every exit
+   * here is a `console.warn` and a return, which lands in `wrangler tail` where
+   * an operator will actually see it. An unbound DB is the same: a working
+   * state for the lint half of this Worker, so it is a warning and not a
+   * failure.
+   */
+  async scheduled(event, env, ctx) {
+    const cron = event?.cron ?? '(none)';
+    if (!env?.DB) {
+      console.warn(`monitor: cron ${cron} fired with no DB binding — nothing written`);
+      return;
+    }
+    try {
+      let result;
+      if (cron === CAPTURE_CRON) result = await runCaptureCron(env);
+      else if (cron === PROBE_CRON) result = await runProbeCron(env);
+      else {
+        console.warn(`monitor: unrecognised cron ${cron} — no handler, nothing written`);
+        return;
+      }
+      // Logged either way: a capture that read one instrument of three is a
+      // SUCCESS that an operator still needs to see, and `why` carries which
+      // one was missing.
+      console.log(`monitor: cron ${cron} → ${JSON.stringify(result)}`);
+    } catch (err) {
+      console.warn(`monitor: cron ${cron} failed — ${err?.message || err}`);
+    }
+    // ctx is unused: a cron IS the deferred slot. There is no response to get
+    // out of the way of, so the work is awaited rather than queued behind one.
+    void ctx;
+  },
 };
 
 /** The routing table, lifted out so `fetch` above is only about the wrapper. */
 function route(request, env, ctx, { path, endpoint }) {
   if (path === '/check') return handleCheck(request, env);
+
+  // THE CATALOGUE'S EXACT PATHS WIN, AND THAT ORDERING IS LOAD-BEARING. The
+  // monitor's free per-host route has a DYNAMIC segment — /monitor/{host} —
+  // which ENDPOINTS_BY_PATH cannot match, so it is matched by prefix below.
+  // Resolving the paid routes first is what keeps /monitor/verdict a paid
+  // endpoint rather than a lookup of a host called "verdict".
   if (endpoint) return handlePaid(request, env, ctx, endpoint);
+
+  if (path === '/monitor') return handleMonitorIndex(request, env);
+  if (path.startsWith('/monitor/')) return handleMonitorHost(request, env, path.slice('/monitor/'.length));
 
   return json(
     {
@@ -244,10 +314,94 @@ function route(request, env, ctx, { path, endpoint }) {
       service: SERVICE_NAME,
       routes: [
         `GET ${FREE_ENDPOINT.path} — free`,
+        // The monitoring wing's free reads. Listed by hand rather than pulled
+        // from a route table because one of them carries a path PARAMETER, and
+        // a 404 that answered "/monitor/{host}" with a literal brace would be
+        // teaching the reader the wrong URL.
+        ...freeRouteList().map((e) => `${e.method} ${e.path} — free`),
         ...ENDPOINTS.map((e) => `${e.method} ${e.path} — ${priceLabel(e.price_usd)}`),
       ],
     },
     404
+  );
+}
+
+// ------------------------------------------------------------------ the free monitor reads
+//
+// Parallax's two free surfaces (MONITOR.md). READ-ONLY D1 AND NOTHING ELSE:
+// they never write a row, never touch the payment code, and never fetch — every
+// value they serve was stored by a cron half a day ago, which is exactly what
+// makes the `as_of` stamp on it true.
+
+/**
+ * Which representation the caller asked for.
+ *
+ * A person arrives with a browser, which asks for `text/html` explicitly; an
+ * agent arrives with a wildcard or `application/json` and wants the data. So
+ * HTML is opt-in by Accept and JSON is the default — the opposite default would
+ * hand every agent a page to scrape.
+ */
+const wantsHtml = (request) => /\btext\/html\b/i.test(request.headers.get('accept') || '');
+
+/**
+ * One answer, in whichever representation was asked for.
+ *
+ * `cache-control` is a SHORT PUBLIC cache and that is deliberate: the underlying
+ * rows change twice a day, at 11:17 and 11:47 UTC, so five minutes of shared
+ * caching costs a reader nothing and spares D1 a read per crawler. It is the
+ * opposite of the 402's `no-store`, and for the opposite reason — an envelope is
+ * per-request terms, and this is a public observation of a public surface.
+ */
+function monitorAnswer(request, status, payload, render) {
+  const headers = { 'cache-control': 'public, max-age=300' };
+  const res = wantsHtml(request)
+    ? new Response(render(payload), {
+        status,
+        headers: { 'content-type': 'text/html; charset=utf-8', ...CORS, ...headers },
+      })
+    : json(payload, status, headers);
+  // HEAD, per RFC 9110 §9.1: same status, same headers, no content.
+  if (request.method === 'HEAD') return new Response(null, { status, headers: res.headers });
+  return res;
+}
+
+async function handleMonitorIndex(request, env) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return wrongMethodMonitor(request, '/monitor');
+  const { status, payload } = await monitorIndexSurface(env);
+  return monitorAnswer(request, status, payload, renderIndexHtml);
+}
+
+async function handleMonitorHost(request, env, segment) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return wrongMethodMonitor(request, `/monitor/${segment}`);
+  }
+  // A percent-encoded segment is decoded; a MALFORMED one is not an error page,
+  // it is simply not a host this wing holds — and the 404 says what is held.
+  let host = segment;
+  try {
+    host = decodeURIComponent(segment);
+  } catch {
+    /* the subject validator will refuse it, with the criteria attached */
+  }
+  const { status, payload } = await monitorHostSurface(env, host);
+  return monitorAnswer(request, status, payload, renderHostHtml);
+}
+
+/** The wrong verb on a free read: a signpost, never a 402 — these cost nothing. */
+function wrongMethodMonitor(request, path) {
+  return json(
+    {
+      error: `${path} answers GET (or HEAD) only — this was a ${request.method}`,
+      fix:
+        'The free monitor reads take no body and no parameters. The PAID monitor routes are POST ' +
+        `with a JSON body: ${ENDPOINTS.filter((e) => e.kind === 'monitor')
+          .map((e) => `${e.path} (${priceLabel(e.price_usd)})`)
+          .join(', ')}.`,
+      free: freeRouteList(),
+      see: machineSurfaces(),
+    },
+    405,
+    { allow: 'GET, HEAD' }
   );
 }
 
@@ -288,6 +442,17 @@ function handleCheck(request, env) {
         price: priceLabel(FREE_ENDPOINT.price_usd),
         description: FREE_ENDPOINT.description,
       },
+      // The monitoring wing's two FREE reads, described here in the same words
+      // they describe themselves with on /monitor and in a 404. They are not in
+      // ENDPOINTS because nothing is sold at them — and /monitor/{host} carries
+      // a path parameter, which is not a shape the catalogue's exact-path
+      // routing can hold.
+      ...freeRouteList().map((e) => ({
+        method: e.method,
+        path: e.path,
+        price: e.price,
+        description: e.description,
+      })),
       ...ENDPOINTS.map((e) => ({
         method: e.method,
         path: e.path,
@@ -298,8 +463,17 @@ function handleCheck(request, env) {
         // Stated as data, not left for a reader to infer from the path: which
         // routes need a `check`, which ones make an outbound request on the
         // caller's behalf, and which fuller or cheaper route is the sibling of
-        // this one.
-        scope: e.single ? 'one named check' : `all ${CHECKS.length} checks`,
+        // this one. READ OFF `kind` FIRST: two of these routes do not answer
+        // about the check catalogue at all, and "all 82 checks" would be a
+        // false description of what they cover rather than a vague one.
+        scope:
+          e.kind === 'monitor'
+            ? 'one host, from stored daily observations'
+            : e.kind === 'presence'
+              ? 'registry presence, by evidence'
+              : e.single
+                ? 'one named check'
+                : `all ${CHECKS.length} checks`,
         check_required: e.single === true,
         fetches: e.fetches === true,
         paired_with: ENDPOINTS_BY_ID.get(e.pairedWith)?.path ?? null,
@@ -363,6 +537,11 @@ function handleCheck(request, env) {
     })),
     notes: [
       'A 402 from a paid endpoint here is a price quote, not an error.',
+      'The /monitor routes answer a different question from the lint: not "is my 402 right" but ' +
+        '"what do the rating surfaces say about me, and what does my endpoint actually answer". ' +
+        'They serve stored daily observations and fetch nothing at request time. GET /monitor is ' +
+        'free and explains the wing; GET /monitor/{host} is the free one-day snapshot for one ' +
+        'host; the history and the dispute receipt are what is sold.',
       'checks_run in a report is how many checks APPLIED — a v1-only endpoint legitimately skips every v2 check.',
       'A report carries TWO verdicts. `grade` answers "can I be paid" from payment-regime findings only; `summary.bazaar_ready` answers "can I be found" from bazaar-regime errors, and names its blockers. An endpoint can be grade A and bazaar_ready false — that is the commonest interesting report this service produces.',
       'Every check publishes its `sources`. A rule with no citation is a rule this service will not sell you.',
@@ -716,11 +895,16 @@ async function handlePaid(request, env, ctx, endpoint) {
   let report;
   try {
     report =
-      endpoint.kind === 'presence'
-        ? await runPresence(body, env)
-        : endpoint.fetches
-          ? await runUrlLint(body, env, named?.check)
-          : runEnvelopeLint(body, named?.check);
+      endpoint.kind === 'monitor'
+        ? // Reads monitor_* and NOTHING else — no fetch on this path, by
+          // design: a stored day re-served under its own `as_of` stamp is the
+          // product, and a live read would make that stamp a lie.
+          await runMonitorEndpoint(endpoint.id, body, env)
+        : endpoint.kind === 'presence'
+          ? await runPresence(body, env)
+          : endpoint.fetches
+            ? await runUrlLint(body, env, named?.check)
+            : runEnvelopeLint(body, named?.check);
   } catch (err) {
     return abandon(badRequest(`could not lint: ${oneLineMessage(err)}`, usageFor(endpoint)));
   }
@@ -1368,7 +1552,18 @@ async function recordSettlementSafely(db, row) {
  * it was written for.
  */
 const lintTelemetry = (report) =>
-  report.registries
+  report.kind === 'monitor'
+    ? {
+        // A monitor answer has no grade and no findings, so the column carries
+        // the only thing worth counting: WHICH SHAPE of answer was served —
+        // a probed verdict, a readings-only one, a series, a receipt. The host
+        // asked about is deliberately absent, the same line recordLintSafely
+        // draws everywhere else: what a caller looked up is their business.
+        grade: `monitor:${report.state}`,
+        errors: 0,
+        warns: 0,
+      }
+    : report.registries
     ? {
         // A presence report has no grade; the telemetry row records how many
         // registries listed the target — counts only, same privacy posture.

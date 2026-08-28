@@ -87,6 +87,8 @@ const SUITE_OCTET = {
   settlement: 17,
   alerts: 18,
   presence: 20,
+  monitor: 21,
+  'monitor-surfaces': 22,
 };
 
 /**
@@ -185,8 +187,17 @@ function installSweeper() {
   }
 }
 
-/** Boot one `wrangler dev --local` instance on a fresh D1 state. */
-export async function bootWorker({ vars = {} } = {}) {
+/**
+ * Boot one `wrangler dev --local` instance on a fresh D1 state.
+ *
+ * `args` appends raw wrangler flags. Exactly one suite uses it — the monitor
+ * substrate passes `--test-scheduled`, which is what makes `wrangler dev` serve
+ * `/__scheduled?cron=…` and therefore the only way to invoke the Worker's real
+ * `scheduled()` handler locally. It is a per-suite flag rather than a default
+ * because it adds a route to the dev server, and no other suite should have to
+ * reason about a route the production Worker does not have.
+ */
+export async function bootWorker({ vars = {}, args: extraArgs = [] } = {}) {
   installSweeper();
 
   const persistDir = await mkdtemp(join(tmpdir(), 'tenx402-test-'));
@@ -207,6 +218,7 @@ export async function bootWorker({ vars = {} } = {}) {
     persistDir,
   ];
   for (const [key, value] of Object.entries(vars)) args.push('--var', `${key}:${value}`);
+  args.push(...extraArgs);
 
   const child = spawn(process.execPath, args, {
     cwd: ROOT,

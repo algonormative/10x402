@@ -40,7 +40,7 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { bootWorker, callers, client, fakeCdpCredentials, isSqlNull, PAYTO_TEST } from './harness.mjs';
-import { ENDPOINTS_BY_ID } from '../worker/catalog.js';
+import { ENDPOINTS, ENDPOINTS_BY_ID } from '../worker/catalog.js';
 import { atomicAmount } from '../worker/envelope.js';
 
 const ips = callers('settlement');
@@ -684,7 +684,7 @@ describe('the single-check routes settle their own price', () => {
   test('a served single check settles the single-check amount, under its own endpoint id', async () => {
     // The ledger has to be able to tell a $0.01 answer from a $0.25 report:
     // `endpoint` and `amount` are what the revenue queries in the README group
-    // by, and four routes at four prices through one settle path is exactly
+    // by, and eight routes at eight prices through one settle path is exactly
     // where those two could quietly come from the wrong endpoint.
     const res = await paid(
       '/lint/envelope/one',
@@ -708,19 +708,27 @@ describe('the single-check routes settle their own price', () => {
     assert.equal(row.amount, '10000', '$0.01 of a 6-decimal USDC');
   });
 
-  test('the four routes quote four different amounts in their own 402s', async () => {
-    for (const [path, atomic] of [
-      ['/lint', '250000'],
-      ['/lint/one', '20000'],
-      ['/lint/envelope', '100000'],
-      ['/lint/envelope/one', '10000'],
-    ]) {
-      const quote = await paid(path, {}, {}, ips.next());
-      assert.equal(quote.status, 402, `${path}: ${quote.text}`);
-      assert.equal(quote.body.accepts[0].maxAmountRequired, atomic, `${path} v1 amount`);
+  test('every route quotes its OWN distinct amount, in both envelopes', async () => {
+    // THE PRICE IS THE ATTRIBUTION MECHANISM. A settlement seen from a bare
+    // chain explorer shows an amount and little else, so two routes sharing a
+    // price would make their revenue indistinguishable. The whole sheet is
+    // walked here rather than four hand-listed rows, so a route added tomorrow
+    // is covered the day it lands — and the uniqueness is asserted, not assumed.
+    const quoted = {};
+    for (const endpoint of ENDPOINTS) {
+      const quote = await paid(endpoint.path, {}, {}, ips.next());
+      assert.equal(quote.status, 402, `${endpoint.path}: ${quote.text}`);
+      const atomic = atomicAmount(endpoint.price_usd);
+      assert.equal(quote.body.accepts[0].maxAmountRequired, atomic, `${endpoint.path} v1 amount`);
       const v2 = JSON.parse(Buffer.from(quote.headers.get('payment-required'), 'base64').toString('utf8'));
-      assert.equal(v2.accepts[0].amount, atomic, `${path} v2 amount`);
+      assert.equal(v2.accepts[0].amount, atomic, `${endpoint.path} v2 amount`);
+      quoted[endpoint.path] = atomic;
     }
+    assert.equal(
+      new Set(Object.values(quoted)).size,
+      Object.keys(quoted).length,
+      `two routes quote the same amount: ${JSON.stringify(quoted)}`
+    );
   });
 });
 

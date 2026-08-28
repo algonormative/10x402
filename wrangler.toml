@@ -40,7 +40,15 @@ routes = [
   # /presence takes no query parameters today; the wildcard is the same
   # future-proofing as /check* — a parameter added later must not become a
   # silent outage.
-  { pattern = "10x402.com/presence*", zone_name = "10x402.com" }
+  { pattern = "10x402.com/presence*", zone_name = "10x402.com" },
+  # ONE PATTERN FOR THE WHOLE MONITORING WING, and it has to be a wildcard for a
+  # reason the others do not have: `/monitor/{host}` is a DYNAMIC path, so there
+  # is no finite set of exact patterns to write. `*` matches any number of
+  # characters INCLUDING `/`, so this one covers the index (`/monitor`), the
+  # three paid routes (`/monitor/verdict|history|receipt`), every host lookup,
+  # and any query string on any of them. The catalogue-coverage test in
+  # test/single-check.test.mjs checks the paid three against it.
+  { pattern = "10x402.com/monitor*", zone_name = "10x402.com" }
 ]
 
 # The read surface is NOT here. dist/ is a separate Cloudflare Pages project
@@ -178,6 +186,49 @@ HOUSE_PAYERS = "0x632ff2f904cc6ab6d741a42014c4c483f328e92f"
 # than a broken one.
 [[send_email]]
 name = "ALERT_EMAIL"
+
+# ------------------------------------------------------------------ the Parallax crons
+#
+# The monitoring wing's substrate, and the ONLY scheduled work this Worker does.
+# Both times are UTC (Cloudflare crons have no other timezone) and both strings
+# are duplicated as constants in worker/monitor.js, which is how `scheduled`
+# dispatches — a test reads this file and fails if the two drift apart.
+#
+#   17 11 * * *  CAPTURE. Read agenteconomy.report/s/ratings.json, apistrust.com
+#                and the full CDP Bazaar catalogue; join per host; write the
+#                day's monitor_readings and the capture half of monitor_days.
+#   47 11 * * *  PROBE. Derive the day's roster from those readings and ask each
+#                host's most-recently-called resource what it does — on the verb
+#                it DECLARED and on GET. Writes monitor_probes and the probe half
+#                of monitor_days. Never sends X-PAYMENT. Never pays.
+#
+# THIRTY MINUTES APART ON PURPOSE: the probe reads what the capture wrote, and
+# the capture's slowest part is ~16 sequential catalogue pages.
+#
+# SUBREQUEST ARITHMETIC, because the ceiling is real and the second cron scales
+# with a number an operator can change. A Worker on the paid plan gets 1000
+# subrequests per invocation.
+#
+#   capture ≈ 1 (ratings.json) + 1 (apistrust) + ~16 catalogue pages ≈ 18.
+#             The catalogue was 14,732 resources at limit=1000; the pager's own
+#             bound is 64 pages, so even a runaway capture stays under 70.
+#   probe   ≤ MONITOR_PROBE_CAP × 2 + margin. Two requests per host (declared
+#             verb, then GET) and ONE when the declared verb is already GET. At
+#             the default cap of 400 that is at most 800, comfortably inside
+#             1000 — which is why the default is 400 and not 500.
+#
+# MONITOR_PROBE_CAP is an OPTIONAL var, default 400, clamped to 900 in code so a
+# typo cannot ask for a ceiling breach. MONITOR_AE_BASE, MONITOR_AT_BASE and
+# MONITOR_TIMEOUT_MS are the test seams (mock instruments on 127.0.0.1) and are
+# deliberately not set here, exactly like the PRESENCE_*_BASE vars.
+# MONITOR_HOUSE_HOSTS is a comma list of hosts that are probed whatever else is
+# true; 10x402.com is always in it and needs no config.
+#
+# ON THE FREE PLAN these crons still fire, but the subrequest ceiling is 50 —
+# the capture would die mid-catalogue and the probe after ~25 hosts. This wing
+# assumes the paid plan, which this account is already on for the request path.
+[triggers]
+crons = ["17 11 * * *", "47 11 * * *"]
 
 [[d1_databases]]
 binding = "DB"

@@ -92,8 +92,64 @@ arithmetic before firing off a stack of single checks**: past those counts the
 full report is both cheaper and tells you what you did not think to ask.
 `GET /check` publishes the same numbers, free.
 
+### When the problem is the RATING, not the endpoint
+
+The lint answers "is my 402 right". The monitoring wing (Parallax) answers a
+different question: *what are the rating surfaces saying about me, and is it
+true?* Three free instruments read this market — agenteconomy.report,
+apistrust.com and the CDP Bazaar quality block — and they disagree at the level
+of "is this seller alive". Measured 2026-08-27: liveness correlates at r = 0.401
+across 773 shared hosts, and the prime rater probes **GET-only**, so a
+POST-declared seller reads uptime 0.0 and is rated D while answering 402
+perfectly well on its own verb. That was 260 of 960 hosts, 249 of them settling
+money.
+
+Start with the free reads — no payment, no key:
+
+```bash
+curl -sS https://10x402.com/monitor                    # the day: counts, worst contradictions
+curl -sS https://10x402.com/monitor/their-host.example # one host: three instruments + the probe
+```
+
+Then, per host:
+
+**Verdict — $0.005 per served report**, the incumbent rater's own price for a
+rating read, with the probe half they do not take. The latest stored day: the
+three instruments side by side, what the endpoint answered on its declared verb
+and on GET, and the read-time flags (`liveness-contradiction`, `wrongly-dead`).
+`as_of`-stamped; a stored probe older than 36 hours is reported as stale rather
+than as current.
+
+```bash
+curl -sS -X POST https://10x402.com/monitor/verdict \
+  -H 'content-type: application/json' -d '{"host": "their-host.example"}'
+```
+
+**History — $0.03 per served report.** Every day held for that host, oldest
+first. Buy it when one day is not the question: whether a rating is drifting,
+whether a correction stuck, how long a wrong reading has been costing money.
+
+**Receipt — $0.12 per served report.** The dispute pack to attach to a
+corrections request: the series, the contradiction stated in plain numbers, a
+SHA-256 digest over the canonical JSON so two copies can be compared in one
+line, and an attestation naming the probe method, the exact User-Agent every
+request carried, and that no payment was ever sent. The digest is an integrity
+check, **not** a signature.
+
+```bash
+curl -sS -X POST https://10x402.com/monitor/receipt \
+  -H 'content-type: application/json' -d '{"host": "their-host.example"}'
+```
+
+Read `NULL` and `0` as the different claims they are: a null instrument column
+means that instrument had no row for that host that day; a probe status of `0`
+means it was asked and gave no HTTP answer at all; a null `wrongly_dead` means
+the day's probe has not run yet, and never that nobody was found.
+
 As MCP tools, call `x402_checks` first (free), then choose `lint_x402`,
-`lint_x402_envelope`, `lint_x402_one_check` or `lint_x402_envelope_one_check`.
+`lint_x402_envelope`, `lint_x402_one_check` or `lint_x402_envelope_one_check` —
+or, for the rating question, `x402_monitor_verdict`, `x402_monitor_history` and
+`x402_monitor_receipt`.
 
 ### A single-check answer has three outcomes
 

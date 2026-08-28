@@ -133,7 +133,7 @@ export const ENVELOPE_SAMPLE_INPUT = {
 
 // ------------------------------------------------------------------ endpoints
 //
-// FOUR ROUTES, TWO QUESTIONS, TWO RAILS.
+// THE LINT IS FOUR ROUTES, TWO QUESTIONS, TWO RAILS.
 //
 // The two questions are "what is wrong with this 402" (the full catalogue) and
 // "is THIS one thing wrong with it" (one named check). The two rails are a live
@@ -141,12 +141,30 @@ export const ENVELOPE_SAMPLE_INPUT = {
 // someone wants, so all four exist rather than making a caller filter a report
 // they overpaid for or run a whole suite to settle one argument.
 //
+// THE OTHER FOUR ARE A DIFFERENT QUESTION, AND THEY ARE NOT ON EITHER RAIL.
+// /presence and the three /monitor routes answer "can the world see you", not
+// "is your envelope right" — the first by reading three registries live, the
+// last three by re-serving what the Parallax crons stored (MONITOR.md). They
+// carry `kind`, and everything that branches on the rails (BATCH_MULTIPLES,
+// the single/full pairing) is keyed on `single` and `pairedWith`, which they do
+// not have. A route that answers a different question does not belong in an
+// arithmetic about check counts.
+//
 // THE PRICE SHEET, and the arithmetic in it is deliberate:
 //
 //   /lint               $0.25   full catalogue, live URL
 //   /lint/one           $0.02   ONE named check, live URL
 //   /lint/envelope      $0.10   full catalogue, pasted response
 //   /lint/envelope/one  $0.01   ONE named check, pasted response
+//   /presence           $0.15   where a live resource stands with the registries
+//   /monitor/verdict    $0.005  one host today, across three rating instruments
+//   /monitor/history    $0.03   every day held for one host
+//   /monitor/receipt    $0.12   the dispute pack, digested and attested
+//
+//   EVERY AMOUNT ON IT IS UNIQUE, and that is a operational property rather
+//   than a tidy one: the amount is the only field a bare chain explorer shows,
+//   so a settlement is attributable to the endpoint that earned it with no
+//   other data. test/single-check.test.mjs asserts it on every build.
 //
 //   THE TWO SCOPES ARE TWO PRODUCTS, bought at two different moments, and they
 //   are priced for the moment rather than for the CPU.
@@ -269,6 +287,98 @@ export const ENDPOINTS = [
       'a JSON presence report: per-registry verdicts (listed | not_found | unknown) with evidence, ' +
       'on-chain settlement activity, and a summary',
     sample: LINT_SAMPLE_INPUT,
+  },
+  // ---------------------------------------------------------------- the monitoring wing
+  //
+  // Parallax (MONITOR.md). Three rows, one subject: a host this service has been
+  // watching daily. They are `kind: 'monitor'` and `fetches: false` for the same
+  // reason — THE REQUEST PATH READS D1 AND NOTHING ELSE. A verdict that went and
+  // asked the endpoint at buy time would be selling a fresh reading under a
+  // stored day's `as_of` stamp, and the stamp is what makes it evidence.
+  //
+  // THE PRICES ARE THE INCUMBENT'S OWN, DELIBERATELY. agenteconomy.report
+  // publishes its price card inside the ratings file this wing captures:
+  // $0.005 a rating read, $0.02 a history. /monitor/verdict matches the rating
+  // read exactly — the same question, at the same price, with the probe half
+  // they do not take. /monitor/history is $0.03 rather than $0.02 because ours
+  // carries both instruments AND the daily declared-verb probe, and pricing it
+  // under theirs would be the claim that it is less. Every amount on the sheet
+  // stays UNIQUE, which is what makes a settlement attributable to its endpoint
+  // from a bare chain explorer with no other data.
+  {
+    id: 'monitor-verdict',
+    path: '/monitor/verdict',
+    method: 'POST',
+    price_usd: 0.005,
+    fetches: false,
+    single: false,
+    kind: 'monitor',
+    mimeType: 'application/json',
+    description: 'What three rating instruments say about a host today — and what it answered when asked',
+    long:
+      'The latest stored day for one host: agenteconomy.report, apistrust.com and the CDP Bazaar ' +
+      'quality block side by side, plus what the endpoint itself answered to an unpaid request on ' +
+      'the verb its own catalogue row declares and on GET. Read-time flags name the two findings ' +
+      'that matter — a liveness contradiction between the instruments, and `wrongly-dead`: rated ' +
+      'at uptime 0.0 while answering 402 on its declared verb. Stamped with the day it was ' +
+      'measured, and if the stored probe is more than 36 hours old the answer says so instead of ' +
+      'pretending to be current. Nothing is fetched to serve it.',
+    inputDescription:
+      'a JSON object: { "host": "socialx402.com" } — one hostname, or the https URL of an endpoint ' +
+      '(its host is taken). A bare 0x… wallet address is accepted too, because the rating ' +
+      'instrument files some of its rows under one',
+    outputDescription:
+      'a JSON verdict: as_of, freshness, the three instruments, the two-verb probe, and the ' +
+      'read-time flags',
+    sample: { host: '10x402.com' },
+  },
+  {
+    id: 'monitor-history',
+    path: '/monitor/history',
+    method: 'POST',
+    price_usd: 0.03,
+    fetches: false,
+    single: false,
+    kind: 'monitor',
+    mimeType: 'application/json',
+    description: 'Every day this wing has held for one host — instrument readings and probes',
+    long:
+      'The full daily series for one host, oldest first: what each instrument reported that day and ' +
+      'what the declared-verb probe found, with the flags computed per day. This is the half the ' +
+      'free page deliberately does not give away — a single day says what a rating is, and the ' +
+      'series says whether it is drifting, whether a correction stuck, and how long a wrong ' +
+      'liveness reading has been costing you. A day the capture did not run is simply absent, and ' +
+      'a day that was captured but not probed says so rather than reading as a silent endpoint.',
+    inputDescription: 'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict',
+    outputDescription:
+      'a JSON series: days_held, first_day, last_day, probed_days, and one entry per UTC day with ' +
+      'instruments, probe and flags',
+    sample: { host: '10x402.com' },
+  },
+  {
+    id: 'monitor-receipt',
+    path: '/monitor/receipt',
+    method: 'POST',
+    price_usd: 0.12,
+    fetches: false,
+    single: false,
+    kind: 'monitor',
+    mimeType: 'application/json',
+    description: 'The dispute pack: the series, the contradiction stated, a SHA-256 digest and an attestation',
+    long:
+      'The artefact to attach to a corrections request. It carries the whole daily series, a ' +
+      'CONTRADICTION STATEMENT in plain numbers — how many days two instruments disagreed about ' +
+      'whether this host was alive, and on how many of them the endpoint answered 402 to an unpaid ' +
+      'request on its declared verb — a SHA-256 digest over the canonical JSON of the document so ' +
+      'two copies can be compared in one line, and an attestation naming the probe method, the ' +
+      'exact User-Agent every request carried (searchable verbatim in the rater\'s own access log), ' +
+      'and the fact that NO PAYMENT WAS EVER SENT. The digest is an integrity check, not a ' +
+      'signature: it proves two copies are the same document, not who issued it.',
+    inputDescription: 'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict',
+    outputDescription:
+      'a JSON dispute pack: issued_at, the contradiction statement, the full series, the ' +
+      'attestation, and a SHA-256 digest with the canonicalisation rule to recompute it',
+    sample: { host: '10x402.com' },
   },
   {
     id: 'lint-envelope',

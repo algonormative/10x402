@@ -121,14 +121,33 @@ const byId = (id) => {
   return found;
 };
 
+// READ OFF `kind` BEFORE `fetches`, and that ordering is the point: the monitor
+// routes fetch nothing, which on the lint sheet means "a response you paste" —
+// a sentence that would be false about them in a way a reader would act on.
 const rail = (endpoint) =>
-  endpoint.fetches ? 'A live public endpoint' : 'A captured or local 402 response';
+  endpoint.kind === 'monitor'
+    ? 'Stored daily observations of one host'
+    : endpoint.fetches
+      ? 'A live public endpoint'
+      : 'A captured or local 402 response';
 const scopeOf = (endpoint) =>
-  endpoint.kind === 'presence'
-    ? 'Registry presence, by evidence'
-    : endpoint.single
-      ? 'One named check'
-      : `All ${CHECKS.length} checks`;
+  endpoint.kind === 'monitor'
+    ? 'One host, day by day'
+    : endpoint.kind === 'presence'
+      ? 'Registry presence, by evidence'
+      : endpoint.single
+        ? 'One named check'
+        : `All ${CHECKS.length} checks`;
+
+/** The same fact for a machine reader: what one call covers. */
+const machineScope = (endpoint) =>
+  endpoint.kind === 'monitor'
+    ? 'one host, from stored daily observations'
+    : endpoint.kind === 'presence'
+      ? 'registry presence, by evidence'
+      : endpoint.single
+        ? 'one named check'
+        : `all ${CHECKS.length} checks`;
 
 // EVERY NUMBER ON THE PAGE IS DERIVED. A count typed into copy is a count that
 // disagrees with the catalogue the first time a check is added, and a
@@ -1348,7 +1367,24 @@ const openapi = {
                   // The rail decides the fields, `single` adds the required
                   // `check` to either of them — the same two axes the price
                   // sheet is built from, rather than four hand-written schemas.
-                  schema: endpoint.fetches
+                  // The monitor routes are on neither rail: their whole input
+                  // is the subject they answer about.
+                  schema: endpoint.kind === 'monitor'
+                    ? {
+                        type: 'object',
+                        required: ['host'],
+                        properties: {
+                          host: {
+                            type: 'string',
+                            description:
+                              'the hostname this wing has been watching — or the https URL of an ' +
+                              'endpoint, whose host is taken. A bare 0x… wallet address is also ' +
+                              'accepted: the rating instrument files some of its rows under one, ' +
+                              'and those carry readings but can never carry a probe.',
+                          },
+                        },
+                      }
+                    : endpoint.fetches
                     ? {
                         type: 'object',
                         required: ['url', ...(endpoint.single ? ['check'] : [])],
@@ -1391,7 +1427,7 @@ const openapi = {
         {
           usd: priceLabel(e.price_usd),
           atomic: atomicAmount(e.price_usd),
-          scope: e.single ? 'one named check' : `all ${CHECKS.length} checks`,
+          scope: machineScope(e),
           fetches: e.fetches === true,
         },
       ])
@@ -1656,6 +1692,42 @@ curl -sS -X POST ${CANONICAL_BASE}/lint/envelope/one \\
 ${batchAdvantageLine(CHECKS.length)} Do that
 arithmetic before firing off a stack of single checks: past the counts above the
 full report is cheaper AND tells you what you did not think to ask.
+
+## When the problem is the RATING, not the endpoint
+
+The lint answers "is my 402 right". The monitoring wing answers "what are the
+rating surfaces saying about me, and is it true". Three free instruments read
+this market and they disagree about who is alive — and the prime rater probes
+GET-only, so a POST-declared seller reads uptime 0.0 and is rated D while
+answering 402 perfectly well on the verb it published.
+
+Free, no payment — the day's counts, and one host's snapshot:
+
+\`\`\`bash
+curl -sS ${CANONICAL_BASE}/monitor
+curl -sS ${CANONICAL_BASE}/monitor/your-host.example
+\`\`\`
+
+Paid, per host: \`POST /monitor/verdict\` (${priceLabel(byId('monitor-verdict').price_usd)}) is the latest stored day —
+three instruments side by side, the declared-verb and GET probe, the flags,
+\`as_of\`-stamped and marked stale past 36 hours. \`POST /monitor/history\`
+(${priceLabel(byId('monitor-history').price_usd)}) is every day held. \`POST /monitor/receipt\` (${priceLabel(byId('monitor-receipt').price_usd)}) is the dispute pack:
+the series, the contradiction stated in numbers, a SHA-256 digest over the
+canonical JSON, and an attestation naming the probe method, the User-Agent every
+request carried, and that no payment was ever sent.
+
+\`\`\`bash
+curl -sS -X POST ${CANONICAL_BASE}/monitor/verdict \\
+  -H 'content-type: application/json' \\
+  -d '{"host": "your-host.example"}'
+\`\`\`
+
+**NULL AND 0 ARE DIFFERENT CLAIMS** in every one of these answers. A null
+instrument column means that instrument had no row for that host that day; a
+probe status of 0 means it was asked and gave no HTTP answer at all; a null
+\`wrongly_dead\` means the day's probe has not run yet — never that nobody was
+found. Nothing is fetched to serve them: they re-serve what the crons stored,
+which is what makes the \`as_of\` stamp true.
 
 **READ \`applied\` BEFORE \`passed\`.** A single-check answer has THREE outcomes,
 and the third is the one that will mislead a reader who skims:

@@ -187,12 +187,19 @@ describe('the v1 envelope, in the body', () => {
       atomic[endpoint.path] = (await unpaid(endpoint)).body.accepts[0].maxAmountRequired;
     }
     assert.deepEqual(atomic, {
-      '/lint': '250000',            // $0.25
-      '/lint/one': '20000',         // $0.02
-      '/presence': '150000',        // $0.15
-      '/lint/envelope': '100000',   // $0.10
+      '/lint': '250000',             // $0.25
+      '/lint/one': '20000',          // $0.02
+      '/presence': '150000',         // $0.15
+      '/monitor/verdict': '5000',    // $0.005 — the incumbent rater's own price
+      '/monitor/history': '30000',   // $0.03
+      '/monitor/receipt': '120000',  // $0.12
+      '/lint/envelope': '100000',    // $0.10
       '/lint/envelope/one': '10000', // $0.01
     });
+    // EVERY AMOUNT IS DISTINCT, asserted here rather than assumed, because the
+    // amount is the only field a bare chain explorer shows: two routes at one
+    // price would make their settlements indistinguishable from each other.
+    assert.equal(new Set(Object.values(atomic)).size, Object.keys(atomic).length);
   });
 });
 

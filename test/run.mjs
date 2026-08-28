@@ -101,6 +101,35 @@ const PHASES = [
     files: ['test/presence.test.mjs'],
   },
   {
+    // STANDALONE for the presence phase's reason and one more of its own. The
+    // MONITOR_*_BASE and PRESENCE_BAZAAR_BASE vars are mock instrument ports
+    // learned at startup, AND this is the only worker booted with
+    // `--test-scheduled` — the flag that makes `wrangler dev` serve
+    // `/__scheduled?cron=…`, which is how the Parallax crons are invoked
+    // through the Worker's REAL scheduled() dispatch rather than an imitation
+    // of it. No other phase should have to reason about that extra dev route.
+    //
+    // The SSRF guard is relaxed for this worker (the probed sellers are mocks
+    // on 127.0.0.1), so the file's guard assertions call probeHost directly
+    // with the shipped guard in force — see the note at the top of the suite,
+    // along with the interlock that stops a probe cron from ever reaching a
+    // real host named in the fixtures.
+    name: 'monitor substrate (mock instruments + mock sellers, crons via /__scheduled)',
+    standalone: true,
+    files: ['test/monitor-substrate.test.mjs'],
+  },
+  {
+    // STANDALONE because it SEEDS the store and then asserts against what it
+    // seeded — including the empty states, which need a database with no
+    // capture in it. A shared worker could not be relied on to be in either
+    // condition. A free tier is on so the three paid monitor routes are
+    // actually served; their 402-first behaviour belongs to the production
+    // phase below, where there is no free tier at all.
+    name: 'monitor surfaces (seeded D1, free tier on)',
+    standalone: true,
+    files: ['test/monitor-surfaces.test.mjs'],
+  },
+  {
     // THE PRODUCTION CONFIGURATION: no free tier, a receiving address set. The
     // first unauthenticated call is the 402 — which is both the product's front
     // door and the thing a discovery index probes for. self-lint runs here and
