@@ -146,13 +146,35 @@ const WALLET_KEY = /^0x[0-9a-f]{40}$/i;
 /** What a hostname may contain once it is normalised. Deliberately narrow. */
 const HOST_CHARS = /^[a-z0-9.-]+$/;
 
+/**
+ * A cron expression, said as a sentence fragment a person can read.
+ *
+ * THE BUG THIS EXISTS TO PREVENT SHIPPED ONCE: prose interpolated the raw
+ * expression and a seller reading their own receipt met "captured every six
+ * hours at 17 star-slash-6 star star star UTC" (spelled out here because the
+ * literal characters would close this comment) — a crontab where a time
+ * belongs, caught by the 2026-08-28 copy review. One formatter, four call
+ * sites, so the next cadence change edits the constants and every sentence
+ * follows.
+ */
+function cronProse(cron) {
+  const stepped = /^(\d{1,2}) \*\/(\d{1,2}) \* \* \*$/.exec(cron);
+  if (stepped) {
+    const words = { 2: 'two', 3: 'three', 4: 'four', 6: 'six', 8: 'eight', 12: 'twelve' }[Number(stepped[2])] || stepped[2];
+    return `every ${words} hours, at :${stepped[1].padStart(2, '0')} past the hour UTC`;
+  }
+  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(cron);
+  if (daily) return `daily at ${daily[2].padStart(2, '0')}:${daily[1].padStart(2, '0')} UTC`;
+  return `on the schedule \`${cron}\``;
+}
+
 const ROSTER_CRITERIA =
-  'A host is held here if it appeared in any of the three instruments on a capture day: ' +
+  'A host is HELD here if it appeared in any of the three instruments on a capture day: ' +
   'agenteconomy.report\'s ratings table, apistrust.com\'s host table, or the CDP Bazaar ' +
-  'discovery catalogue. It is PROBED — the other half — only if it also carries a catalogue ' +
-  `resource and made that day's roster, which is capped and ordered: the house, then hosts ` +
-  'rated dead while settling money, then cross-instrument liveness contradictions, then the ' +
-  'largest settlers, then a healthy control sample.';
+  'discovery catalogue. Being held is not being probed. A host is PROBED only if it also ' +
+  `carries a catalogue resource and made that run's roster, which is capped and ordered: the ` +
+  'house, then hosts rated dead while settling money, then cross-instrument liveness ' +
+  'contradictions, then the largest settlers, then a healthy control sample.';
 
 /**
  * The `{host}` field, normalised — or a refusal that says what would work.
@@ -315,7 +337,8 @@ export function instrumentViews(reading) {
   if (nz(reading.ae_score) !== null) aeParts.push(`score ${round(Number(reading.ae_score), 1)}`);
   if (nz(reading.ae_tier) !== null) aeParts.push(`tier ${reading.ae_tier}`);
   if (nz(reading.ae_settled_14d) !== null) aeParts.push(`$${round(Number(reading.ae_settled_14d))} settled over 14 days`);
-  if (nz(reading.ae_organic) !== null) aeParts.push(`${reading.ae_organic} organic paying agents`);
+  if (nz(reading.ae_organic) !== null)
+    aeParts.push(`${reading.ae_organic} organic paying agents (the rater's own term for its non-bot payer count)`);
   if (nz(reading.ae_flag) !== null) aeParts.push(`flagged ${reading.ae_flag}`);
 
   const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
@@ -433,9 +456,9 @@ export function flagsFor(reading, probe) {
     flags.push({
       id: 'liveness-contradiction',
       statement:
-        `agenteconomy.report recorded uptime ${uptimeText(reading.ae_uptime)} for this host ` +
-        `while apistrust.com recorded ${reading.at_down} of its endpoints down. Both instruments ` +
-        'reported; they disagree about whether this host is alive.',
+        `agenteconomy.report rated this host dead — uptime ${uptimeText(reading.ae_uptime)} — ` +
+        `while apistrust.com recorded ${reading.at_down} of its endpoints down: none. Both ` +
+        'instruments had data for this host; one says dead, the other says live.',
     });
   }
 
@@ -446,9 +469,10 @@ export function flagsFor(reading, probe) {
     flags.push({
       id: 'wrongly-dead',
       statement:
-        `Rated at uptime 0.0 — and it answered 402, a live paid x402 endpoint, to an unpaid ` +
-        `${nz(probe.declared_method) ?? 'POST'} on the resource its own catalogue row declares. ` +
-        'The rating and the endpoint disagree, and the endpoint was asked directly.',
+        `Rated at uptime 0.0 — but when this service sent an unpaid ` +
+        `${nz(probe.declared_method) ?? 'POST'} to the resource its own catalogue row declares, ` +
+        'it answered 402: the response a live, paid x402 endpoint gives. The rating and the ' +
+        'endpoint disagree, and the endpoint was asked directly.',
     });
   } else if (isWronglyDeadCandidate(reading)) {
     flags.push({
@@ -653,10 +677,10 @@ export function assembleReceipt({ subject, series, now }) {
   if (wronglyDeadDays.length) {
     const worst = wronglyDeadDays[wronglyDeadDays.length - 1];
     statements.push(
-      `On ${wronglyDeadDays.length} of those day(s) this service asked the endpoint directly and it ` +
-        `answered 402 — a live paid x402 endpoint — to an unpaid ${worst.probe.declared_method} on ` +
-        `${worst.instruments.bazaar.resource}, the resource its own catalogue row declares, while ` +
-        `the same day's rating recorded it dead. On ${worst.day} the same resource answered ` +
+      `On ${wronglyDeadDays.length} of those day(s) this service sent an unpaid ` +
+        `${worst.probe.declared_method} to ${worst.instruments.bazaar.resource} — the resource its ` +
+        `own catalogue row declares — and it answered 402, the response a live, paid x402 endpoint ` +
+        `gives, while the same day's rating recorded it dead. On ${worst.day} the same resource answered ` +
         `${worst.probe.get.status ?? 'nothing'} to a GET, which is the reading a GET-only prober ` +
         'takes and files as downtime.'
     );
@@ -693,9 +717,9 @@ export function assembleReceipt({ subject, series, now }) {
       'access log of the host it was made against. It sent one unauthenticated request on the verb ' +
       'the subject\'s own CDP Bazaar row declares and one on GET, followed no redirects, and read ' +
       'at most 4 KB of each response. NO PAYMENT WAS SENT ON ANY OF THEM: a prober that pays is ' +
-      'buying the answer it publishes. Instruments are captured every six hours at ' +
-      `${CAPTURE_CRON} UTC and probes taken at ${PROBE_CRON} UTC; the readings are re-served from ` +
-      'storage, never re-fetched to answer a call.',
+      'buying the answer it publishes. Instruments are captured ' +
+      `${cronProse(CAPTURE_CRON)}, and probes taken ${cronProse(PROBE_CRON)}; the readings are ` +
+      're-served from storage, never re-fetched to answer a call.',
   };
 
   const body = {
@@ -773,9 +797,11 @@ export function assembleIndex({ day, counts, contradictions, cap, now }) {
 
   const what_this_is =
     'Three free instruments read the x402 seller economy, and they disagree about who is alive. ' +
-    'This wing captures all three every six hours, then asks the endpoint itself — on the verb its own ' +
-    'catalogue row declares, which is the question nobody else asks — and keeps the answer. ' +
-    'Nothing here is fetched to answer a request: every surface re-serves what the crons stored.';
+    'This wing captures all three every six hours, then asks endpoints directly on their declared ' +
+    'verb — the HTTP method each host\'s own catalogue row says it expects, which is the question ' +
+    'nobody else asks — and keeps the answer. Not every held host is probed: each run probes a ' +
+    'capped roster that favours the mis-rated and the largest settlers. Nothing here is fetched ' +
+    'to answer a request: every surface re-serves what the crons stored.';
 
   if (!day) {
     return {
@@ -790,8 +816,8 @@ export function assembleIndex({ day, counts, contradictions, cap, now }) {
       free: freeRouteList(),
       notes: [
         'NO CAPTURE HAS BEEN STORED YET, so there is nothing to report. This is an empty state, ' +
-          'not a claim that the market is empty: the capture cron runs daily at ' +
-          `${CAPTURE_CRON} UTC and the probe at ${PROBE_CRON} UTC.`,
+          'not a claim that the market is empty: the capture cron runs ' +
+          `${cronProse(CAPTURE_CRON)}, and the probe ${cronProse(PROBE_CRON)}.`,
       ],
     };
   }
@@ -826,8 +852,8 @@ export function assembleIndex({ day, counts, contradictions, cap, now }) {
         ? `${day.wrongly_dead} host(s) rated at uptime 0.0 answered 402 to an unpaid request on the ` +
           'verb their own catalogue row declares.'
         : 'NOT PROBED YET. `wrongly_dead` is null, and null here means the probe half of the day has ' +
-          `not run — it runs at ${PROBE_CRON} UTC, half an hour after the capture. It does NOT mean ` +
-          'zero hosts were found wrongly dead.',
+          `not run — it runs ${cronProse(PROBE_CRON)}, half an hour after each capture. It does ` +
+          'NOT mean zero hosts were found wrongly dead.',
     },
     top_contradictions: contradictions,
     endpoints: prices,
@@ -911,10 +937,10 @@ export function assembleHostPage({ subject, day, reading, probe, roster, now }) 
       description: e.description,
     })),
     notes: [
-      'This free page is today only, by design: the daily series is the product, and it is sold at ' +
-        'POST /monitor/history.',
+      'This free page is the latest stored day only, by design: the daily series is the product, ' +
+        'and it is sold at POST /monitor/history.',
       'Nothing was fetched to build this page. Every value is a stored observation from the ' +
-        `capture at ${CAPTURE_CRON} UTC and the probe at ${PROBE_CRON} UTC.`,
+        `most recent capture (${cronProse(CAPTURE_CRON)}) and probe (${cronProse(PROBE_CRON)}).`,
     ],
   };
 }
@@ -1325,8 +1351,9 @@ const page = (title, description, body) =>
 <span class="stamp">three instruments · one probe · every six hours</span></header>
 ${body}
 <footer>Every value on this page is a stored observation of a public surface, re-served — nothing was
-fetched to build it. NULL and 0 are different claims here: a NULL means an instrument had no row, or
-that we never asked. <a href="${SITE_BASE}/check">GET /check</a> for the machine catalogue.</footer>
+fetched to build it. NULL and 0 are different claims here: NULL means an instrument had no row for
+this host, or that this service never asked; 0 means a real zero was reported, or that we asked and
+got no HTTP answer at all. <a href="${SITE_BASE}/check">GET /check</a> for the machine catalogue.</footer>
 </main></body></html>
 `;
 
@@ -1360,7 +1387,7 @@ function statusCard(label, view) {
 
 function flagsHtml(flags) {
   if (!flags.length) {
-    return '<p class="none">No flag fired for this host on this day: the instruments that reported agree, and the probe found nothing that contradicts them.</p>';
+    return '<p class="none">No flag fired for this host on this day: neither condition was met — the two liveness instruments did not contradict each other, and no dead rating stood against a live probe answer.</p>';
   }
   return flags
     .map(

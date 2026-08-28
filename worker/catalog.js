@@ -314,7 +314,7 @@ export const ENDPOINTS = [
     single: false,
     kind: 'monitor',
     mimeType: 'application/json',
-    description: 'What three rating instruments say about a host today — and what it answered when asked',
+    description: 'The latest stored reading for a host: three rating instruments plus what it answered when asked — dated, never live, and it says how old it is',
     long:
       'The latest stored day for one host: agenteconomy.report, apistrust.com and the CDP Bazaar ' +
       'quality block side by side, plus what the endpoint itself answered to an unpaid request on ' +
@@ -329,7 +329,8 @@ export const ENDPOINTS = [
       'instrument files some of its rows under one',
     outputDescription:
       'a JSON verdict: as_of, freshness, the three instruments, the two-verb probe, and the ' +
-      'read-time flags',
+      'read-time flags. NULL and 0 are different claims throughout: NULL means no row or never ' +
+      'asked; 0 means a real zero, or asked with no HTTP answer',
     sample: { host: '10x402.com' },
   },
   {
@@ -349,10 +350,14 @@ export const ENDPOINTS = [
       'series says whether it is drifting, whether a correction stuck, and how long a wrong ' +
       'liveness reading has been costing you. A day the capture did not run is simply absent, and ' +
       'a day that was captured but not probed says so rather than reading as a silent endpoint.',
-    inputDescription: 'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict',
+    inputDescription:
+      'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict. ' +
+      'A bare 0x… wallet subject holds readings but can never hold probes, so its series carries ' +
+      'no probe rows',
     outputDescription:
       'a JSON series: days_held, first_day, last_day, probed_days, and one entry per UTC day with ' +
-      'instruments, probe and flags',
+      'instruments, probe and flags. NULL and 0 are different claims throughout: NULL means no ' +
+      'row or never asked; 0 means a real zero, or asked with no HTTP answer',
     sample: { host: '10x402.com' },
   },
   {
@@ -374,10 +379,15 @@ export const ENDPOINTS = [
       'exact User-Agent every request carried (searchable verbatim in the rater\'s own access log), ' +
       'and the fact that NO PAYMENT WAS EVER SENT. The digest is an integrity check, not a ' +
       'signature: it proves two copies are the same document, not who issued it.',
-    inputDescription: 'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict',
+    inputDescription:
+      'a JSON object: { "host": "socialx402.com" } — the same subject form as /monitor/verdict. ' +
+      'A bare 0x… wallet subject holds readings but can never hold probes, so its pack carries ' +
+      'no probe evidence',
     outputDescription:
       'a JSON dispute pack: issued_at, the contradiction statement, the full series, the ' +
-      'attestation, and a SHA-256 digest with the canonicalisation rule to recompute it',
+      'attestation, and a SHA-256 digest with the canonicalisation rule to recompute it. NULL ' +
+      'and 0 are different claims throughout: NULL means no row or never asked; 0 means a real ' +
+      'zero, or asked with no HTTP answer',
     sample: { host: '10x402.com' },
   },
   {
