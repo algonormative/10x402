@@ -1227,7 +1227,10 @@ const unavailable = () => ({
 // One page, two shapes, no script and no asset that has to load. The palette,
 // the type scale and the two font families are the read surface's (build.mjs),
 // so a person who lands here from the site does not feel handed off — the two
-// woff2 files are the same same-origin paths dist/ serves, and the system stack
+// woff2 files are the ones dist/ serves, addressed ABSOLUTELY (SITE_BASE)
+// rather than same-origin: on 10x402.com the two are identical, but a local
+// `wrangler dev` serves only the Worker — a relative /fonts/ path 404s there
+// and every review of these pages happens on exactly that setup. The system stack
 // behind them means the page is intact if they never arrive.
 //
 // EVERY INTERPOLATION IS ESCAPED. Some of these strings are written by the
@@ -1242,9 +1245,9 @@ const esc = (s) =>
     .replace(/'/g, '&#39;');
 
 const CSS = `
-@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2"); }
-@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 400; font-display: swap; src: url("${SITE_BASE}/fonts/space-grotesk-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 700; font-display: swap; src: url("${SITE_BASE}/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("${SITE_BASE}/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
 :root {
   color-scheme: dark;
   --ground: #0a0c12; --panel: #0e1420; --panel-2: #111a29;
