@@ -114,7 +114,7 @@ describe('GET /check', () => {
     // test that computed it from the same constant the Worker did would agree
     // with any re-price, including an accidental one.
     assert.equal(byPath['/lint'].price, '$0.10');
-    assert.equal(byPath['/lint/one'].price, '$0.008');
+    assert.equal(byPath['/lint/one'].price, '$0.015');
     assert.equal(byPath['/lint/envelope'].price, '$0.04');
     assert.equal(byPath['/lint/envelope/one'].price, '$0.004');
     for (const endpoint of ENDPOINTS) {
@@ -160,7 +160,7 @@ describe('GET /check', () => {
     // buy ON THE RAIL THEY ARE ON. The two rails differ, so one published
     // number would be true for one caller and wrong for the other.
     const { body } = await api.check({ ip: ips.next() });
-    assert.deepEqual(body.pricing.batch_multiples, { live: 12.5, pasted: 10 });
+    assert.deepEqual(body.pricing.batch_multiples, { live: 6.667, pasted: 10 });
     // The published advantage is rounded to one decimal, because it is a number
     // a human reads. This assertion compared against the raw quotient, which
     // held only while the catalogue happened to divide evenly by both rails —
@@ -168,11 +168,11 @@ describe('GET /check', () => {
     // /check publishes until the day a check was added.
     const toOneDecimal = (n) => Math.round(n * 10) / 10;
     assert.deepEqual(body.pricing.per_check_advantage, {
-      live: toOneDecimal(CHECKS.length / 12.5),
+      live: toOneDecimal(CHECKS.length / 6.667),
       pasted: toOneDecimal(CHECKS.length / 10),
     });
-    assert.deepEqual(body.pricing.singles_cheaper_through, { live: 12, pasted: 9 });
-    assert.match(body.pricing.note, /12\.5x one check on a live URL/);
+    assert.deepEqual(body.pricing.singles_cheaper_through, { live: 6, pasted: 9 });
+    assert.match(body.pricing.note, /6\.667x one check on a live URL/);
     assert.match(body.pricing.note, /10x on a pasted response/);
     assert.match(body.pricing.note, new RegExp(`${CHECKS.length}`));
     assert.match(body.pricing.scope_pricing, /incident/i);

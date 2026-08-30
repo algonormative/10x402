@@ -188,7 +188,7 @@ describe('the v1 envelope, in the body', () => {
     }
     assert.deepEqual(atomic, {
       '/lint': '100000',             // $0.10
-      '/lint/one': '8000',          // $0.008
+      '/lint/one': '15000',         // $0.015
       '/presence': '60000',         // $0.06
       '/monitor/verdict': '5000',    // $0.005 — the incumbent rater's own price
       '/monitor/history': '30000',   // $0.03

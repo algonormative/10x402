@@ -99,7 +99,7 @@ form of either when there is exactly one check you want the answer to.
 | route | price | what it does |
 |---|---|---|
 | `POST /lint` | **$0.10** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
-| `POST /lint/one` | **$0.008** | The same outbound request, reported for **one** check you name. |
+| `POST /lint/one` | **$0.015** | The same outbound request, reported for **one** check you name. |
 | `POST /presence` | **$0.06** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and the payTo's own chain — USDC settlement activity on Base for a `0x` address, recent signature activity on Solana for a base58 one. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
 | `POST /lint/envelope` | **$0.04** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
 | `POST /lint/envelope/one` | **$0.004** | One named check over a response you paste. The cheapest answer here. |
@@ -120,9 +120,9 @@ product, and it stays micro because a regression product that is not cheap does
 not get run.
 
 **The multiples fall out of that rather than being designed.** A full 82-check
-report costs 12.5x one check on a live URL and 10x on a pasted response — a 6x
-and 7.5x per-check advantage. Singles stay the cheaper buy through 12 questions
-live and 9 pasted; past that, buy the report. The two rails differ because the
+report costs 6.667x one check on a live URL and 10x on a pasted response — a
+12.3x and 8.2x per-check advantage. Singles stay the cheaper buy through 6
+questions live and 9 pasted; past that, buy the report. The two rails differ because the
 prices do, which is why every surface computes one multiple per rail rather than
 averaging them into a number true of neither — the sentence above is generated
 from `BATCH_MULTIPLES` in `worker/catalog.js`, never typed. `GET /check`

@@ -232,7 +232,7 @@ describe('the route itself', () => {
     const listed = res.body.routes.join('\n');
     for (const [path, price] of [
       ['/lint', '$0.10'],
-      ['/lint/one', '$0.008'],
+      ['/lint/one', '$0.015'],
       ['/lint/envelope', '$0.04'],
       ['/lint/envelope/one', '$0.004'],
     ]) {

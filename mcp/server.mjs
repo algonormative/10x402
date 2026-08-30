@@ -21,7 +21,7 @@
 //
 // The single-check routes are separate TOOLS rather than an optional `check`
 // parameter on the existing two, and the reason is the convention below: on this
-// server a tool is a thing with A PRICE. A tool whose cost is $0.10 or $0.008
+// server a tool is a thing with A PRICE. A tool whose cost is $0.10 or $0.015
 // depending on whether an argument is present cannot state its price in its own
 // description, and an agent chooses between tools by reading exactly that. The
 // schema does the rest of the work — `check` is REQUIRED here and absent there,
@@ -70,7 +70,7 @@ const TOOLS = [
       'the terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
       'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope. ' +
       'It is priced for the incident it resolves: a 402 that validates and still is not indexed. ' +
-      'For a single question, lint_x402_one_check answers it for $0.008.',
+      'For a single question, lint_x402_one_check answers it for $0.015.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -144,7 +144,7 @@ const TOOLS = [
       'Answer ONE named conformance check about a live x402 endpoint, for a fraction of the price ' +
       'of the full report. Use it when there is exactly one question — "is my v2 PAYMENT-REQUIRED ' +
       'header base64url", "does my bazaar info validate against its own schema" — and you already ' +
-      'know which check answers it. Costs $0.008, paid over x402; the first call answers 402 with ' +
+      'know which check answers it. Costs $0.015, paid over x402; the first call answers 402 with ' +
       'the terms, which is a price quote and not an error. Call x402_checks first (free) to get the ' +
       'exact check id. THE ANSWER HAS THREE OUTCOMES: passed, failed with a fix, or DID NOT APPLY ' +
       '— the last is not a pass and must never be reported as one. This is the tool for a CI step ' +

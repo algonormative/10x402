@@ -224,7 +224,7 @@ describe('the eight prices, and the atomic math underneath them', () => {
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, e.price_usd])),
       {
         '/lint': 0.1,
-        '/lint/one': 0.008,
+        '/lint/one': 0.015,
         '/presence': 0.06,
         // The monitoring wing. $0.005 is the incumbent rater's own published
         // price for a rating read, matched deliberately; $0.03 and $0.12 are
@@ -245,7 +245,7 @@ describe('the eight prices, and the atomic math underneath them', () => {
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, atomicAmount(e.price_usd)])),
       {
         '/lint': '100000',
-        '/lint/one': '8000',
+        '/lint/one': '15000',
         '/presence': '60000',
         '/monitor/verdict': '5000',
         '/monitor/history': '30000',
@@ -265,7 +265,7 @@ describe('the eight prices, and the atomic math underneath them', () => {
     // notices after paying.
     assert.deepEqual(
       ENDPOINTS.map((e) => priceLabel(e.price_usd)),
-      ['$0.10', '$0.008', '$0.06', '$0.005', '$0.03', '$0.12', '$0.04', '$0.004']
+      ['$0.10', '$0.015', '$0.06', '$0.005', '$0.03', '$0.12', '$0.04', '$0.004']
     );
     assert.equal(priceLabel(0), 'free');
     assert.equal(priceLabel(0.005), '$0.005', 'sub-cent prices keep the digits they need');
@@ -277,7 +277,7 @@ describe('the copy cannot drift from the sheet', () => {
     // WRITTEN OUT, like the sheet itself. The rails genuinely differ — the full
     // report moved and the single checks did not — and a single averaged number
     // would be true of neither, which is worse than two numbers.
-    assert.deepEqual(BATCH_MULTIPLES, { live: 12.5, pasted: 10 });
+    assert.deepEqual(BATCH_MULTIPLES, { live: 6.667, pasted: 10 });
 
     for (const one of ENDPOINTS.filter((e) => e.single)) {
       const full = ENDPOINTS_BY_ID.get(one.pairedWith);

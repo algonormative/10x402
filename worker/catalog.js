@@ -235,7 +235,7 @@ export const ENDPOINTS = [
     id: 'lint-one',
     path: '/lint/one',
     method: 'POST',
-    price_usd: 0.008,
+    price_usd: 0.015,
     fetches: true,
     single: true,
     pairedWith: 'lint',

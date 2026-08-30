@@ -71,7 +71,7 @@ curl -sS -X POST https://10x402.com/presence \
   -d '{"url": "https://their-endpoint.example.com/api/thing"}'
 ```
 
-**One named check — $0.008 live, $0.004 pasted.** The CI product: run on every
+**One named check — $0.015 live, $0.004 pasted.** The CI product: run on every
 commit, against one property. Use it when there is exactly one thing you want to
 know and you know which check answers it:
 
@@ -85,9 +85,9 @@ curl -sS -X POST https://10x402.com/lint/envelope/one \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
 ```
 
-A full 82-check report costs 12.5x one check on a live URL and 10x on a pasted
-response — a 6x and 7.5x per-check advantage. Singles stay the cheaper buy
-through 12 questions live and 9 pasted; past that, buy the report. **Do that
+A full 82-check report costs 6.667x one check on a live URL and 10x on a pasted
+response — a 12.3x and 8.2x per-check advantage. Singles stay the cheaper buy
+through 6 questions live and 9 pasted; past that, buy the report. **Do that
 arithmetic before firing off a stack of single checks**: past those counts the
 full report is both cheaper and tells you what you did not think to ask.
 `GET /check` publishes the same numbers, free.
