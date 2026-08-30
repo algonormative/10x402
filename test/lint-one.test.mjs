@@ -231,10 +231,10 @@ describe('the route itself', () => {
     assert.equal(res.status, 404);
     const listed = res.body.routes.join('\n');
     for (const [path, price] of [
-      ['/lint', '$0.25'],
-      ['/lint/one', '$0.02'],
-      ['/lint/envelope', '$0.10'],
-      ['/lint/envelope/one', '$0.01'],
+      ['/lint', '$0.10'],
+      ['/lint/one', '$0.008'],
+      ['/lint/envelope', '$0.04'],
+      ['/lint/envelope/one', '$0.004'],
     ]) {
       assert.match(listed, new RegExp(`POST ${path.replace(/\//g, '\\/')} — \\${price}`), `${path} is not listed`);
     }

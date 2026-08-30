@@ -152,11 +152,11 @@ export const ENVELOPE_SAMPLE_INPUT = {
 //
 // THE PRICE SHEET, and the arithmetic in it is deliberate:
 //
-//   /lint               $0.25   full catalogue, live URL
-//   /lint/one           $0.02   ONE named check, live URL
-//   /lint/envelope      $0.10   full catalogue, pasted response
-//   /lint/envelope/one  $0.01   ONE named check, pasted response
-//   /presence           $0.15   where a live resource stands with the registries
+//   /lint               $0.10   full catalogue, live URL
+//   /lint/one           $0.008  ONE named check, live URL
+//   /lint/envelope      $0.04   full catalogue, pasted response
+//   /lint/envelope/one  $0.004  ONE named check, pasted response
+//   /presence           $0.06   where a live resource stands with the registries
 //   /monitor/verdict    $0.005  one host today, across three rating instruments
 //   /monitor/history    $0.03   every day held for one host
 //   /monitor/receipt    $0.12   the dispute pack, digested and attested
@@ -214,7 +214,7 @@ export const ENDPOINTS = [
     id: 'lint',
     path: '/lint',
     method: 'POST',
-    price_usd: 0.25,
+    price_usd: 0.1,
     fetches: true,
     single: false,
     pairedWith: 'lint-one',
@@ -235,7 +235,7 @@ export const ENDPOINTS = [
     id: 'lint-one',
     path: '/lint/one',
     method: 'POST',
-    price_usd: 0.02,
+    price_usd: 0.008,
     fetches: true,
     single: true,
     pairedWith: 'lint',
@@ -260,12 +260,12 @@ export const ENDPOINTS = [
     id: 'presence',
     path: '/presence',
     method: 'POST',
-    // $0.15 and DELIBERATELY DISTINCT from every other price on the sheet:
+    // $0.06 and DELIBERATELY DISTINCT from every other price on the sheet:
     // amounts are the one field a bare chain explorer shows, so unique prices
     // make every settlement attributable to its endpoint with no other data.
     // Costlier than the pasted rail because it is the most outbound work this
     // service does — the target fetch plus a full catalog scan.
-    price_usd: 0.15,
+    price_usd: 0.06,
     fetches: true,
     single: false,
     kind: 'presence',
@@ -394,7 +394,7 @@ export const ENDPOINTS = [
     id: 'lint-envelope',
     path: '/lint/envelope',
     method: 'POST',
-    price_usd: 0.1,
+    price_usd: 0.04,
     fetches: false,
     single: false,
     pairedWith: 'lint-envelope-one',
@@ -414,7 +414,7 @@ export const ENDPOINTS = [
     id: 'lint-envelope-one',
     path: '/lint/envelope/one',
     method: 'POST',
-    price_usd: 0.01,
+    price_usd: 0.004,
     fetches: false,
     single: true,
     pairedWith: 'lint-envelope',

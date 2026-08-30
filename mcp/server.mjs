@@ -21,7 +21,7 @@
 //
 // The single-check routes are separate TOOLS rather than an optional `check`
 // parameter on the existing two, and the reason is the convention below: on this
-// server a tool is a thing with A PRICE. A tool whose cost is $0.25 or $0.02
+// server a tool is a thing with A PRICE. A tool whose cost is $0.10 or $0.008
 // depending on whether an argument is present cannot state its price in its own
 // description, and an agent chooses between tools by reading exactly that. The
 // schema does the rest of the work — `check` is REQUIRED here and absent there,
@@ -66,11 +66,11 @@ const TOOLS = [
       'request to the live URL and checks the HTTP response, v1 body envelope, v2 PAYMENT-REQUIRED ' +
       'header envelope, dual-stack consistency, and Bazaar discovery metadata. Each finding includes ' +
       'a specific fix. This identifies technical blockers; it does not guarantee indexing, demand, or ' +
-      'successful settlement. Costs $0.25 per call, paid over x402; the first call answers 402 with ' +
+      'successful settlement. Costs $0.10 per call, paid over x402; the first call answers 402 with ' +
       'the terms, which is a price quote and not an error. Follows no redirects, and refuses private ' +
       'addresses, non-https URLs and any port but 443 and 8443 — for those, use lint_x402_envelope. ' +
       'It is priced for the incident it resolves: a 402 that validates and still is not indexed. ' +
-      'For a single question, lint_x402_one_check answers it for $0.02.',
+      'For a single question, lint_x402_one_check answers it for $0.008.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -95,7 +95,7 @@ const TOOLS = [
       'end), the x402scan explorer, and USDC transfer activity to the payTo on Base. Returns a ' +
       'per-registry verdict (listed / not_found / unknown) with the evidence and a specific way in ' +
       'for each miss; a surface that cannot be read reports unknown, never a guessed not_found. ' +
-      'Costs $0.15 per served report, paid over x402; the first call answers 402 with the terms, ' +
+      'Costs $0.06 per served report, paid over x402; the first call answers 402 with the terms, ' +
       'which is a price quote and not an error.',
     inputSchema: {
       type: 'object',
@@ -117,7 +117,7 @@ const TOOLS = [
       'Check a 402 response you already have for the same conformance and discovery blockers. Paste ' +
       'its status, headers and body; each finding includes a specific fix. Nothing is fetched, so ' +
       'this works during an x402 v1 vs v2 migration, on staging, on localhost, behind auth, and on ' +
-      'an endpoint that is not deployed yet. Costs $0.10, less than lint_x402 because there is no ' +
+      'an endpoint that is not deployed yet. Costs $0.04, less than lint_x402 because there is no ' +
       'outbound request. Use it whenever you can already see the response — from a curl, a test, or ' +
       'the code that builds it.',
     inputSchema: {
@@ -144,7 +144,7 @@ const TOOLS = [
       'Answer ONE named conformance check about a live x402 endpoint, for a fraction of the price ' +
       'of the full report. Use it when there is exactly one question — "is my v2 PAYMENT-REQUIRED ' +
       'header base64url", "does my bazaar info validate against its own schema" — and you already ' +
-      'know which check answers it. Costs $0.02, paid over x402; the first call answers 402 with ' +
+      'know which check answers it. Costs $0.008, paid over x402; the first call answers 402 with ' +
       'the terms, which is a price quote and not an error. Call x402_checks first (free) to get the ' +
       'exact check id. THE ANSWER HAS THREE OUTCOMES: passed, failed with a fix, or DID NOT APPLY ' +
       '— the last is not a pass and must never be reported as one. This is the tool for a CI step ' +
@@ -173,7 +173,7 @@ const TOOLS = [
   {
     name: 'lint_x402_envelope_one_check',
     description:
-      'Answer ONE named conformance check about a 402 response you already have. At $0.01 it is ' +
+      'Answer ONE named conformance check about a 402 response you already have. At $0.004 it is ' +
       'the cheapest answer this service sells, and nothing is fetched, so it works on staging, on ' +
       'localhost, behind auth, and on an endpoint that is not deployed yet. Ideal in a ' +
       'test or a CI step asserting a single property of a 402 that was just built. Call ' +

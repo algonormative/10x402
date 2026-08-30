@@ -147,7 +147,7 @@ function paymentHeader({ from = VERIFIED_PAYER } = {}) {
         authorization: {
           from,
           to: PAYTO_TEST,
-          value: '100000',
+          value: '40000',
           validAfter: String(now - 600),
           validBefore: String(now + 60),
           nonce: `0x${randomBytes(32).toString('hex')}`,
@@ -190,9 +190,9 @@ describe('a settled payment pings the owner', () => {
     await buy();
     const { body } = await awaitAlert((s) => /THIRD PARTY PAID/.test(s.body.text), 'the settlement alert');
     // The /lint/envelope price, as money AND as the atomic value beside it —
-    // the pair is what makes a "$0.10" in a 3am notification checkable.
-    assert.match(body.text, /\$0\.10\b/);
-    assert.match(body.text, /100000 atomic/);
+    // the pair is what makes a "$0.04" in a 3am notification checkable.
+    assert.match(body.text, /\$0\.04\b/);
+    assert.match(body.text, /40000 atomic/);
     assert.match(body.text, /lint-envelope/);
     assert.match(body.text, new RegExp(VERIFIED_PAYER, 'i'));
     assert.match(body.text, new RegExp(TX_HASH));

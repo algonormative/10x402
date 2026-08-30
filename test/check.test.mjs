@@ -113,10 +113,10 @@ describe('GET /check', () => {
     // Written out rather than derived: this is the sheet a buyer reads, and a
     // test that computed it from the same constant the Worker did would agree
     // with any re-price, including an accidental one.
-    assert.equal(byPath['/lint'].price, '$0.25');
-    assert.equal(byPath['/lint/one'].price, '$0.02');
-    assert.equal(byPath['/lint/envelope'].price, '$0.10');
-    assert.equal(byPath['/lint/envelope/one'].price, '$0.01');
+    assert.equal(byPath['/lint'].price, '$0.10');
+    assert.equal(byPath['/lint/one'].price, '$0.008');
+    assert.equal(byPath['/lint/envelope'].price, '$0.04');
+    assert.equal(byPath['/lint/envelope/one'].price, '$0.004');
     for (const endpoint of ENDPOINTS) {
       assert.ok(byPath[endpoint.path], `${endpoint.path} is not listed`);
       assert.ok(byPath[endpoint.path].input, `${endpoint.path} does not say what it takes`);

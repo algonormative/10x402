@@ -223,35 +223,35 @@ describe('the eight prices, and the atomic math underneath them', () => {
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, e.price_usd])),
       {
-        '/lint': 0.25,
-        '/lint/one': 0.02,
-        '/presence': 0.15,
+        '/lint': 0.1,
+        '/lint/one': 0.008,
+        '/presence': 0.06,
         // The monitoring wing. $0.005 is the incumbent rater's own published
         // price for a rating read, matched deliberately; $0.03 and $0.12 are
         // the series and the dispute pack.
         '/monitor/verdict': 0.005,
         '/monitor/history': 0.03,
         '/monitor/receipt': 0.12,
-        '/lint/envelope': 0.1,
-        '/lint/envelope/one': 0.01,
+        '/lint/envelope': 0.04,
+        '/lint/envelope/one': 0.004,
       }
     );
   });
 
   test('dollars become atomic units of a 6-decimal USDC, exactly', () => {
-    // $0.25 is 250000, NOT 25000. A missing zero here is a tenfold mispricing
+    // $0.10 is 100000, NOT 10000. A missing zero here is a tenfold mispricing
     // that reads as plausible in every other assertion in this suite.
     assert.deepEqual(
       Object.fromEntries(ENDPOINTS.map((e) => [e.path, atomicAmount(e.price_usd)])),
       {
-        '/lint': '250000',
-        '/lint/one': '20000',
-        '/presence': '150000',
+        '/lint': '100000',
+        '/lint/one': '8000',
+        '/presence': '60000',
         '/monitor/verdict': '5000',
         '/monitor/history': '30000',
         '/monitor/receipt': '120000',
-        '/lint/envelope': '100000',
-        '/lint/envelope/one': '10000',
+        '/lint/envelope': '40000',
+        '/lint/envelope/one': '4000',
       }
     );
     // Float division is not exact — 0.1 * 1e6 is 100000.00000000001 — so the
@@ -265,7 +265,7 @@ describe('the eight prices, and the atomic math underneath them', () => {
     // notices after paying.
     assert.deepEqual(
       ENDPOINTS.map((e) => priceLabel(e.price_usd)),
-      ['$0.25', '$0.02', '$0.15', '$0.005', '$0.03', '$0.12', '$0.10', '$0.01']
+      ['$0.10', '$0.008', '$0.06', '$0.005', '$0.03', '$0.12', '$0.04', '$0.004']
     );
     assert.equal(priceLabel(0), 'free');
     assert.equal(priceLabel(0.005), '$0.005', 'sub-cent prices keep the digits they need');
@@ -403,7 +403,7 @@ describe('the copy cannot drift from the sheet', () => {
     // sheet, on the other rail. $0.005 STOPPED being a tell when the monitoring
     // wing landed and took it as /monitor/verdict's price, deliberately
     // matching the incumbent rater's own published rate for a rating read.)
-    for (const file of ['README.md', 'build.mjs', 'mcp/server.mjs', 'skills/10x402/SKILL.md']) {
+    for (const file of ['README.md', 'build.mjs', 'mcp/server.mjs', 'skills/10x402/SKILL.md', 'worker/catalog.js']) {
       const text = readFileSync(join(ROOT, file), 'utf8');
       assert.ok(!text.includes('$0.05'), `${file} still quotes the superseded $0.05 price`);
     }

@@ -682,7 +682,7 @@ describe('payment fairness: nobody is charged for work that was not served', () 
 
 describe('the single-check routes settle their own price', () => {
   test('a served single check settles the single-check amount, under its own endpoint id', async () => {
-    // The ledger has to be able to tell a $0.01 answer from a $0.25 report:
+    // The ledger has to be able to tell a $0.004 answer from a $0.10 report:
     // `endpoint` and `amount` are what the revenue queries in the README group
     // by, and eight routes at eight prices through one settle path is exactly
     // where those two could quietly come from the wrong endpoint.
@@ -705,7 +705,7 @@ describe('the single-check routes settle their own price', () => {
       'a settled single-check payment'
     );
     assert.equal(row.amount, ENVELOPE_ONE_PRICE);
-    assert.equal(row.amount, '10000', '$0.01 of a 6-decimal USDC');
+    assert.equal(row.amount, '4000', '$0.004 of a 6-decimal USDC');
   });
 
   test('every route quotes its OWN distinct amount, in both envelopes', async () => {

@@ -98,11 +98,11 @@ form of either when there is exactly one check you want the answer to.
 
 | route | price | what it does |
 |---|---|---|
-| `POST /lint` | **$0.25** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
-| `POST /lint/one` | **$0.02** | The same outbound request, reported for **one** check you name. |
-| `POST /presence` | **$0.15** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and the payTo's own chain — USDC settlement activity on Base for a `0x` address, recent signature activity on Solana for a base58 one. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
-| `POST /lint/envelope` | **$0.10** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
-| `POST /lint/envelope/one` | **$0.01** | One named check over a response you paste. The cheapest answer here. |
+| `POST /lint` | **$0.10** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
+| `POST /lint/one` | **$0.008** | The same outbound request, reported for **one** check you name. |
+| `POST /presence` | **$0.06** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and the payTo's own chain — USDC settlement activity on Base for a `0x` address, recent signature activity on Solana for a base58 one. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
+| `POST /lint/envelope` | **$0.04** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
+| `POST /lint/envelope/one` | **$0.004** | One named check over a response you paste. The cheapest answer here. |
 | `POST /monitor/verdict` | **$0.005** | Parallax: what the three rating instruments said about a host on the latest stored day, what the endpoint answered to an unpaid request on its **declared verb** and on GET, and the read-time flags. `as_of`-stamped; a stored probe older than 36 h is reported as stale rather than as current. |
 | `POST /monitor/history` | **$0.03** | Every day this wing has held for one host — readings and probes, oldest first. |
 | `POST /monitor/receipt` | **$0.12** | The dispute pack: the series, the contradiction stated in numbers, a SHA-256 digest over the canonical JSON, and an attestation naming the probe method, the UA, and that no payment was ever sent. |
@@ -113,7 +113,7 @@ form of either when there is exactly one check you want the answer to.
 **The two scopes are two products, bought at two different moments.** A full
 report is bought during an incident: a 402 that passes validate and still is not
 indexed is the class of problem that eats weeks, because nothing in the stack
-says which of the 82 things is wrong. $0.25 is priced against that, and it is
+says which of the 82 things is wrong. $0.10 is priced against that, and it is
 still a fraction of the $25 a signed conformance report costs. A single check is
 bought in a test and then again on every commit — it is the CI and regression
 product, and it stays micro because a regression product that is not cheap does

@@ -34,7 +34,7 @@ quote, not the report; an x402-capable client must pay and retry the request.
 Use the official [x402 buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
 to configure `@x402/fetch` or another supported client.
 
-**Public endpoint — $0.25 per served report.** Priced for the incident it
+**Public endpoint — $0.10 per served report.** Priced for the incident it
 resolves: a 402 that passes validate and still is not indexed, with nothing in
 the stack saying which of the 82 things is wrong.
 
@@ -44,7 +44,7 @@ curl -sS -X POST https://10x402.com/lint \
   -d '{"url": "https://their-endpoint.example.com/api/thing"}'
 ```
 
-**Captured response — $0.10 per served report.** Prefer this whenever you can
+**Captured response — $0.04 per served report.** Prefer this whenever you can
 already see the response: from a curl, from a test, or from the code that builds
 it. It fetches nothing, so it works on staging, on localhost, behind auth, and
 on an endpoint that is not deployed yet — and it costs less for exactly that
@@ -56,7 +56,7 @@ curl -sS -X POST https://10x402.com/lint/envelope \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "body": "<the 402 body>"}'
 ```
 
-**Registry presence — $0.15 per served report.** The other half of the stuck-seller
+**Registry presence — $0.06 per served report.** The other half of the stuck-seller
 question: the declaration lints clean, so where does the resource actually stand
 with the registries? Fetches the live 402, reads the payTo and resource it
 declares, then checks the full CDP Bazaar discovery catalog, the x402scan
@@ -71,7 +71,7 @@ curl -sS -X POST https://10x402.com/presence \
   -d '{"url": "https://their-endpoint.example.com/api/thing"}'
 ```
 
-**One named check — $0.02 live, $0.01 pasted.** The CI product: run on every
+**One named check — $0.008 live, $0.004 pasted.** The CI product: run on every
 commit, against one property. Use it when there is exactly one thing you want to
 know and you know which check answers it:
 
