@@ -3,14 +3,14 @@
 //   GET  /check              free. Service info, the whole check catalogue,
 //                            prices, the grade ladder, x402 versions. No D1,
 //                            no fetch.
-//   POST /lint               $0.25. One unauthenticated request to a URL you
+//   POST /lint               $0.10. One unauthenticated request to a URL you
 //                            name, then the full check catalogue over what came
 //                            back.
-//   POST /lint/one           $0.02. The same outbound request, reported for ONE
-//                            named check.
-//   POST /lint/envelope      $0.10. The full catalogue over a response you
+//   POST /lint/one           $0.015. The same outbound request, reported for
+//                            ONE named check.
+//   POST /lint/envelope      $0.04. The full catalogue over a response you
 //                            paste. No outbound request at all.
-//   POST /lint/envelope/one  $0.01. ONE named check over a response you paste.
+//   POST /lint/envelope/one  $0.004. ONE named check over a response you paste.
 //
 // There is also a `scheduled` handler now, and it is the one part of this
 // Worker that serves nobody: two Parallax crons (worker/monitor.js) that read

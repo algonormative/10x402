@@ -84,7 +84,7 @@ export const LINT_SAMPLE_INPUT = {
  * question someone asks when they already suspect the answer, which is exactly
  * what a single-check call is for. Against the captured positive control it
  * PASSES, and a published example of a check passing is worth having: the
- * answer to "is this my problem?" is often no, and $0.02 is what that costs.
+ * answer to "is this my problem?" is often no, and $0.015 is what that costs.
  */
 export const LINT_ONE_SAMPLE_CHECK = 'V2_B64_URLSAFE';
 
@@ -153,7 +153,7 @@ export const ENVELOPE_SAMPLE_INPUT = {
 // THE PRICE SHEET, and the arithmetic in it is deliberate:
 //
 //   /lint               $0.10   full catalogue, live URL
-//   /lint/one           $0.008  ONE named check, live URL
+//   /lint/one           $0.015  ONE named check, live URL
 //   /lint/envelope      $0.04   full catalogue, pasted response
 //   /lint/envelope/one  $0.004  ONE named check, pasted response
 //   /presence           $0.06   where a live resource stands with the registries
@@ -172,7 +172,7 @@ export const ENVELOPE_SAMPLE_INPUT = {
 //   A full report is bought during an incident. A seller whose 402 passes
 //   validate and still is not indexed is looking at the class of problem that
 //   eats weeks, because nothing in the stack says which of seventy-five things
-//   is wrong. $0.25 is priced against that, and it is still a fraction of the
+//   is wrong. $0.10 is priced against that, and it is still a fraction of the
 //   nearest signed conformance report, which is $25.
 //
 //   A single check is bought in a test, and then again on every commit. It

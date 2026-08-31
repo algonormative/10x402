@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 //
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  THIS SCRIPT SPENDS REAL MONEY — up to $0.50 USDC per full run.      │
+//  │  THIS SCRIPT SPENDS REAL MONEY — up to $0.20 USDC per full run.      │
 //  │                                                                      │
 //  │  One paid call per named endpoint, from the HOUSE buyer wallet, to   │
 //  │  keep this service's rows alive in the CDP Bazaar. It refuses to do  │
@@ -60,10 +60,14 @@ const ENV_PATH = value('env', join(ROOT, '.buyer.env'));
 // The default set is THE THREE THE AUDIT FOUND MISSING. The two single-check
 // routes are deliberately absent: third-party traffic keeps their rows alive,
 // and a drill's job is to cover what organic settlement does not.
+// price + maxAtomic come from worker/catalog.js's sheet; maxAtomic is the
+// CLIENT-side ceiling for that one drill, so a wrong or hijacked envelope
+// demanding more than the published price is refused per-route, not just
+// per-run. Update both here in the same change as any catalog reprice.
 const DRILLS = [
-  { id: 'lint', path: '/lint', price: '$0.25' },
-  { id: 'lint-envelope', path: '/lint/envelope', price: '$0.10' },
-  { id: 'presence', path: '/presence', price: '$0.15' },
+  { id: 'lint', path: '/lint', price: '$0.10', maxAtomic: 100000n },
+  { id: 'lint-envelope', path: '/lint/envelope', price: '$0.04', maxAtomic: 40000n },
+  { id: 'presence', path: '/presence', price: '$0.06', maxAtomic: 60000n },
 ];
 
 const targets = ONLY ? DRILLS.filter((d) => d.id === ONLY) : DRILLS;
@@ -95,7 +99,7 @@ if (check.status !== 200) {
 const catalogue = await check.json();
 const sampleFor = (path) => catalogue.endpoints.find((e) => e.path === path)?.sample;
 
-let payFetch = null;
+let payFetchFor = null;
 if (!DRY_RUN) {
   let privateKeyToAccount, wrapFetchWithPayment;
   try {
@@ -122,15 +126,11 @@ if (!DRY_RUN) {
   const account = privateKeyToAccount(env.BUYER_PRIVATE_KEY);
   console.log(`\n  buyer   ${account.address}  (must be listed in wrangler.toml HOUSE_PAYERS)`);
   // x402-fetch's third argument is the client's own spending ceiling, and its
-  // DEFAULT is $0.10 (100000 atomic) — below /lint's $0.25, so the first live
-  // run refused to sign and threw "Payment amount exceeds maximum allowed"
-  // before anything was spent. Exactly the right failure, from exactly the
-  // right layer; the ceiling just has to match this drill's known price
-  // sheet. $0.25 covers the most expensive route and still means a wrong or
-  // hijacked envelope demanding more than the published price gets refused
-  // by the CLIENT, before any signature exists.
-  const MAX_ATOMIC = 250000n; // $0.25 — the highest price on the sheet
-  payFetch = wrapFetchWithPayment(fetch, account, MAX_ATOMIC);
+  // DEFAULT is $0.10 (100000 atomic). The ceiling is per-DRILL, matched to
+  // that route's published price: a wrong or hijacked envelope demanding more
+  // than the sheet says gets refused by the CLIENT, before any signature
+  // exists — for every route, not just the priciest one.
+  payFetchFor = (maxAtomic) => wrapFetchWithPayment(fetch, account, maxAtomic);
 }
 
 console.log(`  mode    ${DRY_RUN ? 'DRY RUN — nothing will be spent' : 'LIVE — this spends real USDC'}
@@ -161,7 +161,7 @@ for (const drill of targets) {
 
   if (DRY_RUN) continue;
 
-  const paid = await payFetch(`${BASE}${drill.path}`, {
+  const paid = await payFetchFor(drill.maxAtomic)(`${BASE}${drill.path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: input,
