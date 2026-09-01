@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 //
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  THIS SCRIPT SPENDS REAL MONEY — up to $0.20 USDC per full run.      │
+//  │  THIS SCRIPT SPENDS REAL MONEY — ~$0.215 USDC per full run.          │
 //  │                                                                      │
 //  │  One paid call per named endpoint, from the HOUSE buyer wallet, to   │
 //  │  keep this service's rows alive in the CDP Bazaar. It refuses to do  │
@@ -57,15 +57,24 @@ const YES = flag('yes');
 const ONLY = value('only', null);
 const ENV_PATH = value('env', join(ROOT, '.buyer.env'));
 
-// The default set is THE THREE THE AUDIT FOUND MISSING. The two single-check
-// routes are deliberately absent: third-party traffic keeps their rows alive,
-// and a drill's job is to cover what organic settlement does not.
+// The original set was THE THREE THE 2026-08-27 AUDIT FOUND MISSING; the
+// single-check routes were absent because third-party traffic kept their rows
+// alive. The 2026-09-01 diagnosis retired that assumption: a REPRICE leaves
+// every row stale (a row refreshes only via the ~2–11-min crawl that follows a
+// qualifying settlement — see the closing banner — and the working hypothesis,
+// tradewind E16, is that a buyer reading the stale amount aborts on the
+// live-quote mismatch, which keeps the row stale). So the set now covers every
+// repriced route: after any reprice, a full --yes run is part of the deploy,
+// same session.
+// lint-envelope-one is still absent only because the Solana smoke that ships
+// with reprices already settles it; add it here if that ever stops being true.
 // price + maxAtomic come from worker/catalog.js's sheet; maxAtomic is the
 // CLIENT-side ceiling for that one drill, so a wrong or hijacked envelope
 // demanding more than the published price is refused per-route, not just
 // per-run. Update both here in the same change as any catalog reprice.
 const DRILLS = [
   { id: 'lint', path: '/lint', price: '$0.10', maxAtomic: 100000n },
+  { id: 'lint-one', path: '/lint/one', price: '$0.015', maxAtomic: 15000n },
   { id: 'lint-envelope', path: '/lint/envelope', price: '$0.04', maxAtomic: 40000n },
   { id: 'presence', path: '/presence', price: '$0.06', maxAtomic: 60000n },
 ];
@@ -78,7 +87,7 @@ if (!targets.length) {
 
 if (!DRY_RUN && !YES) {
   console.error(`
-  This script spends real USDC (up to $0.50 for the default set), one paid
+  This script spends real USDC (~$0.215 for the default set), one paid
   call per endpoint, to restore this service's Bazaar discovery rows.
 
     node scripts/bazaar-drill.mjs --dry-run   # see the plan, spend nothing
