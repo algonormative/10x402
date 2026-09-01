@@ -374,6 +374,12 @@ probably want. **info** — a nit, never affects the grade.
   *projected* from the v1 object rather than assembled twice, so the two cannot
   drift — which is, not coincidentally, the `DUAL_*` family of checks applied to
   ourselves.
+- **Dual-rail.** Every 402 offers USDC on **Base** and USDC on **Solana**, at the
+  same price and the same atomic amount (USDC is 6 decimals on both), Base always
+  the first entry — a buyer takes the first entry it can pay, and Base is the rail
+  with a settlement history. Gated on `PAYTO_SOLANA`; with it unset the envelope
+  is byte-for-byte the single-rail one it has always been, and the suite pins
+  exactly that. See [§ The second rail](#the-second-rail--usdc-on-solana).
 - **No free tier**, by default and on purpose. One would fail this service's own
   `HTTP_FREE_TIER_200` check. The mechanism is env-gated and kept alive
   (`FREE_TIER_DAILY`), so it stays tested rather than rotting.
@@ -398,6 +404,30 @@ probably want. **info** — a nit, never affects the grade.
   after the response, each channel independently caught. Probe noise never
   pages, and each channel has a daily budget so a bad hour cannot mute the
   channel permanently.
+
+### The second rail — USDC on Solana
+
+Gated on one var. `PAYTO_SOLANA` unset means one accepts entry, Base, exactly as
+before; set, every envelope carries a second entry — same price, same atomic
+amount (USDC is 6 decimals on Solana too), Base first.
+
+Four things about it are hard-won rather than obvious, and each cost a live
+failure on the sibling property this was ported from:
+
+| | |
+|---|---|
+| **The fee payer is a pool** | The SVM `exact` scheme has the *facilitator* pay the transaction fee, so the accepts entry must name the account that will (`extra.feePayer`). CDP draws these from a pool and two consecutive reads returned different addresses for the same row — so it is fetched from the authenticated `GET /supported`, cached per protocol version (the v1 `solana` row and the v2 `solana:…` row carry different payers), single-flight, ~10 min on success and ~1 min on failure. **Never pinned:** a pinned address is correct the day it is written and a slow-motion outage after that. |
+| **It fails closed** | Any failure to read `/supported` — no CDP credentials, a non-200, unparseable JSON, no `exact` Solana row — omits the Solana entry. Base-only, no error, no 500 on the 402 path. Never a stale guess, and never an entry with no fee payer, which would be a transaction nobody pays for. Setting `PAYTO_SOLANA` on a deployment with no CDP keys therefore changes nothing at all. |
+| **Selection is on two axes** | The payload's *version* picks the list; the *network it names* picks the entry within it. A Solana payment checked against the Base entry reaches the facilitator with the wrong chain, asset and payTo and comes back invalid however good it was. A payload naming an un-offered rail is refused (`unsupported_network`) with the live terms attached — never settled against terms the buyer did not sign. For v2, the payload's echoed `extra.feePayer` is adopted (the pool may have rotated between the 402 and the paid retry), but **only** the fee payer, and only when asset, payTo, amount and scheme all match what we offered. |
+| **A verdict on a 4xx is a verdict** | CDP answers some invalid payments with HTTP 400 *and* a well-formed `{ isValid: false, invalidReason }` body. Treating that as an outage serves the report free under the availability-first rule — a revenue leak dressed as resilience. A non-200 *with* a readable verdict is a rejection; only a non-200 *without* one is an outage. |
+
+Settlement records and the owner alert branch on the rail: a Solana transaction
+is a base58 signature, not a `0x` hash, and it links to solscan rather than
+basescan — a Solana signature pasted into basescan returns nothing, which reads
+to a human as "the settlement did not happen".
+
+`test/x402-solana.test.mjs` is the suite, against the mock facilitator in
+`test/mock-facilitator.mjs`; it never makes a live call.
 
 ## Layout
 
@@ -559,6 +589,12 @@ after step 6.
    ```
    Without it, paid calls answer 429 instead of 402, because there is nowhere to
    pay. That is a working state and it is also a revenue-is-zero state.
+
+   The **Solana** receiving address is the separate var `PAYTO_SOLANA`, and it
+   *is* committed (`wrangler.toml` `[vars]`) — it is receive-only, its USDC
+   associated token account already exists, and every settlement to it is a
+   public transfer anyway. Unset means the second rail is simply off. See
+   [§ The second rail](#the-second-rail--usdc-on-solana).
 5. Set the CDP credentials (secrets, never committed):
    ```bash
    npx wrangler secret put CDP_API_KEY_ID

@@ -45,6 +45,36 @@ export const USDC_BASE_EIP712 = { name: 'USD Coin', version: '2' };
 export const NETWORK_V1 = 'base';
 export const NETWORK_V2 = 'eip155:8453';
 
+// ------------------------------------------------------------------ the second rail
+//
+// SOLANA, added 2026-09-01 and ENV-GATED ON `PAYTO_SOLANA`. With that var unset
+// this service behaves exactly as it did before — one accepts entry, Base — and
+// the suite pins that byte for byte, because a second rail that quietly changed
+// the rail with settlements on it would be the expensive kind of regression.
+//
+// USDC on Solana is ALSO 6 decimals, so one price serves both rails and the
+// atomic amount is identical in both entries. That is not a coincidence to lean
+// on silently: a third rail with different decimals would have to compute the
+// amount per rail rather than share it. (The price sheet's pairwise-uniqueness
+// invariant is per-ENDPOINT and is unaffected — the same figure appearing on two
+// rails of the same endpoint is the point, not a collision.)
+//
+// Two spellings again, same rule as Base: `solana` in v1, the CAIP-2
+// `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (mainnet-beta genesis hash,
+// truncated per CAIP-30) in v2. Confirmed first-party against CDP's
+// authenticated /supported, 2026-08-31, and settled live on the sibling
+// property the same day.
+export const USDC_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const NETWORK_SOLANA_V1 = 'solana';
+export const NETWORK_SOLANA_V2 = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+
+// v1 network name → v2 CAIP-2 name. requirementsV2() reads this rather than a
+// constant, which is what lets ONE projection serve both rails.
+export const NETWORK_V2_OF = {
+  [NETWORK_V1]: NETWORK_V2,
+  [NETWORK_SOLANA_V1]: NETWORK_SOLANA_V2,
+};
+
 export const X402_TIMEOUT_SECONDS = 60;
 
 // The cap on a linted response body AND on a pasted envelope. 256 KB is far

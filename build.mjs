@@ -691,7 +691,7 @@ const structuredData = {
           url: `${CANONICAL_BASE}/#offer-${e.id}`,
           price: String(e.price_usd),
           priceCurrency: 'USD',
-          description: 'Paid in USDC on Base.',
+          description: 'Paid in USDC on Base or Solana — the 402 response\u2019s accepts array is the authoritative list of rails.',
         })),
       ],
     },
@@ -835,8 +835,8 @@ ${ANALYTICS}
         quote, not an error.</p></li>
       <li class="card"><span class="step-num" aria-hidden="true">2</span>
         <h3>Your client pays and retries</h3>
-        <p>An x402-capable client holding USDC on Base reads the terms, pays, and retries the same
-        request. No login, no API key.</p></li>
+        <p>An x402-capable client holding USDC on Base or Solana reads the terms, pays, and retries
+        the same request. No login, no API key.</p></li>
       <li class="card"><span class="step-num" aria-hidden="true">3</span>
         <h3>Read the report</h3>
         <p>A grade, the findings, and a specific <code>fix</code> for each one. You are only charged
@@ -895,12 +895,15 @@ ${ENDPOINTS.map(
     <h2 id="worked-examples">Choose a lint, then pay and retry</h2>
     <p>Every paid route answers <code>402</code> first. The v1 terms are in the JSON body and the v2
     terms are standard base64 in the <code>PAYMENT-REQUIRED</code> header. An x402-capable client
-    holding USDC on Base reads those terms, pays, and retries the same request. There is no login or
-    API key; the payment is the authorization.</p>
+    holding USDC on Base or Solana reads those terms, pays, and retries the same request — the
+    <code>accepts</code> array in the 402 is the authoritative list of rails. There is no
+    login or API key; the payment is the authorization.</p>
 ${ENDPOINTS.map(endpointSection).join('\n\n')}
     <div class="callout">
       <p><strong>Payment terms:</strong> USDC on Base at <code>${USDC_BASE}</code>;
-      <code>${NETWORK_V1}</code> in v1 and <code>${NETWORK_V2}</code> in v2.</p>
+      <code>${NETWORK_V1}</code> in v1 and <code>${NETWORK_V2}</code> in v2. USDC on Solana may also
+      be offered, at the same price — the <code>accepts</code> array in each live 402 is the
+      authority on which rails this deployment takes, and Base is always its first entry.</p>
       <p>You are only charged for a report that is served. A bad URL, unreachable target, or malformed
       paste settles nothing, even if the payment verified.</p>
     </div>
@@ -1333,7 +1336,9 @@ const openapi = {
       `${SERVICE_NAME} finds conformance blockers between a working 402, discovery and payment. Its ` +
       `${CHECKS.length}-check catalogue covers the HTTP response, v1 body, v2 PAYMENT-REQUIRED ` +
       'header, dual-stack consistency, Bazaar discovery metadata and report safeguards. Every ' +
-      'finding includes a specific fix. Paid per call over x402 itself, in USDC on Base; there is ' +
+      'finding includes a specific fix. Paid per call over x402 itself, in USDC on Base or Solana ' +
+      '(the 402 accepts array is the authoritative rail list); ' +
+      'there is ' +
       'no account and no API key — the payment is the auth.',
     contact: { email: SUPPORT_EMAIL },
   },
@@ -1469,9 +1474,12 @@ const wellKnown = {
   })),
   free: [{ url: `${CANONICAL_BASE}${FREE_ENDPOINT.path}`, method: FREE_ENDPOINT.method, description: FREE_ENDPOINT.description }],
   note:
-    'The authoritative terms — including payTo — are in the 402 each resource answers with. This ' +
-    'document is static and deliberately carries no receiving address: a stale one in a file is ' +
-    'worse than none. GET /check for the live catalogue.',
+    'The authoritative terms — including payTo, and which chains are accepted — are in the 402 ' +
+    'each resource answers with. This document is static and deliberately carries no receiving ' +
+    'address: a stale one in a file is worse than none. It names the Base rail only, because which ' +
+    'rails a deployment offers is a runtime fact this build cannot know; a live 402 may carry a ' +
+    'second accepts entry for USDC on Solana at the same price, after the Base one. GET /check for ' +
+    'the live catalogue.',
 };
 
 // ---------------------------------------------------------------- llms.txt
@@ -1503,10 +1511,13 @@ Every paid call answers 402 first, with an x402 envelope in both protocol
 versions: v1 as the JSON body, v2 as standard base64 in a PAYMENT-REQUIRED
 response header. A 402 IS NOT AN ERROR — it is the price, quoted in a form a
 client can pay. Retry through an x402-capable client holding a wallet with USDC
-on Base. No account, no API key.
+on Base or Solana — the 402 accepts array is the authoritative rail list.
+No account, no API key.
 
 asset    USDC on Base, ${USDC_BASE}
 network  ${NETWORK_V1} (v1) / ${NETWORK_V2} (v2)
+         USDC on Solana may also be offered at the same price. The accepts
+         array in each live 402 is the authority; Base is always entry one.
 prices   ${ENDPOINTS.map((e) => `${e.path} ${priceLabel(e.price_usd)}`).join(', ')}
          ${batchAdvantageLine(CHECKS.length)}
          The full report is priced for the incident it resolves; a single check
@@ -1747,8 +1758,9 @@ charges nothing.
 The first unauthenticated call answers HTTP 402 carrying an x402 envelope in
 both protocol versions. Do not report it as a failure and do not retry it
 unpaid. Retry it through an x402-capable HTTP client holding a wallet with USDC
-on Base; the client reads the envelope, signs, and retries with a payment
-header. There is no login and no API key.
+on Base or Solana; the client reads the envelope, signs, and retries with a
+payment header. There is no login and no API key. Read the accepts array for the
+rails actually on offer rather than assuming a chain; Base is always first.
 
 NEVER ask a person to paste a private key or a seed phrase.
 

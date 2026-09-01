@@ -153,6 +153,16 @@ const PHASES = [
     standalone: true,
     files: ['test/alerts.test.mjs'],
   },
+  {
+    // STANDALONE for the settlement phase's reason and one more: the rails a
+    // worker offers are fixed by PAYTO_SOLANA for the life of its process, and
+    // this suite needs workers with it set, with it unset, with no CDP
+    // credentials, and with a /supported that fails — four configurations it
+    // boots for itself.
+    name: 'solana rail (dual-rail accepts + mock facilitator)',
+    standalone: true,
+    files: ['test/x402-solana.test.mjs'],
+  },
 ];
 
 const only = process.argv.slice(2).filter((a) => !a.startsWith('-'));

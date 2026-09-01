@@ -63,6 +63,10 @@ routes = [
 # PAYTO = "0x..."            # receiving address for USDC on Base. UNSET means
 #                            # every paid call answers 429 instead of 402,
 #                            # because there is nowhere to pay.
+# PAYTO_SOLANA = "..."       # OPTIONAL. Base58 receiving address for USDC on
+#                            # Solana — the second rail. UNSET = the rail is off
+#                            # and every envelope is Base-only, byte for byte as
+#                            # before. SET in [vars] below. See the note there.
 # FACILITATOR_URL = "..."    # OPTIONAL override; defaults to the CDP facilitator
 #                            # (https://api.cdp.coinbase.com/platform/v2/x402).
 #                            # ONLY the test suite sets it, to reach a local mock.
@@ -132,6 +136,25 @@ routes = [
 # reports `unknown` rather than a claim about a chain nobody queried.
 
 [vars]
+# ------------------------------------------------------------------ the second rail
+#
+# PAYTO_SOLANA turns every 402 into a TWO-ENTRY offer: USDC on Base first, USDC
+# on Solana second, same price, same atomic amount (both mints are 6 decimals).
+# Unset, nothing changes — one entry, Base, exactly as before.
+#
+# This is a RECEIVE-ONLY address and its USDC associated token account already
+# exists, so there is no per-payTo ATA work outstanding on this property. The
+# address is public by construction (every settlement to it is a visible USDC
+# transfer), which is why it belongs in a committed var and not in a secret.
+#
+# THE RAIL ALSO NEEDS THE CDP CREDENTIALS BELOW. Without them the Worker cannot
+# make the authenticated GET /supported read that tells it which account will pay
+# the Solana transaction fee, and it FAILS CLOSED — no Solana entry, a Base-only
+# envelope, no error. Setting this var on a deployment with no CDP keys therefore
+# changes nothing at all. The fee payer is never pinned: CDP draws them from a
+# pool and rotates them between reads (see worker/x402.js § feePayer).
+PAYTO_SOLANA = "6Cg4g7rXQApimMc9wVJGLLZfHsvbwGpGrUpGDgyJ2RaP"
+
 # The house's own wallets, so the owner's own test buys read as a drill rather
 # than as a sale. Any payer NOT listed here gets the loud third-party message —
 # the event this channel exists for, which must never look like a test.
@@ -140,7 +163,18 @@ routes = [
 # Base to anyone running the ledger queries in README § Reading the ledger.
 # Comma-separated; compared lowercased. UNSET means every payer reads as a third
 # party, which fails towards TOO LOUD — the right direction for a revenue alert.
-HOUSE_PAYERS = "0x632ff2f904cc6ab6d741a42014c4c483f328e92f"
+#
+# Two entries, one per rail:
+#
+#   0x632f…  the throwaway EVM buyer behind this rail's live settlements.
+#   D7f9…    the house SOLANA buyer, a CDP server account. Estate-wide: the same
+#            address goes into every property's HOUSE_PAYERS. It is a BUYER and
+#            never a payTo.
+#
+# Base58 is case-SENSITIVE where a hex address is not — but isHousePayer()
+# lowercases both sides before comparing, so the Solana address matches whatever
+# case the facilitator reports it in.
+HOUSE_PAYERS = "0x632ff2f904cc6ab6d741a42014c4c483f328e92f,D7f9EifwoMdfwozWDNLFhBGwecVhryc5fs2SxLK93M45"
 
 # ------------------------------------------------------------------ alerts
 #

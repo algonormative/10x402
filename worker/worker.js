@@ -98,10 +98,12 @@ import {
 import { CHECKS, CHECKS_BY_ID, GRADE_RULES, SOURCE_KINDS, lint, lintOne } from './lint.js';
 import {
   build402,
+  offeredNetworks,
+  paymentNetwork,
+  paymentOffer,
   paymentRequired,
-  paymentRequirements,
-  requirementsV2,
   resourceInfoV2,
+  selectRequirements,
 } from './envelope.js';
 import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
 import { runPresence } from './presence.js';
@@ -117,11 +119,13 @@ import {
 import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
+  payerOf,
   paymentPresented,
   presentedPayment,
   publicReason,
   settlePayment,
   sha256Hex,
+  solanaRails,
   truncatedHash,
   verifyPayment,
   randomHex,
@@ -581,10 +585,18 @@ async function handlePaid(request, env, ctx, endpoint) {
   const presented = paymentPresented(request);
   const tier = freeTierDaily(env);
 
+  // THE RAILS THIS DEPLOYMENT CAN BE PAID ON, resolved once and used for every
+  // envelope and every facilitator call below — the three things that must
+  // agree. With PAYTO_SOLANA unset this is null and costs nothing: no fetch, no
+  // second entry, no behaviour change anywhere downstream. With it set it is a
+  // cached, single-flight read (see solanaRails in x402.js), so even the 402
+  // fast path below stays a fast path.
+  const solana = await solanaRails(env);
+
   // THE 402 FAST PATH. With no free tier configured and no payment presented
   // there is nothing to meter — no allowance to claim, no identity to derive —
   // so the envelope goes out with no store access at all.
-  if (tier === 0 && !presented) return unpaid(endpoint, { payTo, tier });
+  if (tier === 0 && !presented) return unpaid(endpoint, { payTo, tier, solana });
 
   // A HEADER THAT DOES NOT DECODE IS NOT A PAYMENT, AND IS NOT AN EVENT.
   //
@@ -603,7 +615,7 @@ async function handlePaid(request, env, ctx, endpoint) {
   // first — that ordering is its own rule and this must not jump it.
   const payment = presented ? presentedPayment(request) : null;
   if (tier === 0 && payment && !payment.decoded) {
-    return payTo ? malformedPayment(endpoint, payTo) : unpaid(endpoint, { payTo, tier });
+    return payTo ? malformedPayment(endpoint, payTo, solana) : unpaid(endpoint, { payTo, tier, solana });
   }
 
   const db = env.DB;
@@ -720,10 +732,10 @@ async function handlePaid(request, env, ctx, endpoint) {
       }
       outcome = { kind: 'free', remaining: tier - free, presented };
     } else {
-      if (!payTo || !presented) return unpaid(endpoint, { payTo, tier, now, dayStart });
+      if (!payTo || !presented) return unpaid(endpoint, { payTo, tier, now, dayStart, solana });
       // The free tier is spent and the header still does not decode. Same
       // answer as the fast path above, and for the same reasons.
-      if (!payment.decoded) return malformedPayment(endpoint, payTo);
+      if (!payment.decoded) return malformedPayment(endpoint, payTo, solana);
 
       // THE VERIFY QUOTA, CLAIMED BEFORE THE FACILITATOR IS CALLED AND NOT
       // AFTER. Everything past this line costs an outbound POST and an Ed25519
@@ -734,18 +746,31 @@ async function handlePaid(request, env, ctx, endpoint) {
       const verifyUsed = await claimQuota(db, day, `verify:${ipHash}`, verifyDaily(env));
       if (verifyUsed === null) return verifyCeilingReached({ now, dayStart });
 
-      const requirements = paymentRequirements(endpoint, payTo);
-      // VERSION IS DECIDED ONCE, HERE, and everything downstream follows it:
-      // which shape the facilitator sees on verify and on settle, and which
-      // `resource` a settle body is completed with. It is read out of the
-      // PAYLOAD rather than out of the header it arrived in.
-      const facRequirements = payment.version === 2 ? requirementsV2(requirements) : requirements;
-      const verdict = await verifyPayment(env, payment, facRequirements);
+      // THE OFFER, and then the entry of it this payment is to be checked
+      // against. `requirements` stays the BASE v1 object — it is what the
+      // ledger's amount and the settle body's resource come from, and those are
+      // per-resource facts that do not change with the rail (both rails carry
+      // the same atomic amount: USDC is 6 decimals on Base and on Solana).
+      const offer = paymentOffer(endpoint, payTo, solana);
+      const requirements = offer.v1[0];
+      // SELECTION IS ON BOTH AXES: the PAYLOAD's version picks the list (which
+      // shape the facilitator sees on verify and on settle, and which
+      // `resource` a settle body is completed with), and the network the
+      // payload names picks the entry within it. Version is read out of the
+      // payload rather than out of the header it arrived in. A payload naming a
+      // rail we did not offer selects nothing, and is refused below without the
+      // facilitator ever being asked — never a settle against terms the buyer
+      // did not sign.
+      const facRequirements = selectRequirements(offer, payment);
+      const verdict = facRequirements
+        ? await verifyPayment(env, payment, facRequirements)
+        : unofferedNetwork(offer, payment);
 
       if (verdict.rejected) {
-        // The facilitator was asked and said no, so there IS something to
-        // record. No work is served, so no call quota is claimed — and the 402
-        // names why, so the caller can fix it rather than retrying the same bad
+        // The facilitator was asked and said no — or, for an un-offered rail,
+        // there was nothing coherent to ask about — so there IS something to
+        // record. No work is served, so no call quota is claimed, and the 402
+        // names why so the caller can fix it rather than retrying the same bad
         // payload.
         await recordSettlementSafely(db, {
           now,
@@ -758,6 +783,7 @@ async function handlePaid(request, env, ctx, endpoint) {
           error: verdict.reason,
         });
         return paymentRequired(endpoint.id, payTo, {
+          solana,
           error: 'the payment presented was not accepted',
           invalidReason: verdict.reason,
           invalidMessage: verdict.message ?? null,
@@ -802,7 +828,7 @@ async function handlePaid(request, env, ctx, endpoint) {
           // claimed it, and releasing here would hand a live payment back to
           // whoever replayed it.
           paymentHash = null;
-          return paymentAlreadyUsed(endpoint, payTo);
+          return paymentAlreadyUsed(endpoint, payTo, solana);
         }
       }
 
@@ -818,6 +844,10 @@ async function handlePaid(request, env, ctx, endpoint) {
           requirements,
           facRequirements,
           version: payment.version,
+          // The rail this payment is on, for the alert's explorer link. Taken
+          // from the requirements we SELECTED, never from the payload — the
+          // caller does not get to relabel which chain it paid on.
+          network: facRequirements.network,
           payload: verdict.payload,
           payer: verdict.payer,
           endpoint,
@@ -846,6 +876,10 @@ async function handlePaid(request, env, ctx, endpoint) {
           tool: endpoint.id,
           payer: verdict.payer,
           amount: requirements.maxAmountRequired,
+          // Which rail this call would have been paid on, so the leak the owner
+          // reads about names the right chain. No transaction exists on this
+          // path, so there is no explorer link — only the amount line.
+          network: facRequirements.network,
           error: publicReason(verdict.unavailable),
         };
       }
@@ -1230,17 +1264,22 @@ const machineSurfaces = () => ({
  *
  * Both paths keep the old block's invariant: they write nothing and read
  * nothing — the method check runs before any store access, probeChallenge()
- * builds the envelope from config alone, and neither touches D1 or the
- * facilitator. (The HTTP_STATUS_402 lint note that a 405 to the wrong verb
+ * builds the envelope from config alone and never touches D1. (With the
+ * Solana rail on, a cold feePayer cache may cost one cached /supported
+ * read — the one exception to "no facilitator".) (The HTTP_STATUS_402 lint note that a 405 to the wrong verb
  * is conformant remains true — this is not a conformance correction, it is
  * a legibility choice the spec leaves open.)
  */
-function probeChallenge(request, endpoint, env) {
+async function probeChallenge(request, endpoint, env) {
   const payTo = env.PAYTO || '';
   // With no receiving address there are no terms to advertise; the signpost
   // is the honest answer.
   if (!payTo) return wrongMethod(request, endpoint);
   const res = paymentRequired(endpoint.id, payTo, {
+    // A probe is what a rating surface reads, so it sees the SAME rails a buyer
+    // does. An envelope that named one rail here and two on POST would be the
+    // service publishing two different offers for one resource.
+    solana: await solanaRails(env),
     error:
       `X-PAYMENT header is required — and ${endpoint.path} executes on ` +
       `${endpoint.method}, not ${request.method}`,
@@ -1307,9 +1346,10 @@ function wrongMethodFree(request) {
   );
 }
 
-function unpaid(endpoint, { payTo, tier, now, dayStart }) {
+function unpaid(endpoint, { payTo, tier, now, dayStart, solana = null }) {
   if (payTo) {
     return paymentRequired(endpoint.id, payTo, {
+      solana,
       error: 'X-PAYMENT header is required',
       // v2 renamed the header, so the v1 sentence would name the wrong thing.
       v2Error: 'Payment required',
@@ -1380,8 +1420,9 @@ function verifyCeilingReached({ now, dayStart }) {
  * reason named. It writes nothing and calls nothing: see the note at the top of
  * handlePaid.
  */
-function malformedPayment(endpoint, payTo) {
+function malformedPayment(endpoint, payTo, solana = null) {
   return paymentRequired(endpoint.id, payTo, {
+    solana,
     error: 'the payment presented was not accepted',
     invalidReason: 'malformed_payment_header',
     invalidMessage:
@@ -1397,8 +1438,9 @@ function malformedPayment(endpoint, payTo) {
  * problem and the answer carries the terms to sign a fresh one against. The
  * fix says what a client actually has to change, which is the nonce.
  */
-function paymentAlreadyUsed(endpoint, payTo) {
+function paymentAlreadyUsed(endpoint, payTo, solana = null) {
   return paymentRequired(endpoint.id, payTo, {
+    solana,
     error: 'this payment has already been used',
     invalidReason: 'payment_already_used',
     invalidMessage:
@@ -1406,6 +1448,32 @@ function paymentAlreadyUsed(endpoint, payTo) {
       'sign a new one, with a fresh nonce, against the terms in this 402.',
     v2Error: 'payment_already_used',
   });
+}
+
+/**
+ * The refusal for a payment naming a rail this response did not offer.
+ *
+ * Shaped as a `rejected` VERDICT rather than a Response, so it joins the
+ * ordinary invalid-payment path above: one settlements row, one 402 carrying the
+ * reason and the live terms, no facilitator call and nothing settled. The
+ * alternative — quietly checking a Solana payment against the Base entry — is
+ * the exact bug the second rail exists to avoid, and it fails at the facilitator
+ * as `invalid` on a payment that was perfectly good.
+ *
+ * The message names what IS on offer, so a client holding a cached envelope from
+ * a moment when the rail was advertised can fix itself rather than retrying an
+ * unpayable rail forever.
+ */
+function unofferedNetwork(offer, payment) {
+  const offered = offeredNetworks(offer, payment?.version);
+  return {
+    rejected: true,
+    reason: 'unsupported_network',
+    message:
+      `this resource is offered on ${offered || 'no network'}; ` +
+      `the payment names ${JSON.stringify(paymentNetwork(payment))}`,
+    payer: payerOf(payment?.decoded),
+  };
 }
 
 /**
@@ -1439,7 +1507,7 @@ function servedHeaders({ kind, presented, remaining, error }) {
 
 // ------------------------------------------------------------------ settlement
 
-async function settleAndRecord(env, db, { requirements, facRequirements, version, payload, payer, endpoint }) {
+async function settleAndRecord(env, db, { requirements, facRequirements, version, network, payload, payer, endpoint }) {
   const ownResource = version === 2 ? resourceInfoV2(requirements, endpoint) : requirements.resource;
   const { settleOk, txHash, error } = await settlePayment(env, { facRequirements, payload, ownResource });
 
@@ -1468,6 +1536,11 @@ async function settleAndRecord(env, db, { requirements, facRequirements, version
     tool: endpoint.id,
     payer,
     amount: requirements.maxAmountRequired,
+    // Which rail settled, so the explorer link points at a chain that has heard
+    // of this transaction. `txHash` alone no longer says: a Base hash is 0x hex
+    // and a Solana signature is base58, and guessing a money link from the shape
+    // of a string is not something an alert should do.
+    network,
     settleOk,
     txHash,
     error,

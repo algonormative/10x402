@@ -2,7 +2,7 @@
   "corpus_version": 3,
   "name": "x402 portable conformance corpus",
   "description": "Recorded 402 responses with tool-neutral, three-dimensional expectations. See corpus/FORMAT.md. Assembled for x402-foundation/x402#3104.",
-  "generated": "2026-08-20",
+  "generated": "2026-09-01",
   "schema": {
     "fixtures": "corpus/schema/fixtures.schema.json",
     "results": "corpus/schema/results.schema.json",
@@ -11,12 +11,12 @@
   "pins": {
     "10x402": {
       "repo": "https://github.com/chronick/10x402",
-      "commit": "2a0f2fb628e4ccfaa335911316a39002bad85f37",
+      "commit": "93e138fe45dd7402e7d457fd30646fbee0fb0989",
       "commit_is": "INFORMATIONAL, AND ALWAYS BEHIND. Where the tree was when this corpus was last stamped. It cannot be the commit that carries this file, because writing this file is itself a change to be committed, and it falls further behind with every commit made after a stamp — so no fixed lag is claimed here, and an earlier version of this note claiming \"one commit\" was wrong by the time it was read. It is not, and cannot be, a handle on \"what code ran\". The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and checked before the engine executes.",
       "blobs": {
         "worker/lint.js": "38bb9a4055c1a53bb3082a2c4a9504afcfd61ff7",
         "worker/json-schema.js": "852ff5546384c03cf7f3251b372d804dad7a6ab0",
-        "worker/envelope.js": "4686c2c68654d69a3fbc2cfc1826b775c42ee326",
+        "worker/envelope.js": "e9e628fd7263ddda7058c8001331e34589d8539b",
         "worker/positive-control.js": "5e816c0a9448733b12bc8fc4d9db26686dabf377",
         "test/fixtures/envelopes.mjs": "0c333e124ad665cdf053bbf0c843b08415531b36",
         "corpus/vocabulary.mjs": "ef61b617cbfe537cf9de56f75742c5a74f0ccb5b",

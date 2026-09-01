@@ -13,6 +13,7 @@
 // through WebCrypto, which workerd has natively. It adds no dependency at all.
 
 import { base64Bytes, base64url, base64urlJson, PAYMENT_HEADER_V1, PAYMENT_HEADER_V2 } from './envelope.js';
+import { NETWORK_SOLANA_V1, NETWORK_SOLANA_V2 } from './catalog.js';
 
 // The documented production endpoint. Overridable so the suite can point it at
 // a local mock; production never sets FACILITATOR_URL.
@@ -189,10 +190,25 @@ async function facilitatorCall(env, endpoint, payload, requirements, timeoutMs) 
       }),
       signal: controller.signal,
     });
-    // Anything but a 200 is the facilitator's problem, including a 4xx that
-    // says OUR request was wrong — which is why these are recorded rather than
-    // swallowed. A run of them in `settlements` is the alarm.
-    if (res.status !== 200) return { ok: false, reason: `facilitator-http-${res.status}` };
+    // A VERDICT CAN ARRIVE ON A 4xx. CDP answers some invalid payments with
+    // HTTP 400 AND a well-formed `{ isValid: false, invalidReason }` body
+    // (observed live 2026-08-31 on the sibling property: a Solana payment
+    // failing preflight). That is a facilitator that WORKED and said no —
+    // treating it as "unavailable" serves the report free under the
+    // availability-first rule below, which is a revenue leak dressed as
+    // resilience. So a non-200 WITH a readable verdict body is a verdict; only a
+    // non-200 WITHOUT one is an outage, and those are still recorded rather than
+    // swallowed — a run of them in `settlements` is the alarm.
+    if (res.status !== 200) {
+      let body = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* not JSON — a gateway error page, not a verdict */
+      }
+      if (body && (body.isValid === false || body.success === false)) return { ok: true, data: body };
+      return { ok: false, reason: `facilitator-http-${res.status}` };
+    }
     return { ok: true, data: await res.json() };
   } catch (err) {
     return {
@@ -202,6 +218,169 @@ async function facilitatorCall(env, endpoint, payload, requirements, timeoutMs) 
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ------------------------------------------------------------------ feePayer
+//
+// The Solana `exact` scheme has the FACILITATOR pay the transaction fee, so the
+// accepts entry has to name the account that will: `extra.feePayer`. It is not a
+// constant and it must never be treated as one — CDP draws them from a POOL, and
+// two consecutive reads of /supported returned DIFFERENT addresses for the same
+// version+network row (observed 2026-08-31 on the sibling property). A pinned
+// address is therefore a slow-motion outage: correct the day it is written,
+// wrong at some unannounced later date, and the failure surfaces as buyers'
+// payments not verifying.
+//
+// So it is FETCHED, from the same facilitator and with the same CDP JWT
+// machinery verify and settle use, and cached briefly in the isolate. Four
+// properties, each there for a specific failure:
+//
+//   PER VERSION. The v1 `solana` row and the v2 `solana:…` row are separate
+//   rows and have been seen carrying different feePayers, so they are cached
+//   under separate keys and an entry is published with its OWN version's value.
+//
+//   SINGLE FLIGHT. One /supported call satisfies every waiter in the isolate.
+//   The 402 is the hot path here — it is what Bazaar and every rating surface
+//   health-probe — and a burst of unpaid calls must not become a burst of
+//   upstream requests.
+//
+//   NEGATIVELY CACHED, briefly. A failure is remembered for a minute rather
+//   than retried per request, so a /supported outage costs Base-only envelopes
+//   and not one upstream call per 402.
+//
+//   FAIL CLOSED. Every failure path — no credentials, a non-200, unparseable
+//   JSON, a document with no `exact` Solana row — ends at a null feePayer, and
+//   paymentOffer() then omits the entry. Never a stale guess, never an entry
+//   with no feePayer, and never a 500 on the 402 path.
+
+const SUPPORTED_TTL_MS = 10 * 60 * 1000;
+const SUPPORTED_FAILURE_TTL_MS = 60 * 1000;
+// The 402 is on the critical path, so this gets the same hard cap verify does.
+const SUPPORTED_TIMEOUT_MS = 2_000;
+
+// key `${facilitator base}|v${version}` → { feePayer: string|null, expiresAt }.
+// Per-isolate and unbounded in name only: the key space is two entries per
+// facilitator, and a Worker has one.
+const feePayerCache = new Map();
+let supportedInFlight = null;
+
+const facilitatorBase = (env) => (env.FACILITATOR_URL || DEFAULT_FACILITATOR_URL).replace(/\/+$/, '');
+const feePayerKey = (base, version) => `${base}|v${version}`;
+
+/**
+ * The Solana half of an offer, or null — THE WHOLE ENV GATE.
+ *
+ * PAYTO_SOLANA unset means no fetch, no second entry, and no behaviour change
+ * anywhere downstream. This is the only function worker.js needs to call, and
+ * its answer is what paymentOffer() takes.
+ */
+export async function solanaRails(env) {
+  const payTo = env?.PAYTO_SOLANA || '';
+  if (!payTo) return null;
+  const [feePayerV1, feePayerV2] = await Promise.all([solanaFeePayer(env, 1), solanaFeePayer(env, 2)]);
+  return { payTo, feePayerV1, feePayerV2 };
+}
+
+/** The cached feePayer for one protocol version, refreshing it if it is stale. */
+async function solanaFeePayer(env, version) {
+  const key = feePayerKey(facilitatorBase(env), version);
+  const hit = feePayerCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.feePayer;
+
+  await refreshSupported(env);
+
+  const fresh = feePayerCache.get(key);
+  return fresh && fresh.expiresAt > Date.now() ? fresh.feePayer : null;
+}
+
+/** One /supported read at a time per isolate, whatever asks for it. */
+function refreshSupported(env) {
+  if (supportedInFlight) return supportedInFlight;
+  supportedInFlight = fetchSupported(env).then(
+    () => {
+      supportedInFlight = null;
+    },
+    () => {
+      supportedInFlight = null;
+    }
+  );
+  return supportedInFlight;
+}
+
+/**
+ * GET /supported, authenticated, writing BOTH versions' feePayers to the cache.
+ *
+ * NEVER THROWS: every failure writes a negative entry, which is what makes "no
+ * Solana entry" the answer rather than a 500 on the 402 path.
+ */
+async function fetchSupported(env) {
+  const base = facilitatorBase(env);
+  const url = `${base}/supported`;
+  let entries = null;
+
+  try {
+    const authorization = await cdpAuthHeader(env, 'GET', url);
+    // No credentials means no authenticated read, and an unauthenticated one
+    // does not answer. Same fail-closed path as a network error — which also
+    // means setting PAYTO_SOLANA on a deployment with no CDP keys changes
+    // nothing at all.
+    if (authorization) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), SUPPORTED_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, { method: 'GET', headers: { authorization }, signal: controller.signal });
+        if (res.status === 200) entries = supportedEntries(await res.json());
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  } catch {
+    /* abort, DNS, TLS, unparseable JSON — one bucket: we could not ask */
+  }
+
+  const now = Date.now();
+  for (const version of [1, 2]) {
+    const feePayer = entries ? solanaFeePayerIn(entries, version) : null;
+    feePayerCache.set(feePayerKey(base, version), {
+      feePayer,
+      expiresAt: now + (feePayer ? SUPPORTED_TTL_MS : SUPPORTED_FAILURE_TTL_MS),
+    });
+  }
+}
+
+/**
+ * The list of supported kinds, whatever CDP calls it today.
+ *
+ * Read defensively on purpose: this is one field name in one upstream document,
+ * and getting it wrong costs a rail rather than raising an error.
+ */
+export function supportedEntries(data) {
+  const list = data?.kinds ?? data?.accepts ?? data?.supported ?? data;
+  return Array.isArray(list) ? list : [];
+}
+
+/**
+ * The Solana `exact` feePayer for one protocol version, or null.
+ *
+ * Matched on x402Version + network + scheme. The network SPELLING already
+ * implies the version, so a row that omits `x402Version` is still accepted — but
+ * a row that states a different one is not, because those two rows are exactly
+ * what carry different feePayers. The scheme match is not decoration either:
+ * CDP really does advertise `upto` alongside `exact` on Solana v2, with its own
+ * fee payer.
+ */
+export function solanaFeePayerIn(entries, version) {
+  const network = version === 2 ? NETWORK_SOLANA_V2 : NETWORK_SOLANA_V1;
+  const row = entries.find(
+    (e) =>
+      e &&
+      typeof e === 'object' &&
+      e.network === network &&
+      e.scheme === 'exact' &&
+      (e.x402Version === undefined || e.x402Version === version)
+  );
+  const feePayer = row?.extra?.feePayer;
+  return typeof feePayer === 'string' && feePayer ? feePayer : null;
 }
 
 /**

@@ -120,11 +120,38 @@ export function alertHeadline(env, alert) {
   return `${lead} — ${amount} ${alert.tool} — payer ${payer} — tx ${alert.txHash || 'none'} — ${settled}`;
 }
 
+/**
+ * Which rail this settlement moved on.
+ *
+ * Both protocol versions are handled because the value arrives from whichever
+ * requirements object was SELECTED: `solana` (v1) and `solana:5eykt4…` (v2) are
+ * one chain. Anything unrecognised — including an alert from before the second
+ * rail, which carries no `network` at all — reads as Base, the rail that has
+ * always been here and the one a 0x hash belongs to.
+ */
+export const railOf = (network) => (String(network || '').startsWith('solana') ? 'solana' : 'base');
+
+/**
+ * Where a human goes to look at this transaction. One per rail.
+ *
+ * A Solana signature pasted into basescan.org returns nothing, which reads to a
+ * human as "the settlement did not happen" — the one wrong answer here that is
+ * actively unhelpful rather than merely missing.
+ */
+const EXPLORER = {
+  base: (tx) => `https://basescan.org/tx/${tx}`,
+  solana: (tx) => `https://solscan.io/tx/${tx}`,
+};
+
+/** "USDC on Base" / "USDC on Solana", for the alert body's amount line. */
+const RAIL_LABEL = { base: 'Base', solana: 'Solana' };
+
 /** The headline plus the detail a human needs before deciding to care. */
 export function alertMessage(env, alert) {
   const subject = alertHeadline(env, alert);
+  const rail = railOf(alert.network);
   const lines = [subject, '', `endpoint ${alert.tool}`];
-  lines.push(`amount   ${formatUsdc(alert.amount)}  (${alert.amount} atomic USDC on Base)`);
+  lines.push(`amount   ${formatUsdc(alert.amount)}  (${alert.amount} atomic USDC on ${RAIL_LABEL[rail]})`);
   lines.push(`payer    ${payerLabel(alert.payer)}`);
 
   if (alert.kind === 'unverified') {
@@ -141,7 +168,7 @@ export function alertMessage(env, alert) {
         : `settled  NO — ${alert.error || 'unknown'} (verified, so the caller was served)`
     );
     if (alert.settleOk === 1 && alert.txHash) {
-      lines.push(`explorer https://basescan.org/tx/${alert.txHash}`);
+      lines.push(`explorer ${EXPLORER[rail](alert.txHash)}`);
     }
   }
 

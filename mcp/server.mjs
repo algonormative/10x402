@@ -53,8 +53,8 @@ const BASE = (process.env.TENX402_URL || 'https://10x402.com').replace(/\/+$/, '
 const NAME = '10x402';
 const VERSION = '0.1.0';
 
-// USDC on Base is 6 decimals, so an atomic amount has to be divided down before
-// it is shown to anyone as a price.
+// USDC is 6 decimals on Base AND on Solana, so one divisor serves both rails and
+// an atomic amount has to be divided down before it is shown to anyone as a price.
 const USDC_DECIMALS = 6;
 
 const TOOLS = [
@@ -735,7 +735,7 @@ function explainPayment(path, body, res) {
       ...(envelope.invalidMessage ? [`  ${envelope.invalidMessage}`] : []),
       '',
       'Retrying the same payment payload will be rejected again. Common causes:',
-      '  insufficient_funds                     the paying wallet has too little USDC on Base',
+      '  insufficient_funds                     the paying wallet has too little USDC on the rail it paid',
       '  invalid_exact_evm_payload_signature    the signature does not match the terms above',
       '  malformed_payment_header               the header was not base64-encoded JSON',
       'Sign a fresh payment against the terms above and retry once.'
@@ -745,7 +745,9 @@ function explainPayment(path, body, res) {
   lines.push(
     '',
     'To pay, retry through an x402-capable HTTP client (x402-fetch, the x402 SDK, or Coinbase',
-    'AgentKit) holding a wallet key with USDC on Base. The client reads this envelope, signs the',
+    'AgentKit) holding a wallet key with USDC on Base or Solana. The accepts array above is the',
+    'authority on which rails this deployment offers; Base is always first. The client reads this',
+    'envelope, signs the',
     'payment and retries with a payment header. There is no login and no account — the payment is',
     'the auth. NEVER ask a person to paste a private key or a seed phrase.',
     '',

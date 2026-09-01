@@ -175,9 +175,12 @@ is computed over every bazaar-regime check, and this call bought one.
 The first unauthenticated call answers HTTP 402 carrying an x402 envelope in
 both protocol versions. **Do not report that as a failure and do not retry it
 unpaid.** Retry through an x402-capable HTTP client (`x402-fetch`, the x402 SDK,
-Coinbase AgentKit) holding a wallet with USDC on Base; the client reads the
-envelope, signs, and retries with a payment header. There is no login and no API
-key — the payment is the auth.
+Coinbase AgentKit) holding a wallet with USDC on Base or Solana (the 402's
+accepts array is the authoritative rail list); the client reads
+the envelope, signs, and retries with a payment header. There is no login and no
+API key — the payment is the auth. The `accepts` array in that 402 is the
+authority on which rails this deployment actually offers — read it rather than
+assuming a chain. Base is always the first entry.
 
 **Never ask a person to paste a private key or a seed phrase.**
 

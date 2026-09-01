@@ -50,6 +50,21 @@ const SCHEMA = join(ROOT, 'worker', 'schema.sql');
 /** See note 4. Burn address: valid shape, provably nobody's. */
 export const PAYTO_TEST = '0x000000000000000000000000000000000000dEaD';
 
+/**
+ * The Solana half of the same idea — the second rail's test payTo.
+ *
+ * Nothing settles against it either; it exists so a dual-rail envelope has a
+ * base58 `payTo` to assert on. Deliberately NOT the production address: a suite
+ * that hard-codes the real receiving account is one grep away from looking like
+ * a leak, and asserting on a fake proves the same thing.
+ *
+ * It IS valid base58 — no 0, O, I or l, the four characters the alphabet drops
+ * precisely because they are the ones humans transcribe wrong — because the
+ * linter this repo SELLS is run against this service's own envelope, and
+ * V1_PAYTO/V2_PAYTO check the address family for real.
+ */
+export const PAYTO_SOLANA_TEST = 'So1anaTESTpayTo1111111111111111111111111111';
+
 /** The free tier the phases that boot one use. Production runs with none. */
 export const FREE_TIER_ENABLED = 3;
 export const TIER_ON_VARS = { FREE_TIER_DAILY: String(FREE_TIER_ENABLED) };
@@ -89,6 +104,9 @@ const SUITE_OCTET = {
   presence: 20,
   monitor: 21,
   'monitor-surfaces': 22,
+  // The second rail. Boots its own workers, but takes an octet on the same rule
+  // so nothing it does can collide with a shared-worker suite.
+  solana: 23,
 };
 
 /**
@@ -217,7 +235,14 @@ export async function bootWorker({ vars = {}, args: extraArgs = [] } = {}) {
     '--persist-to',
     persistDir,
   ];
-  for (const [key, value] of Object.entries(vars)) args.push('--var', `${key}:${value}`);
+  // wrangler.toml ships PAYTO_SOLANA for production, and `wrangler dev` reads
+  // that file — so the toml value would silently leak into every test worker and
+  // every suite would find itself asserting against a two-rail envelope it never
+  // asked for. Tests default the rail OFF (the single-rail suites pin the
+  // ungated shape byte for byte); a suite that wants it on passes its own
+  // PAYTO_SOLANA_TEST, which wins because it comes later in the spread.
+  const bootVars = { PAYTO_SOLANA: '', ...vars };
+  for (const [key, value] of Object.entries(bootVars)) args.push('--var', `${key}:${value}`);
   args.push(...extraArgs);
 
   const child = spawn(process.execPath, args, {
