@@ -91,6 +91,24 @@ const SEVERITY_BLURB = {
   info: 'a nit; never affects the grade',
 };
 
+// ---------------------------------------------------------------- sibling property
+//
+// Parallax measures the settlement graph this service lints against: 10x402
+// says whether one endpoint's 402 is payable, Parallax says who actually paid
+// whom. Said once here and rendered into all four machine-readable surfaces —
+// the footer, llms.txt, .well-known/x402 `service.related` and skill.md — so a
+// crawler or an agent that lands on either property traverses to the other
+// instead of treating them as unrelated hosts. Parallax carries the mirror
+// entry pointing back here; the pair only works if both ends are published.
+const SIBLING = {
+  name: 'Parallax',
+  host: 'parallax402.com',
+  url: 'https://parallax402.com',
+  line: 'the x402 economy, measured',
+  blurb: 'buyer side and seller side of every settlement',
+  relation: 'sibling: settlement-graph analytics (evidence layer); 10x402 is the vetting layer',
+};
+
 // ---------------------------------------------------------------- helpers
 
 const esc = (s) =>
@@ -1022,6 +1040,7 @@ ${FAQS.map(({ question, answer }) => `    <details class="faq">
     machine surfaces: <a href="/openapi.json">openapi.json</a>,
     <a href="/llms.txt">llms.txt</a>, <a href="/skill.md">skill.md</a>,
     <a href="/.well-known/x402">.well-known/x402</a></p>
+    <p>Sibling: <a href="${SIBLING.url}">${esc(SIBLING.host)}</a> &mdash; ${esc(SIBLING.line)}.</p>
   </footer>
 </main>
 <script>${COPY_JS}</script>
@@ -1092,6 +1111,7 @@ ${body}
     machine surfaces: <a href="/openapi.json">openapi.json</a>,
     <a href="/llms.txt">llms.txt</a>, <a href="/skill.md">skill.md</a>,
     <a href="/.well-known/x402">.well-known/x402</a></p>
+    <p>Sibling: <a href="${SIBLING.url}">${esc(SIBLING.host)}</a> &mdash; ${esc(SIBLING.line)}.</p>
   </footer>
 </main>
 <script>${COPY_JS}</script>
@@ -1457,6 +1477,10 @@ const wellKnown = {
     url: CANONICAL_BASE,
     tags: RESOURCE_TAGS,
     contact: SUPPORT_EMAIL,
+    // The estate, declared where a discovery crawler already looks. Same shape
+    // Parallax publishes in its own catalogue, so the two documents describe
+    // one graph rather than two unrelated services.
+    related: [{ name: SIBLING.name, url: SIBLING.url, relation: SIBLING.relation }],
   },
   resources: ENDPOINTS.map((e) => ({
     url: `${CANONICAL_BASE}${e.path}`,
@@ -1634,6 +1658,11 @@ pasted in — same checks, no outbound request.
 
 The test suite lints the 402 that the Worker actually serves. Every build also
 self-lints all ${ENDPOINTS.length} paid endpoint envelopes and fails on any finding.
+
+## Related
+
+${SIBLING.url} — ${SIBLING.name}: ${SIBLING.line}.
+  ${SIBLING.blurb}. ${SIBLING.name} is the evidence layer, ${SERVICE_NAME} the vetting layer.
 
 ## Privacy
 
@@ -1824,6 +1853,10 @@ payment to the seller, query Bazaar's index or measure demand. It follows no
 redirects. The URL guard does not pre-resolve DNS, so it cannot defend against
 DNS rebinding. It refuses private and reserved addresses — use
 \`/lint/envelope\` for anything not publicly reachable.
+
+## Related
+
+[${SIBLING.name}](${SIBLING.url}) — ${SIBLING.line}: ${SIBLING.blurb}. Ask ${SIBLING.name} who paid whom; ask ${SERVICE_NAME} whether an endpoint can be paid at all.
 
 Contact: ${SUPPORT_EMAIL}
 `;
