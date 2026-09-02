@@ -29,7 +29,7 @@
 // answer finds a tool that only gives one answer, at the price of one answer.
 //
 // Run it:
-//   npx -y github:chronick/10x402
+//   npx -y github:algonormative/10x402
 //   node mcp/server.mjs
 //
 // ------------------------------------------------------------------ the 402 convention

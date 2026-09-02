@@ -10,7 +10,7 @@
   },
   "pins": {
     "10x402": {
-      "repo": "https://github.com/chronick/10x402",
+      "repo": "https://github.com/algonormative/10x402",
       "commit": "93e138fe45dd7402e7d457fd30646fbee0fb0989",
       "commit_is": "INFORMATIONAL, AND ALWAYS BEHIND. Where the tree was when this corpus was last stamped. It cannot be the commit that carries this file, because writing this file is itself a change to be committed, and it falls further behind with every commit made after a stamp — so no fixed lag is claimed here, and an earlier version of this note claiming \"one commit\" was wrong by the time it was read. It is not, and cannot be, a handle on \"what code ran\". The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in corpus/run-10x402.mjs, and checked before the engine executes.",
       "blobs": {

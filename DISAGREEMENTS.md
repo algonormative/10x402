@@ -9,7 +9,7 @@ Prepared for [x402-foundation/x402#3104](https://github.com/x402-foundation/x402
 | | |
 | --- | --- |
 | Corpus | `corpus/fixtures.json`, corpus_version 3, 34 fixtures |
-| 10x402 | https://github.com/chronick/10x402 @ `2a0f2fb628e4` — adapter `corpus/run-10x402.mjs` |
+| 10x402 | https://github.com/algonormative/10x402 @ `2a0f2fb628e4` — adapter `corpus/run-10x402.mjs` |
 | x402-doctor | https://github.com/Maha-Strategies/maha-corp-web @ `37233104653b` — adapter `corpus/run-x402-doctor.mjs` |
 | Package pins | `@x402/core` 2.23.0, `@x402/evm` 2.23.0, `@x402/fetch` 2.23.0, `@x402/extensions` 2.23.0, `x402` 1.2.0, `x402-fetch` 1.2.0 — each with its registry integrity hash |
 | Spec pin | x402-foundation/x402 @ `75b519d0a3a7` |

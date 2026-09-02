@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/chronick/10x402/corpus/schema/fixtures.schema.json",
+  "$id": "https://github.com/algonormative/10x402/corpus/schema/fixtures.schema.json",
   "title": "x402 portable conformance corpus — fixtures document",
   "description": "The shape of corpus/fixtures.json. This schema is deliberately restricted to the JSON Schema subset that worker/json-schema.js implements — type, const, enum, required, properties, additionalProperties, items, minLength, maxLength, minimum, maximum, minItems, maxItems, pattern, anyOf, oneOf, allOf, not, and same-document $ref — because the conformance runner that reads it (corpus/validate-results.mjs) uses that validator and nothing else. Keywords outside the subset would be silently ignored, which is the one failure mode a conformance artefact must not have: a check that reads as enforced and is not. Every invariant this file cannot express is enforced instead as an explicit programmatic check in corpus/validate-results.mjs, and each of those is named in the description of the field it governs so that a reader of the schema alone is never left believing the schema is the whole contract.",
   "type": "object",

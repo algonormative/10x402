@@ -130,7 +130,7 @@ const PACKAGES = {
 function buildPins(headCommit) {
   return {
     '10x402': {
-      repo: 'https://github.com/chronick/10x402',
+      repo: 'https://github.com/algonormative/10x402',
       commit: headCommit,
       commit_is:
         'INFORMATIONAL, AND ALWAYS BEHIND. Where the tree was when this corpus was last stamped. ' +

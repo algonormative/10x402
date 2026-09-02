@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/chronick/10x402/corpus/schema/results.schema.json",
+  "$id": "https://github.com/algonormative/10x402/corpus/schema/results.schema.json",
   "title": "x402 portable conformance corpus — results document",
   "description": "The shape of a results file: one tool's answers to every fixture in corpus/fixtures.json. THIS SCHEMA IS WRITTEN FOR A THIRD TOOL, not for the two adapters that happen to ship in this repository, and the difference shows in what it does not require. It asks for the answers, the identification of what produced them, and an honest declaration of what was held back — and it asks nothing at all about the internals of `tool_detail`, because a third implementation's own report is its own business and a corpus that legislated its shape would be demanding that everybody model their findings the way this repository models its own. Restricted, like fixtures.schema.json, to the JSON Schema subset worker/json-schema.js implements; the cross-field rules it therefore cannot express are enforced programmatically by corpus/validate-results.mjs, which is the actual conformance test.",
   "type": "object",
