@@ -116,6 +116,7 @@ import {
   renderIndexHtml,
   runMonitorEndpoint,
 } from './monitor-surfaces.js';
+import { SURFACES } from './surfaces.generated.js';
 import { claimQuota, refundQuota } from './quota.js';
 import {
   oneLineMessage,
@@ -302,6 +303,17 @@ export default {
 function route(request, env, ctx, { path, endpoint }) {
   if (path === '/check') return handleCheck(request, env);
 
+  // THE MACHINE-READ SURFACES — llms.txt, openapi.json, .well-known/x402,
+  // skill.md, sitemap.xml, robots.txt — served from a build-generated module
+  // rather than left to the Pages static layer, because Pages applies its own
+  // Browser Integrity Check to EVERYTHING that reaches the Pages project
+  // (Functions included) and 403s Python-stdlib user agents with `error code:
+  // 1010` (measured 2026-09-03). A buyer agent on Python stdlib could pay a
+  // 402 but not read the discovery surfaces that told it what to pay for.
+  // Object.hasOwn rather than a bare lookup: a path like `/__proto__` must
+  // miss, not walk the prototype chain into a truthy non-surface.
+  if (Object.hasOwn(SURFACES, path)) return handleSurface(request, SURFACES[path]);
+
   // THE CATALOGUE'S EXACT PATHS WIN, AND THAT ORDERING IS LOAD-BEARING. The
   // monitor's free per-host route has a DYNAMIC segment — /monitor/{host} —
   // which ENDPOINTS_BY_PATH cannot match, so it is matched by prefix below.
@@ -328,6 +340,38 @@ function route(request, env, ctx, { path, endpoint }) {
     },
     404
   );
+}
+
+/**
+ * One machine surface, byte-identical to the dist/ file of the same build —
+ * `node build.mjs` writes both from the same string, and test/surfaces.test.mjs
+ * rebuilds and compares, so the Worker's copy and the Pages copy cannot drift.
+ *
+ * GET and HEAD only (OPTIONS is answered globally in `fetch`); anything else is
+ * a 405 that names the verbs, because these paths are documents and not APIs.
+ * The cache lifetime is short on purpose: every one of these bodies changes on
+ * deploy, and an llms.txt quoting a dead price for a day is worse than a
+ * re-read every five minutes.
+ */
+function handleSurface(request, surface) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return json(
+      { error: `method ${request.method} not allowed — this surface is read-only`, allow: ['GET', 'HEAD'] },
+      405,
+      { allow: 'GET, HEAD, OPTIONS' }
+    );
+  }
+  // HEAD gets an explicit null body rather than trusting the runtime to strip
+  // one — a Response constructed with a body on a HEAD path is an error in
+  // some runtimes and silent buffering in others.
+  return new Response(request.method === 'HEAD' ? null : surface.body, {
+    status: 200,
+    headers: {
+      'content-type': surface.contentType,
+      'cache-control': 'public, max-age=300',
+      ...CORS,
+    },
+  });
 }
 
 // ------------------------------------------------------------------ the free monitor reads

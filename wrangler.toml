@@ -48,12 +48,40 @@ routes = [
   # three paid routes (`/monitor/verdict|history|receipt`), every host lookup,
   # and any query string on any of them. The catalogue-coverage test in
   # test/single-check.test.mjs checks the paid three against it.
-  { pattern = "10x402.com/monitor*", zone_name = "10x402.com" }
+  { pattern = "10x402.com/monitor*", zone_name = "10x402.com" },
+  # THE MACHINE-READ SURFACES, served from code because the Pages static layer
+  # rejects them for exactly the callers they exist for. Cloudflare Pages
+  # applies its own Browser Integrity Check to every request that reaches the
+  # Pages project — static assets AND Pages Functions — and answers 403 `error
+  # code: 1010` to Python-stdlib user agents (Python-urllib/3.14,
+  # python-requests), measured 2026-09-03 on both the custom domain and the
+  # pages.dev twin, with zone BIC turned OFF and a zone WAF Skip rule in place
+  # (both verified ineffective). Only paths owned by a Worker attached to the
+  # ZONE bypass it — so a Python-stdlib buyer agent could pay a 402 here but
+  # not read llms.txt. Bodies come from worker/surfaces.generated.js, written
+  # by `node build.mjs` byte-identical to the dist/ copies, which stay in
+  # place for the pages.dev twin and for browsers. Wildcards for the /check*
+  # reason: patterns match the whole URL including the query string, and a
+  # query parameter must not become a silent 403.
+  { pattern = "10x402.com/llms.txt*", zone_name = "10x402.com" },
+  { pattern = "10x402.com/openapi.json*", zone_name = "10x402.com" },
+  { pattern = "10x402.com/skill.md*", zone_name = "10x402.com" },
+  { pattern = "10x402.com/sitemap.xml*", zone_name = "10x402.com" },
+  { pattern = "10x402.com/robots.txt*", zone_name = "10x402.com" },
+  # The whole .well-known/ tree: only x402 exists today, and anything else
+  # under it gets the Worker's JSON 404 instead of a Pages 403 to the callers
+  # above. A second well-known file added later is served the moment the build
+  # emits it — the coverage test in test/surfaces.test.mjs enforces that.
+  { pattern = "10x402.com/.well-known/*", zone_name = "10x402.com" }
 ]
 
-# The read surface is NOT here. dist/ is a separate Cloudflare Pages project
-# serving static assets with ZERO Functions — the page, openapi.json, llms.txt,
-# robots.txt, .well-known/x402 and skill.md.
+# The read surface that REMAINS on Pages: index.html, guides/, 404.html,
+# fonts/ and samples/ — dist/ is a separate Cloudflare Pages project serving
+# static assets with ZERO Functions. The machine surfaces used to live there
+# too; the routes above moved them onto the Worker (see the note on why).
+# KNOWN GAP, deliberately deferred: samples/ and guides/ still 403
+# Python-stdlib UAs — they were left on Pages when the machine surfaces moved
+# (2026-09-03); a follow-up decides whether the samples belong here too.
 
 # ------------------------------------------------------------------ payment
 #
