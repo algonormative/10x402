@@ -136,7 +136,10 @@ const PHASES = [
     // nowhere else: the invariant is about what this service SHIPS.
     name: 'production default (free tier off, PAYTO set)',
     vars: { PAYTO: PAYTO_TEST },
-    files: ['test/x402.test.mjs', 'test/self-lint.test.mjs'],
+    // surfaces runs here because the claim is about what this service SHIPS:
+    // the machine surfaces answer 200 from the zone Worker with no free tier
+    // and no payment in sight, on the exact UA the Pages layer was 403ing.
+    files: ['test/x402.test.mjs', 'test/self-lint.test.mjs', 'test/surfaces.test.mjs'],
   },
   {
     // STANDALONE, and it has to be: this suite runs a mock facilitator on a
