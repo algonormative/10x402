@@ -37,7 +37,7 @@ verify:
   `amount`, finds `undefined`, and has no price to sign against.
 
 10x402 turns those absences into named findings and concrete changes. Its
-82-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
+84-check catalogue covers the HTTP response, x402 v1 and v2, dual-stack
 consistency, version hygiene, Bazaar metadata, and two safeguards that disclose
 when the report itself had to stop or truncate work. Every check names the
 specification section, client source line or CDP requirement its rule comes
@@ -98,7 +98,7 @@ form of either when there is exactly one check you want the answer to.
 
 | route | price | what it does |
 |---|---|---|
-| `POST /lint` | **$0.10** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 82 checks. |
+| `POST /lint` | **$0.10** | Probes a URL you name — one unauthenticated request plus one negative-control GET to an impossible path — and lints the result against all 84 checks, plus a bounded user-agent matrix (at most 22 further requests) that asks whether the edge answers common agent clients alike. |
 | `POST /lint/one` | **$0.015** | The same outbound request, reported for **one** check you name. |
 | `POST /presence` | **$0.06** | Where the resource stands with the registries: fetches your 402, reads the payTo and resource it declares, then checks the full CDP Bazaar catalog, the x402scan explorer, and the payTo's own chain — USDC settlement activity on Base for a `0x` address, recent signature activity on Solana for a base58 one. Per-registry verdict with evidence; a surface that cannot be read reports `unknown`, never a guessed `not_found`. |
 | `POST /lint/envelope` | **$0.04** | The same catalogue over a response you paste. No outbound request, so it works on staging, on localhost, and on an endpoint that is not deployed yet. |
@@ -113,13 +113,13 @@ form of either when there is exactly one check you want the answer to.
 **The two scopes are two products, bought at two different moments.** A full
 report is bought during an incident: a 402 that passes validate and still is not
 indexed is the class of problem that eats weeks, because nothing in the stack
-says which of the 82 things is wrong. $0.10 is priced against that, and it is
+says which of the 84 things is wrong. $0.10 is priced against that, and it is
 still a fraction of the $25 a signed conformance report costs. A single check is
 bought in a test and then again on every commit — it is the CI and regression
 product, and it stays micro because a regression product that is not cheap does
 not get run.
 
-**The multiples fall out of that rather than being designed.** A full 82-check
+**The multiples fall out of that rather than being designed.** A full 84-check
 report costs 6.667x one check on a live URL and 10x on a pasted response — a
 12.3x and 8.2x per-check advantage. Singles stay the cheaper buy through 6
 questions live and 9 pasted; past that, buy the report. The two rails differ because the
@@ -228,8 +228,8 @@ relative to one.
 | regime | checks | authority | effect |
 |---|---|---|---|
 | `payment` | 49 | the specs' MUSTs, and what @x402/core, @x402/evm, x402-fetch and x402@1.2.0 actually parse, throw on or refuse to sign | sets the grade |
-| `bazaar` | 20 | CDP's validator, prober and seller docs | sets `bazaar_ready`; never the grade |
-| `hygiene` | 6 | house opinion and client-quirk defense | info only, always |
+| `bazaar` | 25 | CDP's validator, prober and seller docs | sets `bazaar_ready`; never the grade |
+| `hygiene` | 10 | house opinion and client-quirk defense | info only, always |
 
 Only a payment-regime check can be `core`, and a core failure is the only thing
 that produces an F.
@@ -302,10 +302,10 @@ node corpus/report-disagreements.mjs  # → DISAGREEMENTS.md
 node corpus/validate-results.mjs corpus/results-10x402.json   # third-adapter conformance test
 ```
 
-## The x402 conformance checklist: 82 published checks
+## The x402 conformance checklist: 84 published checks
 
 The catalogue is published in full at `GET /check` and on the page before anyone
-spends anything. Eighty checks inspect HTTP and x402 conformance; two
+spends anything. Eighty-two checks inspect HTTP and x402 conformance; two
 report safeguards disclose truncated input or findings instead of letting a
 partial report read as clean.
 
@@ -434,7 +434,7 @@ to a human as "the settlement did not happen".
 ```
 worker/
   worker.js            routing, the 402 flow, quotas, D1, telemetry
-  lint.js              THE PRODUCT — 82 checks, pure, no Worker globals
+  lint.js              THE PRODUCT — 84 checks, pure, no Worker globals
   json-schema.js       a JSON Schema subset, for bazaar info-vs-schema
   catalog.js           endpoints, prices, samples — the single source
   envelope.js          10x402's own v1 + v2 envelopes

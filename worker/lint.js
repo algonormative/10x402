@@ -461,6 +461,31 @@ export const CHECKS = [
       field('x402-foundation/x402#3104 (Circadian-agent, 2026-08-21) — 13/526 hosts (2.5%) answer 200 for an impossible path, diffuse across 13 distinct domains: independent mistakes, not a platform'),
       field('x402-foundation/x402#3104 (mayonerajan, 2026-08-21) — "it is not \'route exists\', merely an indeterminate positive response"; reported distinctly from both 404/410 and 402-before-routing'),
     ] },
+  // THE USER-AGENT GATE PAIR. Also live-only: the evidence is a request per
+  // common agent client, which a pasted response cannot carry. Hygiene by
+  // construction — the envelope is fine and the seller's EDGE is what refuses,
+  // which on a managed platform may not be theirs to fix. It is theirs to know:
+  // their own browser and their own curl both pass.
+  { id: 'UA_GATE_402', area: 'http', severity: 'info', regime: 'hygiene',
+    summary:
+      'the paid route answers every common agent client alike — a 403, 429 or challenge for some ' +
+      'user-agents and not others is an edge bot wall between a buyer and the 402, and the buyers ' +
+      'it turns away are exactly the scripted ones x402 is for (live lints only)',
+    sources: [
+      field('10x402 house incident, 2026-08-19 → 2026-09-03 — Cloudflare Pages Browser Integrity Check answered 403 "error code: 1010" to Python-urllib/3.x on three house hosts for about two weeks while curl and node probes of the same paths passed; a Python-stdlib buyer could pay the 402 and could not read discovery'),
+      house('An edge bot wall is a zone-level toggle that refuses clients whose headers it reads as bot-like. Nothing in x402 makes a buyer a browser, so leaving it on in front of a paid route sells only to the client families the wall happens to like — and the seller cannot see it, because their own browser passes.'),
+      ctx(spec('specs/transports-v2/http.md:7-25 § Payment Required Signaling — the transport describes the request that elicits a 402 and states NO User-Agent requirement anywhere: this check rests on client reality, not on a MUST')),
+    ] },
+  { id: 'UA_GATE_SURFACES', area: 'http', severity: 'info', regime: 'hygiene',
+    summary:
+      'the discovery surface a buyer reads (llms.txt, openapi.json, .well-known/x402) answers every ' +
+      'common agent client alike — a surface gated by user-agent is one an agent cannot read before ' +
+      'it decides to pay (live lints only, against the first of those paths that exists)',
+    sources: [
+      field('10x402 house incident, 2026-08-19 → 2026-09-03 — the gate was on the DISCOVERY paths while the paid route answered normally: the buyer could pay and could not read llms.txt or .well-known/x402'),
+      house('Discovery surfaces exist to be read by programs. Serving them only to clients that look like browsers is the same defect as publishing them and then not linking them, with the added cost that the agent gets a 403 it will read as your endpoint being down.'),
+      ctx(spec('specs/transports-v2/http.md:7-25 § Payment Required Signaling — no User-Agent requirement is stated for any x402 request, discovery included')),
+    ] },
 
   // --- v2 envelope ------------------------------------------------------
   //
@@ -3257,6 +3282,44 @@ function pairOffers(v1Accepts, v2Accepts) {
   return { pairs, unmatched };
 }
 
+// ------------------------------------------------------------------ the user-agent matrix
+//
+// The statuses an edge bot wall answers with: a 403 is Cloudflare's Browser
+// Integrity Check (`error code: 1010`), a 429 is a rate rule reading a client
+// family as abuse, a 503 is the legacy interstitial. Anything else — a 404, a
+// 405, a 500 — is the answer everyone gets, and is not a gate.
+const UA_GATE_STATUSES = new Set([403, 429, 503]);
+
+/**
+ * Split one matrix into the clients that were let through and the ones that were
+ * not, or null when there is nothing to compare.
+ *
+ * A DIFFERENTIAL IS THE WHOLE EVIDENCE. A host that answers every client family
+ * alike has not gated one — it is refusing everybody, which the status checks
+ * already report — so a uniform refusal passes rather than firing here. Probes
+ * with no status are transport failures: one dropped connection is not a policy.
+ */
+function uaGateSplit(probes) {
+  if (!Array.isArray(probes)) return null;
+  const answered = probes.filter((p) => isObject(p) && typeof p.status === 'number');
+  if (answered.length < 2) return null;
+  return {
+    gated: answered.filter((p) => UA_GATE_STATUSES.has(p.status)),
+    clean: answered.filter((p) => !UA_GATE_STATUSES.has(p.status)),
+  };
+}
+
+/** How a probe is named back: the header the seller can grep their logs for. */
+const uaName = (probe) => (probe.ua ? `"${clip(probe.ua, 60)}"` : 'no User-Agent header at all');
+const uaNames = (probes) => probes.map(uaName).join(', ');
+const uaStatuses = (probes) => [...new Set(probes.map((p) => p.status))].join('/');
+
+/** The refusal body, quoted only as far as it takes to show `error code: 1010`. */
+function uaBodyQuote(gated) {
+  const seen = gated.find((p) => typeof p.snippet === 'string' && p.snippet.trim());
+  return seen ? ` The first 80 characters of the ${seen.status} body: "${clip(seen.snippet, 80)}".` : '';
+}
+
 // ------------------------------------------------------------------ entry point
 
 /**
@@ -3290,7 +3353,7 @@ export function lint(response) {
  */
 function runLint(response) {
   const report = new Report();
-  const { status, headers = {}, body = '', url = null, method = null, redirectedTo = null, truncated = false, control = null } = response || {};
+  const { status, headers = {}, body = '', url = null, method = null, redirectedTo = null, truncated = false, control = null, uaGate = null } = response || {};
 
   // --- negative control (live lints only) -------------------------------
   //
@@ -3324,6 +3387,48 @@ function runLint(response) {
         'live-catalog census this shape is rare (2.5%) and always an independent mistake, so it ' +
         'is almost certainly fixable on your side.'
     );
+  }
+
+  // --- the user-agent matrix (live lints only) --------------------------
+  //
+  // `uaGate` is the observation from one request per entry in UA_MATRIX
+  // (worker/fetch-target.js), attached by the Worker only when the matrix was
+  // actually probed. Both checks decline without it, for the same reason the
+  // control's do: a pasted response was fetched by one client, and a claim
+  // about ten of them cannot be made from it.
+  if (isObject(uaGate)) {
+    const route = uaGateSplit(uaGate.route?.probes);
+    if (route) {
+      report.check(
+        'UA_GATE_402',
+        route.gated.length === 0 || route.clean.length === 0,
+        `the paid route answered ${uaStatuses(route.gated)} to ${uaNames(route.gated)}, and ` +
+          `${uaStatuses(route.clean)} to ${uaNames(route.clean)} — the same path, the same request, ` +
+          `a different answer per client family.${uaBodyQuote(route.gated)}`,
+        'Let scripted clients through to the 402. This is almost never the payment middleware — it ' +
+          'is an edge bot wall in front of it (Cloudflare\'s Browser Integrity Check answers exactly ' +
+          'this way, with "error code: 1010"), so the fix is a WAF skip rule for the paid path or ' +
+          'the check off for the zone. It is invisible from where you stand — your browser passes, ' +
+          'and so does your curl — and what it costs is the buyer x402 exists for: an agent on ' +
+          'python, go or a bare fetch gets a 403 where the envelope should be, reads your endpoint ' +
+          'as down, and never reaches the payment flow at all.'
+      );
+    }
+    const surface = uaGateSplit(uaGate.surface?.probes);
+    if (surface) {
+      report.check(
+        'UA_GATE_SURFACES',
+        surface.gated.length === 0 || surface.clean.length === 0,
+        `${clip(String(uaGate.surface.path || ''), 80)} answered ${uaStatuses(surface.gated)} to ` +
+          `${uaNames(surface.gated)}, and ${uaStatuses(surface.clean)} to ${uaNames(surface.clean)} — ` +
+          `a discovery surface gated by user-agent.${uaBodyQuote(surface.gated)}`,
+        'Serve the discovery paths to every client. These files exist to be read by programs, and ' +
+          'the programs that read them are exactly the clients an edge bot wall refuses: an agent ' +
+          'that cannot fetch your llms.txt or .well-known/x402 cannot find out what you sell before ' +
+          'deciding whether to pay. Same fix as the route — a WAF skip rule for these paths, or the ' +
+          'integrity check off for the zone — and your browser will not show you this either.'
+      );
+    }
   }
 
   // --- HTTP layer -------------------------------------------------------

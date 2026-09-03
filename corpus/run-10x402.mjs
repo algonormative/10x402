@@ -95,7 +95,14 @@ export function assertPinnedBlobs(corpus) {
  * on them, which is correct: a live-only finding appearing in a corpus
  * reduction IS an error, not a gap in the map.
  */
-export const LIVE_ONLY_CHECKS = Object.freeze(['HTTP_ROUTE_DISCRIMINATES', 'HTTP_SOFT_404']);
+export const LIVE_ONLY_CHECKS = Object.freeze([
+  'HTTP_ROUTE_DISCRIMINATES',
+  'HTTP_SOFT_404',
+  // The same argument, one matrix wider: these two judge a request per common
+  // agent client — ten of them — and a recorded response was fetched by one.
+  'UA_GATE_402',
+  'UA_GATE_SURFACES',
+]);
 
 export function tagFor(code) {
   const tag = TENX402_TAGS[code];

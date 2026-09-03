@@ -64,6 +64,7 @@ import {
   priceLabel,
 } from './worker/catalog.js';
 import { CHECKS, GRADE_RULES } from './worker/lint.js';
+import { UA_PROBE_CEILING } from './worker/fetch-target.js';
 import { atomicAmount, runSample, sampleInputBody } from './worker/envelope.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -1029,8 +1030,11 @@ ${FAQS.map(({ question, answer }) => `    <details class="faq">
   <section aria-labelledby="limits">
     <h2 id="limits">Limits, stated plainly</h2>
     <ul class="limits">
-      <li><code>POST /lint</code> sends one unauthenticated request with no payment header and
-      follows no redirects. A redirect is reported as a finding.</li>
+      <li><code>POST /lint</code> sends unauthenticated requests only — no payment header on any of
+      them — and follows no redirects. A redirect is reported as a finding. It sends the probe, one
+      negative-control GET to an impossible path, and a bounded user-agent matrix: at most
+      ${UA_PROBE_CEILING} further requests, one per common agent client, on the paid route and on the
+      first discovery surface that exists.</li>
       <li>It reads at most ${MAX_BODY_BYTES / 1024}&nbsp;KB, and one 10s deadline covers the
       connection, headers, and body read.</li>
       <li>It refuses plain http, private and reserved addresses, private-network names, and ports
@@ -1647,9 +1651,12 @@ ${AREA_ORDER.map(
 
 ## Limits
 
-POST /lint sends exactly one unauthenticated request with no payment header,
-follows no redirects, reads at most ${MAX_BODY_BYTES / 1024} KB, and gives the whole call — connect,
-headers and body read — one 10s deadline. It refuses plain http,
+POST /lint sends unauthenticated requests only — no payment header on any of
+them — follows no redirects, reads at most ${MAX_BODY_BYTES / 1024} KB, and gives each call — connect,
+headers and body read — one 10s deadline. Beyond the probe and the
+negative-control GET it sends a bounded user-agent matrix: at most ${UA_PROBE_CEILING} further
+requests, one per common agent client, on the paid route and on the first
+discovery surface that exists. It refuses plain http,
 private/reserved addresses, private-network names, and any port but 443 and
 8443. The URL guard does not pre-resolve DNS, so it cannot defend against DNS
 rebinding. It does not make a payment, query Bazaar's index or measure demand.
@@ -2007,7 +2014,7 @@ writeFileSync(
 </head><body><main><h1>404 — no such path</h1>
 <p>This is a real 404 with a real 404 status. If you are probing whether this
 host discriminates real routes from impossible ones: it does, and so should
-yours. <a href="/">10x402.com</a> checks that, among 82 other things.</p>
+yours. <a href="/">10x402.com</a> checks that, among ${CHECKS.length - 1} other things.</p>
 </main></body></html>\n`
 );
 

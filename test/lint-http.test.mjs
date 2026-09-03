@@ -18,6 +18,10 @@ import { after, before, describe, test } from 'node:test';
 import { callers, client, TIER_ON_VARS, UNSAFE_TARGET_VARS, useWorker } from './harness.mjs';
 import { FIXTURES, response, v1Envelope, v2Envelope, RESOURCE_URL } from './fixtures/envelopes.mjs';
 import { POSITIVE_CONTROL } from '../worker/positive-control.js';
+import { UA_MATRIX, UA_PROBE_CEILING, UA_SURFACE_PATHS } from '../worker/fetch-target.js';
+
+/** The probe, the control, the matrix, and one knock per (absent) surface. */
+const FULL_LINT_HITS = 2 + UA_MATRIX.length + UA_SURFACE_PATHS.length;
 
 const ips = callers('lint-http');
 let worker;
@@ -30,7 +34,18 @@ let target;
  * possible — "no payment header was sent" is a recorded fact, not an inference.
  */
 async function startTarget() {
-  const state = { hits: [], next: null, control: null, hang: false, dribble: false };
+  const state = {
+    hits: [],
+    next: null,
+    control: null,
+    hang: false,
+    dribble: false,
+    // What the discovery surfaces answer (404 by default), and a per-request
+    // override — (req) => canned | null — which is what makes a host that
+    // answers ONE client family differently expressible at all.
+    surface: null,
+    answer: null,
+  };
   const dribblers = new Set();
 
   const server = http.createServer((req, res) => {
@@ -58,6 +73,18 @@ async function startTarget() {
         const timer = setInterval(() => res.write(' '), 100);
         dribblers.add({ res, timer });
         res.on('close', () => clearInterval(timer));
+        return;
+      }
+
+      // The per-request override, then the discovery surfaces the user-agent
+      // matrix looks for — routed like the control path below, so only the
+      // tests that are ABOUT them pay for the ten extra requests.
+      const override =
+        state.answer?.(req) ||
+        (UA_SURFACE_PATHS.includes(req.url) ? state.surface || { status: 404, body: 'not found' } : null);
+      if (override) {
+        res.writeHead(override.status, override.headers || {});
+        res.end(override.body ?? '');
         return;
       }
 
@@ -96,6 +123,8 @@ async function startTarget() {
       state.hits.length = 0;
       state.next = null;
       state.control = null;
+      state.surface = null;
+      state.answer = null;
       state.hang = false;
       state.dribble = false;
       for (const { res, timer } of dribblers) {
@@ -221,19 +250,29 @@ describe('the request this service sends', () => {
     }
   });
 
-  test('is exactly TWO requests: the probe, then the negative control', async () => {
+  test('is the probe, the negative control, and a bounded user-agent matrix', async () => {
     // The bound a full report costs the target, asserted on the target's own
     // record. The second request is the x402#3104 negative control: a GET to a
     // fixed impossible path, no body, same self-identifying user-agent — a
-    // seller reading their logs sees exactly what hit them and why.
+    // seller reading their logs sees exactly what hit them and why. Everything
+    // after it is the user-agent matrix, one request per common agent client.
     target.reset();
     target.serve(response({ v1: v1Envelope(), v2: v2Envelope() }));
     await lintTarget();
-    assert.equal(target.hits.length, 2);
+    assert.equal(target.hits.length, FULL_LINT_HITS);
     assert.equal(target.hits[1].method, 'GET');
     assert.equal(target.hits[1].url, '/zzq-10x402-route-control-9931/does-not-exist.json');
     assert.equal(target.hits[1].body, '');
     assert.match(target.hits[1].headers['user-agent'], /10x402/);
+
+    // Every user-agent in the matrix was actually borrowed, on the declared
+    // path — the check is worth nothing if the probes all looked the same.
+    const matrix = target.hits.slice(2).filter((h) => h.url === '/api');
+    assert.deepEqual(
+      matrix.map((h) => h.headers['user-agent'] ?? null).sort(),
+      UA_MATRIX.map((e) => e.ua).sort(),
+      'the matrix did not send the user-agents it publishes'
+    );
   });
 
   test('defaults to POST with an empty JSON body', async () => {
@@ -278,9 +317,9 @@ describe('redirects are reported, not followed', () => {
     };
     const res = await lintTarget('/moved');
 
-    // Two hits: the probe (whose redirect is NOT followed — that is this
-    // test's claim) and the negative control. Neither goes to /elsewhere.
-    assert.equal(target.hits.length, 2, 'the redirect was followed');
+    // The probe (whose redirect is NOT followed — that is this test's claim),
+    // the negative control and the matrix. None of them goes to /elsewhere.
+    assert.equal(target.hits.length, FULL_LINT_HITS, 'the redirect was followed');
     assert.ok(
       target.hits.every((h) => !h.url.includes('elsewhere')),
       'a request followed the redirect'
@@ -312,9 +351,10 @@ describe('redirects are reported, not followed', () => {
       body: '',
     };
     const res = await lintTarget('/bounce');
-    // The probe and the negative control — both to THIS host, neither to the
-    // metadata address the redirect named.
-    assert.equal(target.hits.length, 2);
+    // The probe, the negative control and the matrix — all to THIS host, none
+    // to the metadata address the redirect named.
+    assert.equal(target.hits.length, FULL_LINT_HITS);
+    assert.ok(target.hits.every((h) => !h.url.includes('meta-data')));
     assert.equal(res.status, 200);
     assert.ok(res.body.findings.some((f) => f.code === 'HTTP_REDIRECT'));
     // Nothing from the metadata service can be in the report, because nothing
@@ -544,5 +584,70 @@ describe('the negative control, over the wire', () => {
     );
     assert.equal(other.status, 200, other.text);
     assert.equal(target.hits.length, 1, 'a non-control single check made the control request');
+  });
+});
+
+describe('the user-agent matrix, over the wire', () => {
+  const perfect = () => response({ v1: v1Envelope(), v2: v2Envelope() });
+
+  test('a target that 403s only Python-urllib is reported, with the body it sent back', async () => {
+    // A host that walls off one client family by its User-Agent, as a bot wall does.
+    target.reset();
+    target.serve(perfect());
+    target.state.answer = (req) =>
+      (req.headers['user-agent'] || '').includes('Python-urllib')
+        ? { status: 403, headers: { 'content-type': 'text/html' }, body: '<html>error code: 1010</html>' }
+        : null;
+
+    const res = await lintTarget();
+    assert.equal(res.status, 200, res.text);
+    const finding = res.body.findings.find((f) => f.code === 'UA_GATE_402');
+    assert.ok(finding, JSON.stringify(res.body.findings, null, 2));
+    assert.match(finding.message, /Python-urllib\/3\.14/);
+    assert.match(finding.message, /error code: 1010/);
+    // Hygiene: an edge that turns python away costs the seller buyers, and the
+    // envelope it never got to serve is still a correct one.
+    assert.equal(finding.severity, 'info');
+    assert.equal(res.body.grade, 'A');
+  });
+
+  test('a gated discovery surface is reported, within the documented budget', async () => {
+    // THE BOUND THE SELLER IS OWED, in the worst case this rig can produce: a
+    // discovery surface exists, so the matrix is spent on it as well as on the
+    // route. The ceiling is published (UA_PROBE_CEILING) and asserted here on
+    // the target's own record.
+    target.reset();
+    target.serve(perfect());
+    target.state.surface = { status: 200, headers: { 'content-type': 'text/plain' }, body: '# llms' };
+    target.state.answer = (req) =>
+      req.url === UA_SURFACE_PATHS[0] && (req.headers['user-agent'] || '').includes('Go-http-client')
+        ? { status: 403, headers: {}, body: 'error code: 1010' }
+        : null;
+
+    const res = await lintTarget();
+    const finding = res.body.findings.find((f) => f.code === 'UA_GATE_SURFACES');
+    assert.ok(finding, JSON.stringify(res.body.findings, null, 2));
+    assert.match(finding.message, new RegExp(UA_SURFACE_PATHS[0]));
+    assert.match(finding.message, /Go-http-client\/2\.0/);
+    // The route was fine, and the report does not conflate the two.
+    assert.ok(!res.body.findings.some((f) => f.code === 'UA_GATE_402'));
+
+    const extra = target.hits.length - 2; // the probe and the negative control
+    assert.ok(extra <= UA_PROBE_CEILING, `${extra} extra requests, ceiling ${UA_PROBE_CEILING}`);
+    assert.equal(extra, UA_MATRIX.length * 2, 'the matrix ran on the route and on one surface');
+
+    // A target with no discovery surfaces pays the matrix plus one knock per
+    // path: existence costs the baseline entry and nothing more.
+    target.reset();
+    target.serve(perfect());
+    await lintTarget();
+    assert.equal(target.hits.length, FULL_LINT_HITS);
+
+    // And /lint/one on any check that does not read the matrix keeps the
+    // one-request bound the buyer paid for.
+    target.reset();
+    target.serve(perfect());
+    await api.post('/lint/one', { url: target.url('/api'), check: 'V2_B64_URLSAFE' }, { ip: ips.next() });
+    assert.equal(target.hits.length, 1, 'a non-matrix single check ran the matrix');
   });
 });
