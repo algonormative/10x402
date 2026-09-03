@@ -59,6 +59,7 @@
 // snippet sees the humans; this sees the customers.
 
 import { paymentPresented } from './x402.js';
+import { isHousePayer, railOf } from './alert-message.js';
 
 const DEFAULT_HOST = 'https://us.i.posthog.com';
 
@@ -66,13 +67,88 @@ const DEFAULT_HOST = 'https://us.i.posthog.com';
 // exists only so a hung socket cannot pin a waitUntil open indefinitely.
 const CAPTURE_TIMEOUT_MS = 5_000;
 
-/** The event names, in one place so a rename is one edit and greppable. */
+/**
+ * The event names, in one place so a rename is one edit and greppable.
+ *
+ * THE NAMES ARE THE ESTATE'S, NOT THIS SERVICE'S. `x402 quote issued`,
+ * `x402 call refused` and `x402 payment settled` are already in the shared
+ * PostHog project, sent by the other 402 properties. Renaming one here — even
+ * to something more accurate about linting — would split every estate-wide
+ * funnel in two, silently, and the graph would just show a smaller number.
+ */
 export const EVENTS = {
   httpLog: '$http_log',
   quoteIssued: 'x402 quote issued',
   reportServed: 'x402 report served',
   callRefused: 'x402 call refused',
+  paymentSettled: 'x402 payment settled',
 };
+
+/**
+ * The complete vocabulary of `x402 call refused`.
+ *
+ * A CLASS, NEVER THE MESSAGE. This Worker's 4xx bodies carry prose written for
+ * a human — "the request body is not valid JSON: Unexpected token }" — and
+ * prose is where a linted URL or a pasted envelope would eventually end up
+ * quoted back. The graph only needs to know which KIND of thing went wrong, and
+ * a closed set keeps the breakdown readable besides.
+ *
+ * IT IS A CLOSED SET BECAUSE THE HOLE IT FIXES WAS A MISSING FIELD, NOT A WRONG
+ * ONE. 517 of 538 refusals in the 2026-09-02 readout carried no `reason` at
+ * all, so the largest single class of traffic this service sees — discovery
+ * crawlers GETting the POST-only routes — was a `status_code: 405` bar with
+ * nothing to say about it. A free-form string would have been the other
+ * failure: a breakdown with 500 buckets is the same as no breakdown.
+ * `refusalReason` below is TOTAL over the status codes, so no refusal can ship
+ * without one, and the suite asserts every value it can produce is in here.
+ */
+export const REFUSAL_REASONS = [
+  // The 405 class, and the reason this vocabulary exists: an indexer or an AI
+  // crawler GETting a route that executes on POST. Real, nameable, and by far
+  // the commonest refusal on this service.
+  'method-not-allowed',
+  // A payment was presented and refused without anything being verified,
+  // settled or charged — today, only a payment that arrived on a verb the
+  // route cannot serve (paidWrongVerb in worker.js). A payment the FACILITATOR
+  // rejects is a 402, and 402s are quotes, not refusals.
+  'payment-invalid',
+  // A ceiling: the global daily bound, the per-caller call bound, the
+  // attempt bound, or the verify bound. All 429.
+  'rate-limited',
+  'body-too-large',
+  // Anything the caller sent that this service would not read: an empty body,
+  // JSON that would not parse, a missing field, an unknown check id, a target
+  // the SSRF guard refused.
+  'bad-request',
+  // No D1 binding, or the metered path failed closed. The caller did nothing
+  // wrong and there is nothing they can fix.
+  'store-unavailable',
+  // The total fallback. A status this map does not name must still resolve to a
+  // member of this set — an `undefined` reason is the bug being fixed here, and
+  // a graph with an "other" bar in it is a prompt to come back and name it.
+  'other',
+];
+
+/**
+ * Which class of refusal a paid call's status code is.
+ *
+ * DERIVED FROM THE STATUS AND THE REQUEST, like every other decision in this
+ * file — see eventsFor. The one place the status alone is not enough is 405,
+ * where this Worker has two different answers: `wrongMethod()` for a caller
+ * that used the wrong verb, and `paidWrongVerb()` for one that presented a
+ * PAYMENT on a verb that cannot serve it. They are the same status with the
+ * same `allow` header, and they are very different customers — the second is
+ * someone with money out. `paymentPresented()` is the same function handlePaid
+ * branches on, so this split is the Worker's own and not a second guess at it.
+ */
+export function refusalReason(status, request) {
+  if (status === 405) return paymentPresented(request) ? 'payment-invalid' : 'method-not-allowed';
+  if (status === 429) return 'rate-limited';
+  if (status === 413) return 'body-too-large';
+  if (status === 400) return 'bad-request';
+  if (status === 503) return 'store-unavailable';
+  return 'other';
+}
 
 /**
  * Is analytics configured?
@@ -214,8 +290,58 @@ export function eventsFor({ request, response, endpoint, url }) {
   // thing that can happen on this service and the least visible.
   return [
     ...events,
-    { event: EVENTS.callRefused, properties: { ...base, status_code: status } },
+    {
+      event: EVENTS.callRefused,
+      properties: { ...base, status_code: status, reason: refusalReason(status, request) },
+    },
   ];
+}
+
+/**
+ * THE SALE, as an event.
+ *
+ * PURE, and separate from captureSettlement for eventsFor's reason: the
+ * decisions — which rail, whose wallet, what the report cost — are the part
+ * that can be wrong, and they are worth asserting without a network.
+ *
+ * IT CANNOT COME OUT OF eventsFor, and that is why this function exists at all.
+ * Every other event on this service is derived from a finished Response, and
+ * settlement deliberately runs in ctx.waitUntil AFTER that response — so at the
+ * moment `captureRequest` reads the headers, the facilitator has not been asked
+ * yet and there is no transaction to name. A settled payment is the one thing
+ * this service does that the response cannot describe.
+ *
+ * `rail` and `house` go through alert-message.js's own helpers rather than a
+ * second copy: the owner's alert and this graph must agree about which chain a
+ * settlement moved on and whether the payer was the house, or a revenue readout
+ * and a Telegram message would tell two different stories about the same money.
+ */
+export function settlementEvent({ endpoint, host, ua, payer, amountAtomic, network, txHash, house }) {
+  const atomic = String(amountAtomic ?? '');
+  return {
+    event: EVENTS.paymentSettled,
+    properties: {
+      endpoint: endpoint.id,
+      path: endpoint.path,
+      // What the report costs, off the catalogue — the same number the 402
+      // quoted. Never recomputed here: this file holds no pricing.
+      price_usd: endpoint.price_usd,
+      $host: host,
+      $raw_user_agent: ua || '',
+      // The payer ships because it is an address its owner revealed by paying,
+      // on a public chain, and it is already in the `settlements` table for the
+      // same reason. It is the facilitator's value, not the caller's claim.
+      payer: payer ?? null,
+      // A number so a graph can sum it. USDC is 6 decimals on both rails, so
+      // the atomic amount means the same thing on each.
+      amount_atomic: /^\d+$/.test(atomic) ? Number(atomic) : null,
+      rail: railOf(network),
+      tx_hash: txHash ?? null,
+      // The owner's own drills must be separable from third-party revenue, or
+      // the first number anyone reads off this graph is wrong.
+      house,
+    },
+  };
 }
 
 /**
@@ -250,10 +376,64 @@ async function callerId(token, request) {
  */
 export async function captureRequest(env, { request, response, endpoint, url }) {
   if (!analyticsEnabled(env)) return 0;
+  const events = eventsFor({ request, response, endpoint, url });
+  await sendEvents(env, request, events);
+  return events.length;
+}
 
+/**
+ * Send the settlement this request eventually produced.
+ *
+ * Call it ONLY from inside settleAndRecord, which is itself already inside a
+ * ctx.waitUntil — so this is awaited rather than deferred again. Registering a
+ * second waitUntil from in there would be a promise the runtime has no
+ * obligation to finish, and nothing is waiting on this either way: the caller's
+ * response shipped several steps ago.
+ *
+ * Returns 1 when an event was sent and 0 when analytics is off, so a test can
+ * assert the no-config path made no network call rather than inferring it from
+ * a mock that was never hit.
+ */
+export async function captureSettlement(env, { request, endpoint, payer, amountAtomic, network, txHash }) {
+  if (!analyticsEnabled(env)) return 0;
+
+  // The host the caller actually reached, not a constant — this is the same
+  // `$host` the quote and the report events for this very request carried, and
+  // a funnel that ends "quote issued on 10x402.com -> payment settled on
+  // <something else>" is a funnel with a hole in it.
+  let host = '';
+  try {
+    host = new URL(request.url).host;
+  } catch {
+    /* an unparseable request URL costs the attribution, never the event */
+  }
+
+  const event = settlementEvent({
+    endpoint,
+    host,
+    ua: request.headers.get('user-agent') || '',
+    payer,
+    amountAtomic,
+    network,
+    txHash,
+    house: isHousePayer(env, payer),
+  });
+
+  await sendEvents(env, request, [event]);
+  return 1;
+}
+
+/**
+ * The one transport, shared by both capture entry points.
+ *
+ * Everything that is true of EVERY event this file sends lives here and nowhere
+ * else: the caller id, the timestamp, the country, and the anonymity flag. A
+ * second copy of this in the settlement path is how a settled payment ends up
+ * being the one event in the project that carries a person profile.
+ */
+async function sendEvents(env, request, events) {
   const token = env.POSTHOG_PROJECT_TOKEN;
   const host = (env.POSTHOG_HOST || DEFAULT_HOST).replace(/\/+$/, '');
-  const events = eventsFor({ request, response, endpoint, url });
 
   let distinctId;
   try {
@@ -284,8 +464,6 @@ export async function captureRequest(env, { request, response, endpoint, url }) 
       })
     )
   );
-
-  return events.length;
 }
 
 /** One POST. Fire once, never retried, never allowed to throw. */

@@ -29,7 +29,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { after, before, describe, test } from 'node:test';
 
-import { ENDPOINTS, SITE_BASE } from '../worker/catalog.js';
+import { ENDPOINTS, SITE_BASE, indefiniteArticle } from '../worker/catalog.js';
+import { CHECKS } from '../worker/lint.js';
 import { SURFACES } from '../worker/surfaces.generated.js';
 import { PAYTO_TEST, ROOT, useWorker } from './harness.mjs';
 
@@ -139,6 +140,52 @@ describe('the module covers every machine surface the build emits', () => {
         `${path}: the committed module differs from the built asset — run \`node build.mjs\` and commit worker/surfaces.generated.js`
       );
     }
+  });
+});
+
+describe('the hero lede agrees with the number it is counting', () => {
+  // "A 82-check catalogue" shipped in the SECOND SENTENCE A BUYER READS, on a
+  // page whose entire argument is that this service is careful about details.
+  // The fix is computed rather than hardcoded, so the two tests below are a
+  // pair: the rule, and the rendering that uses it.
+  test('indefiniteArticle picks the article from how the number is SPOKEN', () => {
+    // "an eight", "an eighty-two", "an eight hundred", "an eight thousand".
+    for (const n of [8, 80, 82, 89, 800, 888, 8000]) {
+      assert.equal(indefiniteArticle(n), 'an', `${n}`);
+    }
+    // "an eleven", "an eighteen" — the two spelled-out exceptions.
+    assert.equal(indefiniteArticle(11), 'an');
+    assert.equal(indefiniteArticle(18), 'an');
+    // And NOT a prefix test: 110 is "one hundred ten", 180 is "one hundred
+    // eighty". Both start with a consonant sound despite the leading digits.
+    for (const n of [110, 180, 1100, 1800]) {
+      assert.equal(indefiniteArticle(n), 'a', `${n}`);
+    }
+    // Every other leading digit reads as a consonant.
+    for (const n of [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 19, 42, 79, 90, 100]) {
+      assert.equal(indefiniteArticle(n), 'a', `${n}`);
+    }
+    // Nothing that is not a whole non-negative count can produce a wrong
+    // article — it produces the safe one.
+    for (const n of [-8, 8.5, NaN, undefined, null, '8']) {
+      assert.equal(indefiniteArticle(n), 'a', `${n}`);
+    }
+  });
+
+  test('the built page opens with the right article for the catalogue size', async () => {
+    await ensureBuild();
+    const page = readFileSync(join(DIST, 'index.html'), 'utf8');
+    const article = indefiniteArticle(CHECKS.length) === 'an' ? 'An' : 'A';
+    assert.ok(
+      page.includes(`${article} ${CHECKS.length}-check catalogue`),
+      `the lede does not render "${article} ${CHECKS.length}-check catalogue"`
+    );
+    // The inverse, so a regression cannot pass by rendering both.
+    const wrong = article === 'An' ? 'A' : 'An';
+    assert.ok(
+      !page.includes(`${wrong} ${CHECKS.length}-check catalogue`),
+      `the lede still renders "${wrong} ${CHECKS.length}-check catalogue"`
+    );
   });
 });
 

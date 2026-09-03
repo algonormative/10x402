@@ -569,6 +569,35 @@ export const singlesEdge = (rail) => {
   return Math.ceil(BATCH_MULTIPLES[rail]) - 1;
 };
 
+/**
+ * "a" or "an" in front of a NUMBER written as digits.
+ *
+ * WHY THIS EXISTS. The hero lede rendered `A ${CHECKS.length}-check catalogue`,
+ * which with 82 checks printed "A 82-check catalogue" — a typo in the second
+ * sentence a buyer reads, on a page whose whole argument is that this service
+ * is careful about details. Hardcoding "An" would fix it until the catalogue
+ * grew to 90 checks and broke it again silently, so the article is computed
+ * from the number instead.
+ *
+ * THE RULE IS ABOUT THE SOUND, NOT THE SPELLING. "an" goes before a number
+ * whose SPOKEN form opens with a vowel: eleven, eighteen, and anything that
+ * starts with "eight" — 8, 82, 800, 8,000. Every other digit reads as a
+ * consonant, including the ones that merely LOOK like a vowel case: 110 is "one
+ * hundred ten" and 180 is "one hundred eighty", so the eleven/eighteen test is
+ * an equality and not a prefix. A leading 8 IS a prefix test, because every
+ * number that begins with one is read "eight…" all the way up.
+ *
+ * Exact over 0–999, which is the only range a check catalogue will ever be in.
+ * Past that it errs toward "a" (11,000 is "eleven thousand" and would want
+ * "an"), and anything that is not a whole non-negative number gets "a" too —
+ * never worse than the bug this replaces.
+ */
+export const indefiniteArticle = (n) => {
+  if (!Number.isInteger(n) || n < 0) return 'a';
+  if (n === 11 || n === 18) return 'an';
+  return String(n).startsWith('8') ? 'an' : 'a';
+};
+
 /** The sentence every surface prints, so all of them print the same one. */
 export const batchAdvantageLine = (checksTotal) =>
   `A full ${checksTotal}-check report costs ${BATCH_MULTIPLES.live}x one check on a live URL and ` +

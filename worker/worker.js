@@ -133,7 +133,7 @@ import {
   randomHex,
 } from './x402.js';
 import { sendPaymentAlert } from './alerts.js';
-import { analyticsEnabled, captureRequest } from './analytics.js';
+import { analyticsEnabled, captureRequest, captureSettlement } from './analytics.js';
 
 // A runaway bound on calls we actually serve, per caller per UTC day. NOT a
 // quota to advertise — publishing it would read as a promise — so it is
@@ -967,6 +967,11 @@ async function handlePaid(request, env, ctx, endpoint) {
           payload: verdict.payload,
           payer: verdict.payer,
           endpoint,
+          // Carried purely so the settled event can be attributed the same way
+          // every other event on this request was — same $host, same user
+          // agent, same caller id. Nothing else in settleAndRecord reads it,
+          // and the BODY is never in scope there at all.
+          request,
         };
       } else {
         // UNREACHABLE / UNCONFIGURED FACILITATOR. Availability-first: at these
@@ -1623,7 +1628,7 @@ function servedHeaders({ kind, presented, remaining, error }) {
 
 // ------------------------------------------------------------------ settlement
 
-async function settleAndRecord(env, db, { requirements, facRequirements, version, network, payload, payer, endpoint }) {
+async function settleAndRecord(env, db, { requirements, facRequirements, version, network, payload, payer, endpoint, request }) {
   const ownResource = version === 2 ? resourceInfoV2(requirements, endpoint) : requirements.resource;
   const { settleOk, txHash, error } = await settlePayment(env, { facRequirements, payload, ownResource });
 
@@ -1661,6 +1666,39 @@ async function settleAndRecord(env, db, { requirements, facRequirements, version
     txHash,
     error,
   });
+
+  // THE SALE, IN THE GRAPH. Everything else this Worker sends to PostHog is
+  // derived from a finished Response, and this one cannot be: the response
+  // shipped before the facilitator was ever asked, so a settlement is invisible
+  // to `captureRequest` by construction. It was invisible in production too —
+  // `x402 payment settled` had never once fired with $host=10x402.com while D1
+  // held 30 settled rows, so revenue on this property existed only in the
+  // ledger and on chain.
+  //
+  // COUNTED ONLY WHEN THE MONEY ACTUALLY MOVED. `settleOk` is set from the
+  // facilitator's own `success: true`, so a verified payment whose settlement
+  // failed is a `settlements` row an operator reconciles by hand and is NOT a
+  // point in this graph. There is exactly one settlement path in this Worker
+  // and this is its end.
+  //
+  // LAST, after the ledger row and after the owner's ping, for the same reason
+  // they are ordered that way: the table is the source of truth for money, the
+  // alert tells a human to go look, and a graph is the thing that can be
+  // rebuilt. It cannot throw — every failure inside is swallowed — and nothing
+  // is waiting on it.
+  if (settleOk === 1) {
+    // `.catch` here as well as inside analytics.js: belt and braces on the last
+    // statement of a waitUntil, because an unhandled rejection there is a
+    // Worker-level error and a graph is not permitted to cause one.
+    await captureSettlement(env, {
+      request,
+      endpoint,
+      payer,
+      amountAtomic: requirements.maxAmountRequired,
+      network,
+      txHash,
+    }).catch(() => {});
+  }
 }
 
 // ------------------------------------------------------------------ store
