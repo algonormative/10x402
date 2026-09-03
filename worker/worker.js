@@ -106,7 +106,7 @@ import {
   runSample,
   selectRequirements,
 } from './envelope.js';
-import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
+import { fetchTarget, fetchControl, probeUserAgents, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
 import { runPresence } from './presence.js';
 import { CAPTURE_CRON, PROBE_CRON, runCaptureCron, runProbeCron } from './monitor.js';
 import {
@@ -584,7 +584,7 @@ function handleCheck(request, env) {
         // routes need a `check`, which ones make an outbound request on the
         // caller's behalf, and which fuller or cheaper route is the sibling of
         // this one. READ OFF `kind` FIRST: two of these routes do not answer
-        // about the check catalogue at all, and "all 82 checks" would be a
+        // about the check catalogue at all, and "all N checks" would be a
         // false description of what they cover rather than a vague one.
         scope:
           e.kind === 'monitor'
@@ -1202,6 +1202,15 @@ async function runUrlLint(body, env, check) {
   if (wantsControl) {
     const control = await fetchControl(body.url, env);
     if (control.ok) fetched.input.control = { path: CONTROL_PATH, status: control.status };
+  }
+
+  // THE USER-AGENT MATRIX, on the same rule as the control: the full report
+  // always, /lint/one only when the named check reads it. Any other single
+  // check still costs the target one request. UA_PROBE_CEILING bounds it.
+  const wantsUaGate = !check || check === 'UA_GATE_402' || check === 'UA_GATE_SURFACES';
+  if (wantsUaGate) {
+    const gate = await probeUserAgents(body.url, fetched.input.method, env);
+    if (gate.ok) fetched.input.uaGate = gate.uaGate;
   }
 
   const report = check ? lintOne(fetched.input, check) : lint(fetched.input);

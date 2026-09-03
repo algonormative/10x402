@@ -141,7 +141,7 @@ function buildPins(headCommit) {
         'The AUTHORITY is `blobs` below: content-addressed, recomputed by assertPinnedBlobs() in ' +
         'corpus/run-10x402.mjs, and checked before the engine executes.',
       blobs,
-      note: 'the engine under test — worker/lint.js, 82 checks (two of them live-only — see LIVE_ONLY_CHECKS in corpus/run-10x402.mjs; they cannot fire on a recorded fixture)',
+      note: 'the engine under test — worker/lint.js, 84 checks (four of them live-only — see LIVE_ONLY_CHECKS in corpus/run-10x402.mjs; they cannot fire on a recorded fixture)',
     },
     packages: PACKAGES,
     'x402-foundation/x402': {

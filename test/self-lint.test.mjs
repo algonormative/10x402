@@ -73,6 +73,12 @@ const CANNOT_APPLY = [
   // time rather than asserted from a test that never fetched.
   'HTTP_ROUTE_DISCRIMINATES',
   'HTTP_SOFT_404',
+  // The same, one matrix wider: these judge a request per common agent client,
+  // and the self-lint made exactly one. The live claim — that 10x402.com itself
+  // answers python, go and a bare fetch the same way it answers curl — is a
+  // deployment property, verified against production at deploy time.
+  'UA_GATE_402',
+  'UA_GATE_SURFACES',
   // FINDINGS_TRUNCATED is NOT on this list any more, and its absence is the
   // point of the change that removed it. It used to fire only when the
   // 200-finding cap was hit — a cap the accepts limit and the fault-collapsing

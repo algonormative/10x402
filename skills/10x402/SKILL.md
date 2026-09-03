@@ -1,6 +1,6 @@
 ---
 name: 10x402
-description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs an 82-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix and cites the spec section, client source line or CDP requirement its rule comes from. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
+description: Find response-level blockers when an x402 endpoint passes validate but is not indexed, an x402 service is not showing up in Bazaar, or an x402 v1 vs v2 migration breaks. Runs an 84-check catalogue over the HTTP 402, payment envelopes, and report safeguards; each finding includes a specific fix and cites the spec section, client source line or CDP requirement its rule comes from. Use for x402 seller debugging, PAYMENT-REQUIRED headers, CDP Bazaar listings, extensions.bazaar, discoverability, dual-stack v1/v2 envelopes, and invalid_exact_evm_payload_signature.
 ---
 
 # 10x402 — identify blockers to indexing and payment
@@ -36,7 +36,7 @@ to configure `@x402/fetch` or another supported client.
 
 **Public endpoint — $0.10 per served report.** Priced for the incident it
 resolves: a 402 that passes validate and still is not indexed, with nothing in
-the stack saying which of the 82 things is wrong.
+the stack saying which of the 84 things is wrong.
 
 ```bash
 curl -sS -X POST https://10x402.com/lint \
@@ -85,7 +85,7 @@ curl -sS -X POST https://10x402.com/lint/envelope/one \
   -d '{"status": 402, "headers": {"payment-required": "<base64>"}, "check": "V2_B64_URLSAFE"}'
 ```
 
-A full 82-check report costs 6.667x one check on a live URL and 10x on a pasted
+A full 84-check report costs 6.667x one check on a live URL and 10x on a pasted
 response — a 12.3x and 8.2x per-check advantage. Singles stay the cheaper buy
 through 6 questions live and 9 pasted; past that, buy the report. **Do that
 arithmetic before firing off a stack of single checks**: past those counts the

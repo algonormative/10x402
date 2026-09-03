@@ -424,6 +424,122 @@ export async function fetchControl(rawUrl, env) {
   }
 }
 
+// ------------------------------------------------------------------ the user-agent matrix
+//
+// WHAT A SELLER'S EDGE THINKS OF THE CLIENT THAT CAME. Cloudflare's Browser
+// Integrity Check — and every bot wall like it — answers some user-agents with
+// a 403 (`error code: 1010`), a 429 or a challenge while answering the same
+// path normally for others. Nothing in x402 makes a buyer a browser, so such a
+// gate sells only to the client families it likes, and the seller cannot see
+// it. One request per entry, under the same rules as the probe above: no
+// payment header, no identity, no redirects.
+
+/**
+ * The client families a buyer actually arrives as. One entry per family, and
+ * the STRING is the point: it is what the edge reads.
+ *
+ * The first entry is also the baseline used to decide whether a discovery
+ * surface exists, so it stays the one no bot wall gates.
+ */
+export const UA_MATRIX = Object.freeze([
+  { label: 'curl', ua: 'curl/8.7.1' },                        // the shell one-liner; the baseline
+  { label: 'python-stdlib', ua: 'Python-urllib/3.14' },       // urllib.request — a stdlib-only buyer
+  { label: 'python-requests', ua: 'python-requests/2.32.3' }, // requests, the common third-party client
+  { label: 'python-aiohttp', ua: 'Python/3.12 aiohttp/3.9.5' }, // async python, what agent frameworks use
+  { label: 'go', ua: 'Go-http-client/2.0' },                  // net/http's default
+  { label: 'node', ua: 'node' },                              // the bare token some node clients send
+  { label: 'undici', ua: 'undici' },                          // node 18+ fetch's own agent
+  { label: 'axios', ua: 'axios/1.7.2' },                      // the dominant JS http client
+  { label: 'okhttp', ua: 'okhttp/4.12.0' },                   // JVM and Android
+  { label: 'none', ua: null },                                // NO User-Agent header at all
+]);
+
+/** The discovery surfaces a buyer reads, in the order they are tried. */
+export const UA_SURFACE_PATHS = Object.freeze(['/llms.txt', '/openapi.json', '/.well-known/x402']);
+
+/**
+ * THE DOCUMENTED CEILING: the most extra requests one target can be asked for,
+ * on top of the probe and the negative control. The matrix runs ONCE on the
+ * paid route and ONCE on the FIRST discovery surface that exists; the surfaces
+ * before it cost the baseline entry alone, which is the second term.
+ */
+export const UA_PROBE_CEILING = UA_MATRIX.length + (UA_MATRIX.length + UA_SURFACE_PATHS.length - 1);
+
+/** How much of a refusal body is kept: enough to show `error code: 1010`. */
+const UA_SNIPPET_BYTES = 512;
+const UA_SNIPPET_CHARS = 80;
+
+/** A status that means the path is not there, so the matrix is not spent on it. */
+const ABSENT = new Set([404, 410]);
+
+/**
+ * One probe: `fetchTarget`'s request under a borrowed user-agent. `status: null`
+ * is a transport failure, which the checks read as no observation. The body is
+ * read only on an unexpected answer, and only far enough to quote 80 characters.
+ */
+async function probeUa(href, verb, entry, env, expect) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs(env));
+  try {
+    const res = await fetch(href, {
+      method: verb,
+      redirect: 'manual',
+      headers: {
+        accept: 'application/json, */*',
+        ...(entry.ua ? { 'user-agent': entry.ua } : {}),
+        ...(verb === 'POST' ? { 'content-type': 'application/json' } : {}),
+      },
+      body: verb === 'POST' ? '{}' : undefined,
+      signal: controller.signal,
+    });
+    let snippet = '';
+    if (res.status !== expect) {
+      const read = await readCapped(res, UA_SNIPPET_BYTES, controller.signal);
+      snippet = read.text.replace(/\s+/g, ' ').trim().slice(0, UA_SNIPPET_CHARS);
+    } else {
+      try {
+        await res.body?.cancel();
+      } catch {
+        /* the status is the evidence; a dead stream changes nothing */
+      }
+    }
+    return { label: entry.label, ua: entry.ua, status: res.status, snippet };
+  } catch {
+    return { label: entry.label, ua: entry.ua, status: null, snippet: '' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The matrix against the paid route and the first discovery surface that exists.
+ * A matrix that could not be probed is an observation the checks decline on.
+ */
+export async function probeUserAgents(rawUrl, method, env) {
+  const checked = checkTargetUrl(rawUrl, { unsafe: unsafeTargetsAllowed(env) });
+  if (checked.error) return { ok: false };
+  const verb = String(method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST';
+
+  const route = {
+    method: verb,
+    probes: await Promise.all(UA_MATRIX.map((entry) => probeUa(checked.url.href, verb, entry, env, 402))),
+  };
+
+  // Existence costs the baseline entry and nothing more: a surface that is not
+  // there answers 404 once and the other nine requests are never made.
+  let surface = null;
+  for (const path of UA_SURFACE_PATHS) {
+    const href = new URL(path, checked.url.origin).href;
+    const first = await probeUa(href, 'GET', UA_MATRIX[0], env, 200);
+    if (first.status === null || ABSENT.has(first.status)) continue;
+    const rest = await Promise.all(UA_MATRIX.slice(1).map((entry) => probeUa(href, 'GET', entry, env, 200)));
+    surface = { path, probes: [first, ...rest] };
+    break;
+  }
+
+  return { ok: true, uaGate: { route, surface } };
+}
+
 /** The two transport refusals, written once so they cannot drift apart. */
 const timedOut = (env, what = 'answer') => ({
   error: `the target did not ${what} within ${timeoutMs(env) / 1000}s`,

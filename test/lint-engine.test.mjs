@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { CHECKS, CHECKS_BY_ID, GRADE_RULES, MAX_ACCEPTS_LINTED, grade, lint } from '../worker/lint.js';
+import { UA_MATRIX } from '../worker/fetch-target.js';
 import {
   FIXTURES,
   bazaar,
@@ -494,5 +495,89 @@ describe('the negative control (x402#3104)', () => {
     const withControl = lint({ ...perfect(), control: { path: CONTROL_PATH, status: 404 } });
     const without = lint(perfect());
     assert.equal(withControl.checks_run - without.checks_run, 2);
+  });
+});
+
+describe('the user-agent matrix', () => {
+  // Same shape of argument as the negative control above: a SECOND observation,
+  // here a request per common agent client, which no pasted response carries.
+  const perfect = () => response({ v1: v1Envelope(), v2: v2Envelope(), url: RESOURCE_URL });
+  const probe = (label, ua, status, snippet = '') => ({ label, ua, status, snippet });
+  const uniform = (status, expect = status) =>
+    UA_MATRIX.map((e) => probe(e.label, e.ua, status, status === expect ? '' : 'body'));
+  /** The matrix with one client family walled off, as Cloudflare's BIC does it. */
+  const gatedOn = (label, status, snippet, base = 402) =>
+    UA_MATRIX.map((e) => (e.label === label ? probe(e.label, e.ua, status, snippet) : probe(e.label, e.ua, base)));
+
+  test('a route that 403s only Python-urllib names it and quotes the body', () => {
+    const report = lint({
+      ...perfect(),
+      uaGate: { route: { method: 'POST', probes: gatedOn('python-stdlib', 403, 'error code: 1010') }, surface: null },
+    });
+    assert.deepEqual(codesOf(report), ['UA_GATE_402']);
+    const finding = report.findings[0];
+    assert.equal(finding.severity, 'info');
+    assert.match(finding.message, /Python-urllib\/3\.14/);
+    // The snippet is why a seller believes the report — 1010 is the Cloudflare
+    // error code they can search for — and the families that DID get through
+    // are named too, because a differential is two lists.
+    assert.match(finding.message, /error code: 1010/);
+    assert.match(finding.message, /curl\/8\.7\.1/);
+    assert.match(finding.fix, /WAF skip rule/);
+    // Hygiene: it costs the seller buyers, not the grade.
+    assert.equal(report.grade, 'A');
+  });
+
+  test('a uniform 402 across the matrix passes', () => {
+    const report = lint({ ...perfect(), uaGate: { route: { method: 'POST', probes: uniform(402) }, surface: null } });
+    assert.deepEqual(codesOf(report), []);
+  });
+
+  test('a host that refuses EVERY client alike is not a user-agent gate', () => {
+    // No differential, so nothing here fires: HTTP_STATUS_402 is what reports a
+    // 403 to everybody, and saying it twice would read as two problems.
+    const report = lint({
+      ...response({ status: 403, bodyRaw: 'error code: 1010' }),
+      uaGate: { route: { method: 'POST', probes: uniform(403, 402) }, surface: null },
+    });
+    assert.ok(!codesOf(report).includes('UA_GATE_402'), codesOf(report).join(','));
+  });
+
+  test('a gated discovery surface is reported separately, and names the path', () => {
+    const report = lint({
+      ...perfect(),
+      uaGate: {
+        route: { method: 'POST', probes: uniform(402) },
+        surface: { path: '/llms.txt', probes: gatedOn('python-requests', 403, 'error code: 1010', 200) },
+      },
+    });
+    assert.deepEqual(codesOf(report), ['UA_GATE_SURFACES']);
+    assert.match(report.findings[0].message, /llms\.txt/);
+    assert.match(report.findings[0].message, /python-requests\/2\.32\.3/);
+    assert.match(report.findings[0].fix, /discovery paths/);
+    assert.equal(report.grade, 'A');
+  });
+
+  test('a matrix that nobody answered, and no matrix at all, both decline', () => {
+    // A dropped connection is not a policy: with one answered probe there is
+    // nothing to compare. And FIXTURES is matrix-free throughout, which is the
+    // proof that adding the pair changed no existing expectation — absent from
+    // checks_run, not silently passing.
+    const probes = UA_MATRIX.map((e, i) => probe(e.label, e.ua, i === 0 ? 402 : null));
+    const dropped = lint({ ...perfect(), uaGate: { route: { method: 'POST', probes }, surface: null } });
+    assert.equal(dropped.checks_run, lint(perfect()).checks_run);
+    for (const fixture of FIXTURES) {
+      const codes = codesOf(lint(fixture.response()));
+      assert.ok(!codes.includes('UA_GATE_402'), fixture.name);
+      assert.ok(!codes.includes('UA_GATE_SURFACES'), fixture.name);
+    }
+    const withMatrix = lint({
+      ...perfect(),
+      uaGate: {
+        route: { method: 'POST', probes: uniform(402) },
+        surface: { path: '/llms.txt', probes: uniform(200) },
+      },
+    });
+    assert.equal(withMatrix.checks_run - lint(perfect()).checks_run, 2);
   });
 });
