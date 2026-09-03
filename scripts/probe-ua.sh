@@ -19,7 +19,11 @@ set -euo pipefail
 
 HOST="${1:-${PROBE_HOST:-https://10x402.com}}"
 
-SURFACES=(/llms.txt /openapi.json /.well-known/x402 /skill.md /sitemap.xml /robots.txt)
+# One /samples/ path stands for the directory: every sample report is served by
+# the same Worker handler through the same `10x402.com/samples/*` route, so a
+# 403 on one is a 403 on all of them. `lint` is the flagship endpoint's id and
+# the URL GET /check advertises first in `sample_report`.
+SURFACES=(/llms.txt /openapi.json /.well-known/x402 /skill.md /sitemap.xml /robots.txt /samples/lint.json)
 PAID=(/lint /lint/one /lint/envelope /lint/envelope/one /monitor/verdict /monitor/history /monitor/receipt)
 # "-" is the no-User-Agent case: curl only OMITS the header when -A is given
 # an empty string (a bare request would silently send curl's own UA instead).

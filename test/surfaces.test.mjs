@@ -29,12 +29,20 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { after, before, describe, test } from 'node:test';
 
+import { ENDPOINTS, SITE_BASE } from '../worker/catalog.js';
 import { SURFACES } from '../worker/surfaces.generated.js';
 import { PAYTO_TEST, ROOT, useWorker } from './harness.mjs';
 
 const execFileAsync = promisify(execFile);
 const DIST = join(ROOT, 'dist');
 const SURFACE_PATHS = Object.keys(SURFACES);
+// The free sample reports (vault-2cmy0). NOT in SURFACES: they are one per
+// catalogue entry and each is a full lint report, so the Worker recomputes them
+// from runSample() per request rather than carrying eight of them as bytes in
+// the bundle. Everything else about them matches a machine surface — a zone
+// route, GET/HEAD only, the same headers, and a body that cannot differ from
+// the dist/ copy.
+const SAMPLE_PATHS = ENDPOINTS.map((e) => `/samples/${e.id}.json`);
 
 // `node build.mjs`, once, with any SITE_HOST override scrubbed — the committed
 // module and the parity assertion are both claims about the PRODUCTION build,
@@ -66,6 +74,21 @@ describe('every Worker-served surface has a deployed route', () => {
       assert.ok(covered(`${path}?x=1`), `a query string on ${path} falls through to Pages`);
     }
   });
+
+  test('wrangler.toml publishes a pattern for every sample report path', () => {
+    const toml = readFileSync(join(ROOT, 'wrangler.toml'), 'utf8');
+    const patterns = [...toml.matchAll(/pattern\s*=\s*"([^"]+)"/g)].map((m) => m[1].replace(/^[^/]*/, ''));
+    const covered = (path) =>
+      patterns.some((pattern) => new RegExp(`^${pattern.split('*').map(escapeRe).join('.*')}$`).test(path));
+
+    for (const path of SAMPLE_PATHS) {
+      assert.ok(covered(path), `${path} is served by the Worker but no wrangler.toml route sends it there`);
+      assert.ok(covered(`${path}?x=1`), `a query string on ${path} falls through to Pages`);
+    }
+    // The unknown-id 404 has to reach the Worker too, or Pages answers its own
+    // 403/404 to exactly the caller that most needs to be told the id is wrong.
+    assert.ok(covered('/samples/not-an-endpoint.json'), 'an unknown sample id falls through to Pages');
+  });
 });
 
 describe('the module covers every machine surface the build emits', () => {
@@ -90,6 +113,20 @@ describe('the module covers every machine surface the build emits', () => {
         `the build emits ${path} but worker/surfaces.generated.js does not serve it — Pages would 403 it to Python UAs`
       );
     }
+  });
+
+  test('every built sample report is one the Worker serves, and vice versa', async () => {
+    await ensureBuild();
+    // The sample half of claim 2, and it runs both ways on purpose. The Worker
+    // resolves an id through the catalogue, so a dist/samples/ file with no
+    // catalogue entry would be Pages-only and invisible here otherwise — and a
+    // catalogue entry with no built file would mean the two lists had drifted.
+    const built = readdirSync(join(DIST, 'samples')).sort();
+    assert.deepEqual(
+      built,
+      ENDPOINTS.map((e) => `${e.id}.json`).sort(),
+      'dist/samples/ and the catalogue disagree — one of them would be served and the other would not'
+    );
   });
 
   test('content parity: the COMMITTED module is byte-identical to the built assets', async () => {
@@ -133,6 +170,47 @@ describe('the Worker answers the surface paths', () => {
     assert.equal(await head.text(), '');
 
     const post = await fetch(`${worker.baseUrl}/llms.txt`, { method: 'POST' });
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.get('allow'), 'GET, HEAD, OPTIONS');
+    await post.text();
+  });
+
+  test('GET each sample report: 200 and the build\'s bytes — on a Python-stdlib UA', async () => {
+    await ensureBuild();
+    for (const path of SAMPLE_PATHS) {
+      const res = await fetch(`${worker.baseUrl}${path}`, { headers: { 'user-agent': 'Python-urllib/3.14' } });
+      assert.equal(res.status, 200, `${path} answered ${res.status}`);
+      assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8', `${path} content-type`);
+      assert.equal(res.headers.get('cache-control'), 'public, max-age=300', `${path} cache-control`);
+
+      const served = await res.text();
+      const onDisk = readFileSync(join(DIST, path.slice(1)), 'utf8');
+      // The acceptance is deep-equality of the REPORT; byte-equality is the
+      // stronger claim and the one that actually holds, because build.mjs and
+      // handleSample serialize the same runSample() the same way.
+      assert.deepEqual(JSON.parse(served), JSON.parse(onDisk), `${path}: the served report differs from the built one`);
+      assert.equal(served, onDisk, `${path}: served bytes differ from dist/samples/`);
+    }
+  });
+
+  test('an unknown sample id is a JSON 404 naming the free catalogue; a write verb is a 405', async () => {
+    const missing = await fetch(`${worker.baseUrl}/samples/not-an-endpoint.json`);
+    assert.equal(missing.status, 404);
+    const body = await missing.json();
+    assert.match(body.error, /not-an-endpoint\.json/);
+    assert.deepEqual(body.samples, ENDPOINTS.map((e) => `${SITE_BASE}/samples/${e.id}.json`));
+
+    // `.json` is not optional — the extensionless form must not quietly work,
+    // or `sample_report` stops being the one URL that names the resource.
+    const bare = await fetch(`${worker.baseUrl}/samples/${ENDPOINTS[0].id}`);
+    assert.equal(bare.status, 404);
+    await bare.text();
+
+    const head = await fetch(`${worker.baseUrl}${SAMPLE_PATHS[0]}`, { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), '');
+
+    const post = await fetch(`${worker.baseUrl}${SAMPLE_PATHS[0]}`, { method: 'POST' });
     assert.equal(post.status, 405);
     assert.equal(post.headers.get('allow'), 'GET, HEAD, OPTIONS');
     await post.text();

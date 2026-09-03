@@ -103,6 +103,7 @@ import {
   paymentOffer,
   paymentRequired,
   resourceInfoV2,
+  runSample,
   selectRequirements,
 } from './envelope.js';
 import { fetchTarget, fetchControl, CONTROL_PATH, unsafeTargetsAllowed } from './fetch-target.js';
@@ -314,6 +315,15 @@ function route(request, env, ctx, { path, endpoint }) {
   // miss, not walk the prototype chain into a truthy non-surface.
   if (Object.hasOwn(SURFACES, path)) return handleSurface(request, SURFACES[path]);
 
+  // THE FREE SAMPLE REPORTS, for the same reason and one more. GET /check
+  // points `sample_report` at /samples/<id>.json, so an agent holding a 402 is
+  // TOLD to read one before it decides to pay — and on Pages that read was the
+  // 403 above. They are not in SURFACES because they are not baked into the
+  // generated module: there is one per catalogue entry and each is a full lint
+  // report, so they are computed here from the same runSample() the build
+  // writes dist/ from rather than carried as bytes in the bundle.
+  if (path.startsWith('/samples/')) return handleSample(path.slice('/samples/'.length), request);
+
   // THE CATALOGUE'S EXACT PATHS WIN, AND THAT ORDERING IS LOAD-BEARING. The
   // monitor's free per-host route has a DYNAMIC segment — /monitor/{host} —
   // which ENDPOINTS_BY_PATH cannot match, so it is matched by prefix below.
@@ -368,6 +378,68 @@ function handleSurface(request, surface) {
     status: 200,
     headers: {
       'content-type': surface.contentType,
+      'cache-control': 'public, max-age=300',
+      ...CORS,
+    },
+  });
+}
+
+/**
+ * One free sample report — the goods, visible before anyone pays.
+ *
+ * BYTE-IDENTICAL TO dist/samples/<id>.json BY CONSTRUCTION, because both are
+ * `JSON.stringify(runSample(endpoint), null, 2)` with a trailing newline over
+ * the same catalogue entry. build.mjs writes the file; this writes the
+ * response; neither holds a second copy of the report. A test iterates the
+ * catalogue and compares the two, so the pair cannot drift.
+ *
+ * COMPUTED, NOT BUNDLED. The alternative was to bake the reports into
+ * worker/surfaces.generated.js beside the machine surfaces, which would have
+ * put eight full lint reports in the deployed bundle to serve a read that
+ * almost nobody makes twice. runSample() is pure and local — no D1, no fetch —
+ * so the whole cost is CPU, and the per-isolate cache below spends it once.
+ *
+ * The cache is keyed by endpoint id and holds the serialized body, which is
+ * safe because the catalogue is frozen at build time: within one isolate the
+ * answer for an id can never change.
+ *
+ * GET and HEAD only, the same 405 as handleSurface — these are documents.
+ */
+const sampleBodyCache = new Map();
+
+function handleSample(file, request) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return json(
+      { error: `method ${request.method} not allowed — this surface is read-only`, allow: ['GET', 'HEAD'] },
+      405,
+      { allow: 'GET, HEAD, OPTIONS' }
+    );
+  }
+  // `.json` is required rather than optional: /samples/lint and
+  // /samples/lint.json must not both work, or GET /check's `sample_report`
+  // stops being the one URL that names the resource.
+  const id = file.endsWith('.json') ? file.slice(0, -'.json'.length) : '';
+  const endpoint = ENDPOINTS_BY_ID.get(id);
+  if (!endpoint) {
+    return json(
+      {
+        error: `no sample report ${file}`,
+        service: SERVICE_NAME,
+        samples: ENDPOINTS.map((e) => `${SITE_BASE}/samples/${e.id}.json`),
+      },
+      404
+    );
+  }
+  let body = sampleBodyCache.get(endpoint.id);
+  if (body === undefined) {
+    body = `${JSON.stringify(runSample(endpoint), null, 2)}\n`;
+    sampleBodyCache.set(endpoint.id, body);
+  }
+  // HEAD gets an explicit null body, for handleSurface's reason.
+  return new Response(request.method === 'HEAD' ? null : body, {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
       'cache-control': 'public, max-age=300',
       ...CORS,
     },
