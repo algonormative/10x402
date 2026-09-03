@@ -72,16 +72,26 @@ routes = [
   # under it gets the Worker's JSON 404 instead of a Pages 403 to the callers
   # above. A second well-known file added later is served the moment the build
   # emits it — the coverage test in test/surfaces.test.mjs enforces that.
-  { pattern = "10x402.com/.well-known/*", zone_name = "10x402.com" }
+  { pattern = "10x402.com/.well-known/*", zone_name = "10x402.com" },
+  # The free sample reports, for the machine surfaces' reason: GET /check tells
+  # an agent to read /samples/<id>.json before it pays, and on Pages that read
+  # was the 403. One wildcard for the whole directory — the id comes from the
+  # catalogue, so there is no finite set of exact patterns worth writing, and
+  # an unknown id gets the Worker's JSON 404 instead of a Pages 403. Bodies are
+  # computed per request from runSample() (worker/worker.js § handleSample),
+  # byte-identical to the dist/samples/ copies that stay for the pages.dev twin.
+  { pattern = "10x402.com/samples/*", zone_name = "10x402.com" }
 ]
 
-# The read surface that REMAINS on Pages: index.html, guides/, 404.html,
-# fonts/ and samples/ — dist/ is a separate Cloudflare Pages project serving
-# static assets with ZERO Functions. The machine surfaces used to live there
-# too; the routes above moved them onto the Worker (see the note on why).
-# KNOWN GAP, deliberately deferred: samples/ and guides/ still 403
-# Python-stdlib UAs — they were left on Pages when the machine surfaces moved
-# (2026-09-03); a follow-up decides whether the samples belong here too.
+# The read surface that REMAINS on Pages: index.html, guides/, 404.html and
+# fonts/ — dist/ is a separate Cloudflare Pages project serving static assets
+# with ZERO Functions. The machine surfaces used to live there too; the routes
+# above moved them onto the Worker (see the note on why), and samples/ followed
+# them. dist/samples/ is still written, for the pages.dev twin and for browsers.
+# KNOWN GAP, deliberately deferred: guides/ still 403s Python-stdlib UAs. It is
+# HTML for humans — an agent is pointed at llms.txt, skill.md and the samples,
+# all of which are now on the Worker — so it stays on Pages until someone shows
+# a machine reader that needs it.
 
 # ------------------------------------------------------------------ payment
 #

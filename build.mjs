@@ -15,8 +15,12 @@
 // 1010`) on everything that reaches the Pages project, Functions included, so
 // the machine surfaces are ALSO baked into worker/surfaces.generated.js (written
 // at the bottom of this file) and served from zone Worker routes. The dist/
-// copies stay for the pages.dev twin and for browsers. Only the human pages
-// (index.html, guides/, 404.html), fonts/ and samples/ remain Pages-only.
+// copies stay for the pages.dev twin and for browsers. samples/ went the same
+// way for the same reason, but not as bytes: the Worker recomputes each report
+// from runSample() per request (worker/worker.js § handleSample), so
+// dist/samples/ below is the Pages twin of something generated, not its only
+// home. Only the human pages (index.html, guides/, 404.html) and fonts/ remain
+// Pages-only.
 //
 // SURFACES, and why each one exists:
 //
@@ -1923,7 +1927,10 @@ writeFileSync(join(DIST, 'skill.md'), skill);
 // so it cannot drift from what a paid call returns. The funnel showed why this
 // matters: an agent holding a 402 had no way to see what a report looks like —
 // the sample outputs existed only inside rendered guide HTML, unreachable from
-// any machine surface. GET /check now points sample_report at these files.
+// any machine surface. GET /check now points sample_report at these files —
+// and the ZONE WORKER answers that URL, recomputing the same runSample() per
+// request, because the Pages layer 403s the Python-stdlib agents the pointer
+// exists for. These copies are the pages.dev twin; a test compares them.
 mkdirSync(join(DIST, 'samples'), { recursive: true });
 for (const e of ENDPOINTS) {
   writeFileSync(join(DIST, 'samples', `${e.id}.json`), `${JSON.stringify(runSample(e), null, 2)}\n`);
