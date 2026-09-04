@@ -11,7 +11,7 @@
 // credentials are generated per run, and the one test that needs POST /lint to
 // serve a real report points it at a local 402 this file also runs.
 //
-// Four things are worth knowing before reading further.
+// Five things are worth knowing before reading further.
 //
 // 1. THE MOCK IS PROGRAMMABLE AND RECORDS EVERY HIT. That is what makes the
 //    NEGATIVE assertions possible: "the facilitator was not called" is
@@ -34,12 +34,23 @@
 //    recovers the signature from what it is handed. Every hit is shape-checked
 //    against its own declared version and a mismatch answers 400. Drift is
 //    meant to be loud.
+//
+// 5. THIS IS THE ONLY PHASE WHERE ANALYTICS IS ON, and POSTHOG_HOST points at
+//    an http server this file runs. It has to be here rather than in a pure
+//    test: `x402 payment settled` is emitted from settleAndRecord, which only
+//    exists once a real payment has been verified against a facilitator and
+//    settled behind the response — the exact thing this suite already stands
+//    up. Nothing reaches posthog.com; the token is a fake and the transport is
+//    a socket on 127.0.0.1. Every other phase leaves POSTHOG_PROJECT_TOKEN
+//    unset, which is what keeps "an unconfigured deployment makes no network
+//    call" a claim about the shipped default rather than about this file.
 
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { bootWorker, callers, client, fakeCdpCredentials, isSqlNull, PAYTO_TEST } from './harness.mjs';
+import { EVENTS, REFUSAL_REASONS } from '../worker/analytics.js';
 import { ENDPOINTS, ENDPOINTS_BY_ID } from '../worker/catalog.js';
 import { atomicAmount } from '../worker/envelope.js';
 import { startMockFacilitator, TX_HASH, VERIFIED_PAYER } from './mock-facilitator.mjs';
@@ -66,6 +77,7 @@ let worker;
 let api;
 let mock;
 let lintTarget;
+let posthog;
 
 // ------------------------------------------------------------------ helpers
 
@@ -203,11 +215,78 @@ async function startLintTarget() {
   };
 }
 
+/**
+ * A stand-in for PostHog's capture API, and the only analytics transport this
+ * suite will ever reach.
+ *
+ * It records the WHOLE payload rather than a count, because the claim being
+ * tested is about what a settled sale says — the payer, the amount, the rail,
+ * the transaction, whether it was the house — and a hit counter cannot see any
+ * of that. Answers 200 to everything: analytics is fire-and-forget, so an error
+ * here would be swallowed by the Worker and the assertion would fail with no
+ * explanation.
+ */
+async function startMockPostHog() {
+  const events = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', () => {
+      let payload = null;
+      try {
+        payload = JSON.parse(body);
+      } catch {
+        /* recorded as null — an assertion will say so */
+      }
+      events.push({ path: req.url, payload });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{"status":1}');
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    events,
+    named: (name) => events.filter((e) => e.payload?.event === name),
+    stop: () =>
+      new Promise((r) => {
+        server.closeAllConnections?.();
+        server.close(r);
+      }),
+  };
+}
+
+/**
+ * Analytics ships in ctx.waitUntil, so events are polled like the ledger is.
+ *
+ * Deliberately NOT reset between tests: an event from the previous test can
+ * still be in flight when the next one starts, and a reset would either drop it
+ * or let it look like this test's. So nothing is cleared and every assertion
+ * matches on something specific instead.
+ */
+async function awaitEvent(name, predicate, what, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const hit = posthog.named(name).find((e) => predicate(e.payload.properties));
+    if (hit) return hit.payload;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `no "${name}" event matching ${what} within ${timeoutMs} ms; saw ` +
+          `${JSON.stringify(posthog.events.map((e) => e.payload?.event))}`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
 // ------------------------------------------------------------------ lifecycle
 
 before(async () => {
   mock = await startMockFacilitator();
   lintTarget = await startLintTarget();
+  posthog = await startMockPostHog();
   worker = await bootWorker({
     // LINT_UNSAFE_TARGETS so POST /lint can reach the local target above. This
     // suite asserts nothing about the SSRF guard — test/ssrf-worker.test.mjs
@@ -216,6 +295,13 @@ before(async () => {
       PAYTO: PAYTO_TEST,
       FACILITATOR_URL: mock.url,
       LINT_UNSAFE_TARGETS: '1',
+      // See note 5. A fake token, and a host that is a socket in this process.
+      POSTHOG_PROJECT_TOKEN: 'phc_test_0000000000000000000000000',
+      POSTHOG_HOST: posthog.url,
+      // The house-drill marker the settled event carries. Not the payer the
+      // mock facilitator returns, so the default assertion is house:false —
+      // the state a third-party sale is in, and the one that must be right.
+      HOUSE_PAYERS: '0x000000000000000000000000000000000000dEaD',
       ...fakeCdpCredentials(),
     },
   });
@@ -223,9 +309,12 @@ before(async () => {
 });
 
 after(async () => {
+  // The Worker first: analytics rides in a waitUntil, so tearing the capture
+  // socket down underneath a live isolate would just print noise.
   await worker?.stop();
   await mock?.stop();
   await lintTarget?.stop();
+  await posthog?.stop();
 });
 
 beforeEach(() => mock.reset());
@@ -784,5 +873,113 @@ describe('the response never carries a receipt it does not have', () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('payment-response'), null);
     assert.equal(res.headers.get('x-payment-verified'), 'true');
+  });
+});
+
+describe('the sale reaches the graph', () => {
+  // `x402 payment settled` had never once fired with $host=10x402.com while D1
+  // held 30 settled rows: revenue on this property was visible in the ledger
+  // and on chain and NOWHERE ELSE. It cannot be derived from a response — the
+  // response ships before the facilitator is asked — so it is emitted from
+  // settleAndRecord, and this is the only place that can prove it.
+  test('a settled payment emits the event, with everything a readout needs', async () => {
+    const ip = ips.next();
+    const res = await paid('/lint/envelope', { status: 402 }, { 'x-payment': paymentHeaderV1() }, ip);
+    assert.equal(res.status, 200, res.text);
+
+    // The ledger row first, so a failure here separates "settlement broke" from
+    // "settlement worked and the event did not fire".
+    await awaitSettlement((r) => Number(r.settle_ok) === 1, 'a settled v1 payment');
+
+    const event = await awaitEvent(
+      EVENTS.paymentSettled,
+      (p) => p.tx_hash === TX_HASH && p.endpoint === 'lint-envelope',
+      'the settled lint-envelope payment'
+    );
+    const p = event.properties;
+    // The facilitator's payer, not the caller's claim — the same value the
+    // ledger row carries.
+    assert.equal(p.payer.toLowerCase(), VERIFIED_PAYER.toLowerCase());
+    assert.equal(p.amount_atomic, Number(ENVELOPE_PRICE));
+    assert.equal(p.rail, 'base');
+    assert.equal(p.tx_hash, TX_HASH);
+    assert.equal(p.house, false, "a stranger's payment must not read as a house drill");
+    assert.equal(p.price_usd, ENDPOINTS_BY_ID.get('lint-envelope').price_usd);
+    // Without this the sale lands in an unattributed bucket in the PostHog
+    // project shared with every other house property — which is exactly the
+    // hole this test exists to keep closed.
+    assert.ok(p.$host, 'the settled event carried no $host');
+    assert.equal(p.$process_person_profile, false);
+  });
+
+  test('the linted URL, the envelope and the report are not in it', async () => {
+    // The line worker.js draws at recordLintSafely, asserted on the wire rather
+    // than on a pure function: what was linted is the caller's business.
+    const settled = posthog.named(EVENTS.paymentSettled);
+    assert.ok(settled.length > 0, 'no settled events to inspect');
+    for (const e of settled) {
+      const blob = JSON.stringify(e.payload);
+      // NOT the bare loopback address: $host is the host the caller reached,
+      // which in this suite legitimately IS 127.0.0.1:<port>. What must never
+      // appear is the target that was linted or anything out of the report.
+      for (const secret of [lintTarget.url, 'bazaar_ready', 'findings']) {
+        assert.ok(!blob.includes(secret), `"${secret}" leaked into a settled event`);
+      }
+    }
+  });
+});
+
+describe('every refusal says WHICH KIND of refusal it was', () => {
+  // 517 of 538 `x402 call refused` events in the 2026-09-02 readout carried no
+  // reason at all, and the bulk of them were the case below: a discovery
+  // crawler using the wrong verb on a POST-only route.
+  test('the wrong verb on a paid route is method-not-allowed', async () => {
+    const res = await api.request('/lint/envelope', { method: 'PUT', ip: ips.next() });
+    assert.equal(res.status, 405);
+    await res.text();
+
+    const event = await awaitEvent(
+      EVENTS.callRefused,
+      (p) => p.status_code === 405 && p.endpoint === 'lint-envelope' && p.reason === 'method-not-allowed',
+      'a 405 named method-not-allowed'
+    );
+    assert.equal(event.properties.reason, 'method-not-allowed');
+  });
+
+  test('a payment on a verb that cannot serve it is payment-invalid, not a crawler', async () => {
+    // paidWrongVerb(): same status and same `allow` header as the test above,
+    // and a completely different customer — someone with money out. Nothing is
+    // verified, settled or charged, so the facilitator must not be called.
+    const before = mock.hits.length;
+    const res = await api.request('/lint/envelope', {
+      method: 'GET',
+      ip: ips.next(),
+      headers: { 'x-payment': paymentHeaderV1() },
+    });
+    assert.equal(res.status, 405);
+    await res.text();
+    assert.equal(mock.hits.length, before, 'a wrong-verb payment reached the facilitator');
+
+    await awaitEvent(
+      EVENTS.callRefused,
+      (p) => p.status_code === 405 && p.reason === 'payment-invalid',
+      'a 405 named payment-invalid'
+    );
+  });
+
+  test('NO refusal this suite produced carries a reason outside the closed set', async () => {
+    // The sweep. Everything above and every 4xx any other test in this file
+    // provoked, checked against the vocabulary in one pass — which is the
+    // assertion that makes a free-form string impossible rather than merely
+    // discouraged.
+    const refusals = posthog.named(EVENTS.callRefused);
+    assert.ok(refusals.length >= 2, `expected refusals to inspect, saw ${refusals.length}`);
+    for (const e of refusals) {
+      const { reason, status_code: status } = e.payload.properties;
+      assert.ok(
+        REFUSAL_REASONS.includes(reason),
+        `"${reason}" (status ${status}) is not one of ${REFUSAL_REASONS.join(', ')}`
+      );
+    }
   });
 });

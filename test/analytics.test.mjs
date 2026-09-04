@@ -16,8 +16,16 @@
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { EVENTS, analyticsEnabled, eventsFor, outcomeOf } from '../worker/analytics.js';
-import { ENDPOINTS } from '../worker/catalog.js';
+import {
+  EVENTS,
+  REFUSAL_REASONS,
+  analyticsEnabled,
+  eventsFor,
+  outcomeOf,
+  refusalReason,
+  settlementEvent,
+} from '../worker/analytics.js';
+import { ENDPOINTS, NETWORK_SOLANA_V1, NETWORK_SOLANA_V2 } from '../worker/catalog.js';
 
 const UA = 'Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)';
 const URL_ = new URL('https://10x402.com/lint');
@@ -179,6 +187,69 @@ describe('analytics: the funnel', () => {
     }
   });
 
+  test('every refusal names its CLASS, from a closed vocabulary', () => {
+    // THE HOLE THIS CLOSES. 517 of 538 `x402 call refused` events in the
+    // 2026-09-02 readout carried no reason at all — the largest single class of
+    // traffic this service sees was a status_code bar with nothing to say about
+    // it. A missing reason must now be impossible, not merely discouraged.
+    for (const status of [400, 405, 413, 429, 500, 503, 418]) {
+      const [refused] = named(eventsOf(res(status)), EVENTS.callRefused);
+      assert.ok(refused, `status ${status} must be counted as a refusal`);
+      assert.ok(
+        REFUSAL_REASONS.includes(refused.properties.reason),
+        `"${refused.properties.reason}" @ ${status} is not one of ${REFUSAL_REASONS.join(', ')}`
+      );
+    }
+  });
+
+  test('refusalReason is TOTAL: no status can produce an undefined or free-form reason', () => {
+    // Exhaustive over every status a Response can legally carry, so a new exit
+    // added to handlePaid tomorrow cannot ship a refusal with nothing on it.
+    for (let status = 200; status <= 599; status++) {
+      for (const request of [req(), new Request(URL_, { method: 'GET', headers: { 'x-payment': 'x' } })]) {
+        const reason = refusalReason(status, request);
+        assert.ok(REFUSAL_REASONS.includes(reason), `status ${status} produced "${reason}"`);
+      }
+    }
+  });
+
+  test('the 405 class is named, and a paid 405 is a different customer from a crawler', () => {
+    // The bulk of the 405s are discovery crawlers GETting the POST-only routes
+    // — /lint/envelope/one, /lint/one, /lint, /lint/envelope, /presence. That
+    // is a real, nameable, harmless class.
+    const crawler = named(eventsOf(res(405), paid, req('GET')), EVENTS.callRefused)[0];
+    assert.equal(crawler.properties.reason, 'method-not-allowed');
+
+    // But a 405 with a payment on it is paidWrongVerb(): someone with money
+    // out, refused before anything was verified or settled. Same status, same
+    // `allow` header — only the REQUEST tells them apart, which is why the
+    // classification reads the request and not the response.
+    const withPayment = new Request(URL_, {
+      method: 'GET',
+      headers: { 'user-agent': UA, 'x-payment': 'a-real-looking-payment' },
+    });
+    assert.equal(
+      named(eventsOf(res(405), paid, withPayment), EVENTS.callRefused)[0].properties.reason,
+      'payment-invalid'
+    );
+
+    // v2 renamed the header, and a v2 client must not read as a crawler.
+    const v2 = new Request(URL_, { method: 'GET', headers: { 'payment-signature': 'x' } });
+    assert.equal(
+      named(eventsOf(res(405), paid, v2), EVENTS.callRefused)[0].properties.reason,
+      'payment-invalid'
+    );
+  });
+
+  test('each named refusal class maps to the status this Worker answers with', () => {
+    const plain = req();
+    assert.equal(refusalReason(429, plain), 'rate-limited'); // every ceiling
+    assert.equal(refusalReason(413, plain), 'body-too-large'); // tooLarge()
+    assert.equal(refusalReason(400, plain), 'bad-request'); // badRequest()
+    assert.equal(refusalReason(503, plain), 'store-unavailable'); // no DB / fail-closed
+    assert.equal(refusalReason(500, plain), 'other'); // the total fallback
+  });
+
   test('every event carries $host, so a shared project can tell properties apart', () => {
     // These land in a PostHog project shared with the other house properties.
     // An event with no $host cannot be attributed to anything, and the failure
@@ -203,6 +274,74 @@ describe('analytics: the funnel', () => {
       const [quote] = named(events, EVENTS.quoteIssued);
       assert.equal(quote.properties.endpoint, endpoint.id);
       assert.equal(quote.properties.path, endpoint.path);
+    }
+  });
+});
+
+describe('analytics: the sale', () => {
+  // `x402 payment settled` had NEVER fired with $host=10x402.com while D1 held
+  // 30 settled rows: revenue on this property existed in the ledger and on
+  // chain and nowhere else. It cannot come out of eventsFor — settlement runs
+  // after the response, so at the moment the headers are read there is no
+  // transaction to name — which is why it is its own function and its own test.
+  const settled = (over = {}) =>
+    settlementEvent({
+      endpoint: paid,
+      host: '10x402.com',
+      ua: UA,
+      payer: '0x00000000000000000000000000000000000000f1',
+      amountAtomic: '100000',
+      network: 'base',
+      txHash: `0x${'ab'.repeat(32)}`,
+      house: false,
+      ...over,
+    });
+
+  test('carries every property a revenue readout needs', () => {
+    const { event, properties } = settled();
+    assert.equal(event, EVENTS.paymentSettled);
+    assert.equal(properties.payer, '0x00000000000000000000000000000000000000f1');
+    assert.equal(properties.amount_atomic, 100000);
+    assert.equal(properties.rail, 'base');
+    assert.equal(properties.tx_hash, `0x${'ab'.repeat(32)}`);
+    assert.equal(properties.house, false);
+    assert.equal(properties.price_usd, paid.price_usd);
+    // Without $host the sale lands in an unattributed bucket in the shared
+    // estate project — which is exactly the failure being fixed.
+    assert.equal(properties.$host, '10x402.com');
+    assert.equal(properties.endpoint, paid.id);
+  });
+
+  test('the rail is derived the same way the owner alert derives it', () => {
+    // A settled event and the Telegram ping must not tell two different stories
+    // about which chain the same money moved on — both go through railOf().
+    assert.equal(settled({ network: 'base' }).properties.rail, 'base');
+    assert.equal(settled({ network: NETWORK_SOLANA_V1 }).properties.rail, 'solana');
+    assert.equal(settled({ network: NETWORK_SOLANA_V2 }).properties.rail, 'solana');
+    // Pre-second-rail rows carry no network at all: Base is the rail that has
+    // always been here.
+    assert.equal(settled({ network: undefined }).properties.rail, 'base');
+  });
+
+  test('the house marker is on the event, so a drill is not third-party revenue', () => {
+    assert.equal(settled({ house: true }).properties.house, true);
+  });
+
+  test('the amount is a NUMBER a graph can sum, and never a guess', () => {
+    // The atomic string off the requirements the 402 quoted. Anything that is
+    // not a digit string is null rather than NaN — a graph summing NaN reports
+    // nothing at all, silently.
+    assert.equal(settled({ amountAtomic: '4000' }).properties.amount_atomic, 4000);
+    assert.equal(settled({ amountAtomic: undefined }).properties.amount_atomic, null);
+    assert.equal(settled({ amountAtomic: 'lots' }).properties.amount_atomic, null);
+  });
+
+  test('every endpoint in the catalogue can produce a sale', () => {
+    for (const endpoint of ENDPOINTS) {
+      const { properties } = settled({ endpoint });
+      assert.equal(properties.endpoint, endpoint.id);
+      assert.equal(properties.path, endpoint.path);
+      assert.equal(properties.price_usd, endpoint.price_usd);
     }
   });
 });

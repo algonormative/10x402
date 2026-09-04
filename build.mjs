@@ -61,6 +61,7 @@ import {
   SUPPORT_EMAIL,
   USDC_BASE,
   batchAdvantageLine,
+  indefiniteArticle,
   priceLabel,
 } from './worker/catalog.js';
 import { CHECKS, GRADE_RULES } from './worker/lint.js';
@@ -188,6 +189,12 @@ const REGIME_COUNTS = Object.fromEntries(
 for (const check of CHECKS) {
   if (!(check.regime in REGIME_COUNTS)) throw new Error(`build: check ${check.id} has regime "${check.regime}"`);
 }
+
+// The article the hero lede opens with, sentence-capitalised. COMPUTED, because
+// the count it agrees with is: `A ${CHECKS.length}-check catalogue` shipped "A
+// 82-check catalogue" to the second sentence a buyer reads, and hardcoding "An"
+// would break again the day the catalogue reaches 90 checks.
+const LEDE_ARTICLE = indefiniteArticle(CHECKS.length) === 'an' ? 'An' : 'A';
 
 const PAGE_TITLE = `x402 endpoint not indexed? Check the published 402 | ${SERVICE_NAME}`;
 const PAGE_DESCRIPTION =
@@ -811,7 +818,7 @@ ${ANALYTICS}
   <header class="hero">
     <p class="eyebrow"><span class="badge"><span class="dot" aria-hidden="true"></span>${CHECKS.length} published checks &middot; self-lints at grade A</span></p>
     <h1><span class="line">Your 402 works.</span><span class="line">Agents still <span class="grad">can't pay you.</span></span></h1>
-    <p class="lede">A ${CHECKS.length}-check catalogue against your live 402, with a specific fix
+    <p class="lede">${LEDE_ARTICLE} ${CHECKS.length}-check catalogue against your live 402, with a specific fix
     for each finding &mdash; the rules the Bazaar docs never wrote down.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="#start">Run the free check &rarr;</a>
